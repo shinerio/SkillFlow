@@ -22,7 +22,7 @@ export default function SkillCard({ skill, categories, onDelete, onUpdate, onMov
   const menuItems = [
     ...(skill.hasUpdate ? [{ label: '更新', onClick: () => onUpdate?.() }] : []),
     ...categories.filter(c => c !== skill.category).map(c => ({
-      label: `移动到 ${c || '未分类'}`,
+      label: `移动到 ${c}`,
       onClick: () => onMoveCategory(c),
     })),
     { label: '删除', onClick: onDelete, danger: true },

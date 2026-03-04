@@ -18,6 +18,10 @@ export default function GitHubInstallDialog({ onClose, onDone }: Props) {
     const [c, cats] = await Promise.all([ScanGitHub(url), ListCategories()])
     setCandidates(c ?? [])
     setCategories(cats ?? [])
+    // 默认选择第一个分类（Imported）
+    if ((cats ?? []).length > 0 && category === "") {
+      setCategory(cats[0])
+    }
     setSelected(new Set((c ?? []).filter((x: any) => !x.Installed).map((x: any) => x.Name)))
     setScanning(false)
   }
@@ -72,7 +76,6 @@ export default function GitHubInstallDialog({ onClose, onDone }: Props) {
                 value={category} onChange={e => setCategory(e.target.value)}
                 className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-1.5 text-sm flex-1"
               >
-                <option value="">未分类</option>
                 {categories.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>

@@ -77,11 +77,46 @@ func (a *App) autoBackup() {
 // --- Skills ---
 
 func (a *App) ListSkills() ([]*skill.Skill, error) {
-	return a.storage.ListAll()
+	skills, err := a.storage.ListAll()
+	if err != nil {
+		return nil, err
+	}
+	cfg, _ := a.config.Load()
+	defaultCat := cfg.DefaultCategory
+	if defaultCat == "" {
+		defaultCat = "Imported"
+	}
+	for _, sk := range skills {
+		if sk.Category == "" {
+			sk.Category = defaultCat
+		}
+	}
+	return skills, nil
 }
 
 func (a *App) ListCategories() ([]string, error) {
-	return a.storage.ListCategories()
+	cats, err := a.storage.ListCategories()
+	if err != nil {
+		return nil, err
+	}
+	cfg, _ := a.config.Load()
+	defaultCat := cfg.DefaultCategory
+	if defaultCat == "" {
+		defaultCat = "Imported"
+	}
+	// 检查 defaultCat 是否已在列表中
+	hasDefault := false
+	for _, c := range cats {
+		if c == defaultCat {
+			hasDefault = true
+			break
+		}
+	}
+	if !hasDefault {
+		// 将 defaultCat 加到列表最前面
+		cats = append([]string{defaultCat}, cats...)
+	}
+	return cats, nil
 }
 
 func (a *App) CreateCategory(name string) error {
@@ -93,10 +128,33 @@ func (a *App) RenameCategory(oldName, newName string) error {
 }
 
 func (a *App) DeleteCategory(name string) error {
-	return a.storage.DeleteCategory(name)
+	cfg, _ := a.config.Load()
+	defaultCat := cfg.DefaultCategory
+	if defaultCat == "" {
+		defaultCat = "Imported"
+	}
+	skills, err := a.storage.ListAll()
+	if err != nil {
+		return err
+	}
+	for _, sk := range skills {
+		if sk.Category == name {
+			if err := a.storage.MoveCategory(sk.ID, defaultCat); err != nil {
+				return err
+			}
+		}
+	}
+	return os.Remove(filepath.Join(cfg.SkillsStorageDir, name))
 }
 
 func (a *App) MoveSkillCategory(skillID, category string) error {
+	if category == "" {
+		cfg, _ := a.config.Load()
+		category = cfg.DefaultCategory
+		if category == "" {
+			category = "Imported"
+		}
+	}
 	return a.storage.MoveCategory(skillID, category)
 }
 
@@ -130,6 +188,13 @@ func (a *App) ScanGitHub(repoURL string) ([]install.SkillCandidate, error) {
 
 // InstallFromGitHub downloads selected skills from GitHub and imports them into storage.
 func (a *App) InstallFromGitHub(repoURL string, candidates []install.SkillCandidate, category string) error {
+	if category == "" {
+		cfg, _ := a.config.Load()
+		category = cfg.DefaultCategory
+		if category == "" {
+			category = "Imported"
+		}
+	}
 	inst := install.NewGitHubInstaller("")
 	source := install.InstallSource{Type: "github", URI: repoURL}
 
@@ -160,6 +225,13 @@ func (a *App) InstallFromGitHub(repoURL string, candidates []install.SkillCandid
 }
 
 func (a *App) ImportLocal(dir, category string) (*skill.Skill, error) {
+	if category == "" {
+		cfg, _ := a.config.Load()
+		category = cfg.DefaultCategory
+		if category == "" {
+			category = "Imported"
+		}
+	}
 	sk, err := a.storage.Import(dir, category, skill.SourceManual, "", "")
 	if err != nil {
 		return nil, err
@@ -260,6 +332,13 @@ func (a *App) PushToToolsForce(skillIDs []string, toolNames []string) error {
 
 // PullFromTool imports selected skills from a tool into SkillFlow storage.
 func (a *App) PullFromTool(toolName string, skillNames []string, category string) ([]string, error) {
+	if category == "" {
+		cfg, _ := a.config.Load()
+		category = cfg.DefaultCategory
+		if category == "" {
+			category = "Imported"
+		}
+	}
 	cfg, _ := a.config.Load()
 	nameSet := map[string]bool{}
 	for _, n := range skillNames {
@@ -290,6 +369,13 @@ func (a *App) PullFromTool(toolName string, skillNames []string, category string
 
 // PullFromToolForce imports selected skills, overwriting existing ones.
 func (a *App) PullFromToolForce(toolName string, skillNames []string, category string) error {
+	if category == "" {
+		cfg, _ := a.config.Load()
+		category = cfg.DefaultCategory
+		if category == "" {
+			category = "Imported"
+		}
+	}
 	cfg, _ := a.config.Load()
 	nameSet := map[string]bool{}
 	for _, n := range skillNames {
