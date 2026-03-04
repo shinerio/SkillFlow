@@ -33,17 +33,28 @@
 # 克隆仓库并安装前端依赖
 git clone https://github.com/shinerio/SkillFlow
 cd SkillFlow
-cd frontend && npm install && cd ..
+make install-frontend
 
 # 开发模式运行（热重载）
-wails dev
+make dev
 
 # 运行 Go 测试
-go test ./core/...
+make test
 
 # 构建生产版本
-wails build
+make build
 ```
+
+常用 `make` 目标：
+
+| 目标 | 说明 |
+|------|------|
+| `make dev` | 热重载开发模式（Go + 前端） |
+| `make build` | 构建生产版本二进制 |
+| `make test` | 运行所有 Go 测试 |
+| `make tidy` | 同步 Go 模块依赖 |
+| `make generate` | 重新生成 TypeScript 绑定 |
+| `make clean` | 删除构建产物 |
 
 构建产物：`build/bin/SkillFlow`（macOS）/ `build/bin/SkillFlow.exe`（Windows）
 

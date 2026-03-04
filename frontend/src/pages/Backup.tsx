@@ -10,7 +10,7 @@ export default function Backup() {
   const [cloudEnabled, setCloudEnabled] = useState(false)
 
   useEffect(() => {
-    GetConfig().then(cfg => setCloudEnabled(cfg?.Cloud?.Enabled ?? false))
+    GetConfig().then(cfg => setCloudEnabled(cfg?.cloud?.enabled ?? false))
     EventsOn('backup.started', () => setStatus('backing-up'))
     EventsOn('backup.progress', (data: string) => {
       try { setCurrentFile(JSON.parse(data).currentFile ?? '') } catch {}

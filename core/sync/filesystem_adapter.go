@@ -2,9 +2,11 @@ package sync
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/shinerio/skillflow/core/skill"
 )
@@ -36,26 +38,49 @@ func (f *FilesystemAdapter) Push(_ context.Context, skills []*skill.Skill, targe
 }
 
 func (f *FilesystemAdapter) Pull(_ context.Context, sourceDir string) ([]*skill.Skill, error) {
-	validator := skill.NewValidator()
+	if _, err := os.Stat(sourceDir); os.IsNotExist(err) {
+		return nil, fmt.Errorf("目录不存在: %s", sourceDir)
+	}
+	var skills []*skill.Skill
+	var walk func(dir string)
+	walk = func(dir string) {
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			return
+		}
+		// Check if this directory itself contains a skill.md file.
+		for _, e := range entries {
+			if !e.IsDir() && isSkillMd(e.Name()) {
+				skills = append(skills, &skill.Skill{
+					Name:   filepath.Base(dir),
+					Path:   dir,
+					Source: skill.SourceManual,
+				})
+				return // found skill here — don't recurse deeper
+			}
+		}
+		// No skill.md found — recurse into subdirectories.
+		for _, e := range entries {
+			if e.IsDir() {
+				walk(filepath.Join(dir, e.Name()))
+			}
+		}
+	}
 	entries, err := os.ReadDir(sourceDir)
 	if err != nil {
 		return nil, err
 	}
-	var skills []*skill.Skill
 	for _, e := range entries {
-		if !e.IsDir() {
-			continue
-		}
-		dir := filepath.Join(sourceDir, e.Name())
-		if err := validator.Validate(dir); err == nil {
-			skills = append(skills, &skill.Skill{
-				Name:   e.Name(),
-				Path:   dir,
-				Source: skill.SourceManual,
-			})
+		if e.IsDir() {
+			walk(filepath.Join(sourceDir, e.Name()))
 		}
 	}
 	return skills, nil
+}
+
+func isSkillMd(name string) bool {
+	lower := strings.ToLower(name)
+	return lower == "skill.md" || lower == "skills.md"
 }
 
 func copyDir(src, dst string) error {

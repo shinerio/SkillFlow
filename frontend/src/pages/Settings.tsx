@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { GetConfig, SaveConfig, ListCloudProviders, AddCustomTool, RemoveCustomTool } from '../../wailsjs/go/main/App'
 import { Plus, Trash2, Settings } from 'lucide-react'
+import { ToolIcon } from '../config/toolIcons'
 
 type Tab = 'tools' | 'cloud' | 'general'
 
@@ -27,11 +28,11 @@ export default function SettingsPage() {
   const updateTool = (name: string, field: string, value: any) => {
     setCfg((prev: any) => ({
       ...prev,
-      Tools: prev.Tools.map((t: any) => t.Name === name ? { ...t, [field]: value } : t)
+      tools: prev.tools.map((t: any) => t.name === name ? { ...t, [field]: value } : t)
     }))
   }
 
-  const selectedProvider = providers.find((p: any) => p.name === cfg?.Cloud?.Provider)
+  const selectedProvider = providers.find((p: any) => p.name === cfg?.cloud?.provider)
 
   if (!cfg) return <div className="p-8 text-gray-400">加载中...</div>
 
@@ -51,28 +52,31 @@ export default function SettingsPage() {
       {/* Tools tab */}
       {tab === 'tools' && (
         <div className="space-y-4">
-          {(cfg.Tools ?? []).map((t: any) => (
-            <div key={t.Name} className="bg-gray-800 rounded-xl p-4 border border-gray-700">
+          {(cfg.tools ?? []).map((t: any) => (
+            <div key={t.name} className="bg-gray-800 rounded-xl p-4 border border-gray-700">
               <div className="flex items-center justify-between mb-3">
-                <span className="font-medium text-sm">{t.Name}</span>
+                <div className="flex items-center gap-2.5">
+                  <ToolIcon name={t.name} size={28} />
+                  <span className="font-medium text-sm">{t.name}</span>
+                </div>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <span className="text-xs text-gray-400">启用</span>
                   <div
-                    onClick={() => updateTool(t.Name, 'Enabled', !t.Enabled)}
-                    className={`w-9 h-5 rounded-full transition-colors relative ${t.Enabled ? 'bg-indigo-600' : 'bg-gray-600'}`}
+                    onClick={() => updateTool(t.name, 'enabled', !t.enabled)}
+                    className={`w-9 h-5 rounded-full transition-colors relative ${t.enabled ? 'bg-indigo-600' : 'bg-gray-600'}`}
                   >
-                    <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-transform ${t.Enabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                    <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-transform ${t.enabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
                   </div>
                 </label>
               </div>
               <input
-                value={t.SkillsDir}
-                onChange={e => updateTool(t.Name, 'SkillsDir', e.target.value)}
+                value={t.skillsDir}
+                onChange={e => updateTool(t.name, 'skillsDir', e.target.value)}
                 className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-1.5 text-sm font-mono outline-none focus:border-indigo-500"
               />
-              {t.Custom && (
+              {t.custom && (
                 <button
-                  onClick={async () => { await RemoveCustomTool(t.Name); const c = await GetConfig(); setCfg(c) }}
+                  onClick={async () => { await RemoveCustomTool(t.name); const c = await GetConfig(); setCfg(c) }}
                   className="mt-2 text-xs text-red-400 hover:text-red-300 flex items-center gap-1"
                 ><Trash2 size={12} /> 删除</button>
               )}
@@ -112,8 +116,8 @@ export default function SettingsPage() {
             <div className="flex gap-2">
               {providers.map((p: any) => (
                 <button key={p.name}
-                  onClick={() => setCfg((prev: any) => ({ ...prev, Cloud: { ...prev.Cloud, Provider: p.name } }))}
-                  className={`px-4 py-2 rounded-lg text-sm border transition-colors ${cfg.Cloud?.Provider === p.name ? 'bg-indigo-600 border-indigo-500' : 'bg-gray-800 border-gray-700 hover:border-gray-500'}`}
+                  onClick={() => setCfg((prev: any) => ({ ...prev, cloud: { ...prev.cloud, provider: p.name } }))}
+                  className={`px-4 py-2 rounded-lg text-sm border transition-colors ${cfg.cloud?.provider === p.name ? 'bg-indigo-600 border-indigo-500' : 'bg-gray-800 border-gray-700 hover:border-gray-500'}`}
                 >{p.name}</button>
               ))}
             </div>
@@ -123,7 +127,7 @@ export default function SettingsPage() {
             <>
               <div>
                 <p className="text-sm text-gray-400 mb-2">存储桶</p>
-                <input value={cfg.Cloud?.BucketName ?? ''} onChange={e => setCfg((p: any) => ({ ...p, Cloud: { ...p.Cloud, BucketName: e.target.value } }))}
+                <input value={cfg.cloud?.bucketName ?? ''} onChange={e => setCfg((p: any) => ({ ...p, cloud: { ...p.cloud, bucketName: e.target.value } }))}
                   className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500" />
               </div>
               {selectedProvider.fields.map((f: any) => (
@@ -132,9 +136,9 @@ export default function SettingsPage() {
                   <input
                     type={f.secret ? 'password' : 'text'}
                     placeholder={f.placeholder ?? ''}
-                    value={cfg.Cloud?.Credentials?.[f.key] ?? ''}
+                    value={cfg.cloud?.credentials?.[f.key] ?? ''}
                     onChange={e => setCfg((p: any) => ({
-                      ...p, Cloud: { ...p.Cloud, Credentials: { ...p.Cloud?.Credentials, [f.key]: e.target.value } }
+                      ...p, cloud: { ...p.cloud, credentials: { ...p.cloud?.credentials, [f.key]: e.target.value } }
                     }))}
                     className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500 font-mono"
                   />
@@ -142,10 +146,10 @@ export default function SettingsPage() {
               ))}
               <label className="flex items-center gap-3 cursor-pointer">
                 <div
-                  onClick={() => setCfg((p: any) => ({ ...p, Cloud: { ...p.Cloud, Enabled: !p.Cloud?.Enabled } }))}
-                  className={`w-9 h-5 rounded-full transition-colors relative ${cfg.Cloud?.Enabled ? 'bg-indigo-600' : 'bg-gray-600'}`}
+                  onClick={() => setCfg((p: any) => ({ ...p, cloud: { ...p.cloud, enabled: !p.cloud?.enabled } }))}
+                  className={`w-9 h-5 rounded-full transition-colors relative ${cfg.cloud?.enabled ? 'bg-indigo-600' : 'bg-gray-600'}`}
                 >
-                  <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-transform ${cfg.Cloud?.Enabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                  <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-transform ${cfg.cloud?.enabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
                 </div>
                 <span className="text-sm text-gray-300">启用自动云备份</span>
               </label>
@@ -159,12 +163,12 @@ export default function SettingsPage() {
         <div className="space-y-4">
           <div>
             <p className="text-sm text-gray-400 mb-2">本地 Skills 存储目录</p>
-            <input value={cfg.SkillsStorageDir ?? ''} onChange={e => setCfg((p: any) => ({ ...p, SkillsStorageDir: e.target.value }))}
+            <input value={cfg.skillsStorageDir ?? ''} onChange={e => setCfg((p: any) => ({ ...p, skillsStorageDir: e.target.value }))}
               className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm font-mono outline-none focus:border-indigo-500" />
           </div>
           <div>
             <p className="text-sm text-gray-400 mb-2">从工具拉取时的默认分类</p>
-            <input value={cfg.DefaultCategory ?? ''} onChange={e => setCfg((p: any) => ({ ...p, DefaultCategory: e.target.value }))}
+            <input value={cfg.defaultCategory ?? ''} onChange={e => setCfg((p: any) => ({ ...p, defaultCategory: e.target.value }))}
               className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500" />
           </div>
         </div>

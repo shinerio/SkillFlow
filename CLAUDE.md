@@ -4,7 +4,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Commands
 
-### Development
+### Make targets (recommended)
+
+```bash
+make dev              # Run in dev mode (hot-reload for Go + frontend)
+make build            # Build production binary
+make test             # Run all Go tests
+make tidy             # Sync Go module dependencies
+make generate         # Regenerate TypeScript bindings after App method changes
+make install-frontend # Install frontend npm dependencies
+make clean            # Remove build artifacts
+make help             # List all targets
+```
+
+### Development (manual)
 
 ```bash
 # Run the app in dev mode (hot-reload for both Go and frontend)

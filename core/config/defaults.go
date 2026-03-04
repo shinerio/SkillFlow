@@ -20,18 +20,18 @@ func DefaultToolsDir(toolName string) string {
 	home, _ := os.UserHomeDir()
 	dirs := map[string]map[string]string{
 		"darwin": {
-			"claude-code": filepath.Join(home, ".claude", "skills"),
-			"opencode":    filepath.Join(home, ".opencode", "skills"),
-			"codex":       filepath.Join(home, ".codex", "skills"),
-			"gemini-cli":  filepath.Join(home, ".gemini", "skills"),
-			"openclaw":    filepath.Join(home, ".openclaw", "skills"),
+			"claude-code": filepath.Join(home, ".claude"),
+			"opencode":    filepath.Join(home, ".opencode"),
+			"codex":       filepath.Join(home, ".codex"),
+			"gemini-cli":  filepath.Join(home, ".gemini"),
+			"openclaw":    filepath.Join(home, ".openclaw"),
 		},
 		"windows": {
-			"claude-code": filepath.Join(os.Getenv("APPDATA"), "claude", "skills"),
-			"opencode":    filepath.Join(os.Getenv("APPDATA"), "opencode", "skills"),
-			"codex":       filepath.Join(os.Getenv("APPDATA"), "codex", "skills"),
-			"gemini-cli":  filepath.Join(os.Getenv("APPDATA"), "gemini", "skills"),
-			"openclaw":    filepath.Join(os.Getenv("APPDATA"), "openclaw", "skills"),
+			"claude-code": filepath.Join(os.Getenv("APPDATA"), "claude"),
+			"opencode":    filepath.Join(os.Getenv("APPDATA"), "opencode"),
+			"codex":       filepath.Join(os.Getenv("APPDATA"), "codex"),
+			"gemini-cli":  filepath.Join(os.Getenv("APPDATA"), "gemini"),
+			"openclaw":    filepath.Join(os.Getenv("APPDATA"), "openclaw"),
 		},
 	}
 	goos := runtime.GOOS

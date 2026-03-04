@@ -3,10 +3,10 @@ package skill
 import (
 	"errors"
 	"os"
-	"path/filepath"
+	"strings"
 )
 
-var ErrNoSKILLSmd = errors.New("SKILLS.md not found in skill directory")
+var ErrNoSKILLSmd = errors.New("skill.md not found in skill directory")
 
 // ValidationRule is the extension point for future complex validators.
 type ValidationRule func(dir string) error
@@ -16,7 +16,7 @@ type Validator struct {
 }
 
 func NewValidator(extraRules ...ValidationRule) *Validator {
-	rules := []ValidationRule{requireSKILLSmd}
+	rules := []ValidationRule{requireSkillMd}
 	return &Validator{rules: append(rules, extraRules...)}
 }
 
@@ -29,13 +29,23 @@ func (v *Validator) Validate(dir string) error {
 	return nil
 }
 
-func requireSKILLSmd(dir string) error {
+// requireSkillMd accepts any casing of "skill.md" or "skills.md".
+func requireSkillMd(dir string) error {
 	if _, err := os.Stat(dir); err != nil {
 		return err
 	}
-	mdPath := filepath.Join(dir, "SKILLS.md")
-	if _, err := os.Stat(mdPath); os.IsNotExist(err) {
-		return ErrNoSKILLSmd
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return err
 	}
-	return nil
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		lower := strings.ToLower(e.Name())
+		if lower == "skill.md" || lower == "skills.md" {
+			return nil
+		}
+	}
+	return ErrNoSKILLSmd
 }

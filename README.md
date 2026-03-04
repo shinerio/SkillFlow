@@ -33,17 +33,28 @@ Custom tools can be added in Settings with any local directory path.
 # Clone and install frontend deps
 git clone https://github.com/shinerio/SkillFlow
 cd SkillFlow
-cd frontend && npm install && cd ..
+make install-frontend
 
 # Run in dev mode (hot-reload)
-wails dev
+make dev
 
 # Run Go tests
-go test ./core/...
+make test
 
 # Build production binary
-wails build
+make build
 ```
+
+Common `make` targets:
+
+| Target | Description |
+|--------|-------------|
+| `make dev` | Hot-reload dev mode (Go + frontend) |
+| `make build` | Build production binary |
+| `make test` | Run all Go tests |
+| `make tidy` | Sync Go module dependencies |
+| `make generate` | Regenerate TypeScript bindings |
+| `make clean` | Remove build artifacts |
 
 Binary output: `build/bin/SkillFlow` (macOS) / `build/bin/SkillFlow.exe` (Windows)
 

@@ -10,24 +10,29 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestValidatorAcceptsDirectoryWithSKILLSmd(t *testing.T) {
+func mkSkillDir(t *testing.T, filename string) string {
+	t.Helper()
 	dir := t.TempDir()
 	skillDir := filepath.Join(dir, "my-skill")
 	require.NoError(t, os.MkdirAll(skillDir, 0755))
-	require.NoError(t, os.WriteFile(filepath.Join(skillDir, "SKILLS.md"), []byte("# skill"), 0644))
-
-	v := skill.NewValidator()
-	err := v.Validate(skillDir)
-	assert.NoError(t, err)
+	if filename != "" {
+		require.NoError(t, os.WriteFile(filepath.Join(skillDir, filename), []byte("# skill"), 0644))
+	}
+	return skillDir
 }
 
-func TestValidatorRejectsDirectoryWithoutSKILLSmd(t *testing.T) {
-	dir := t.TempDir()
-	skillDir := filepath.Join(dir, "not-a-skill")
-	require.NoError(t, os.MkdirAll(skillDir, 0755))
+func TestValidatorAcceptsSkillMdVariants(t *testing.T) {
+	for _, name := range []string{"skill.md", "SKILL.MD", "Skill.md", "skills.md", "SKILLS.MD", "Skills.md"} {
+		t.Run(name, func(t *testing.T) {
+			v := skill.NewValidator()
+			assert.NoError(t, v.Validate(mkSkillDir(t, name)))
+		})
+	}
+}
 
+func TestValidatorRejectsDirectoryWithoutSkillMd(t *testing.T) {
 	v := skill.NewValidator()
-	err := v.Validate(skillDir)
+	err := v.Validate(mkSkillDir(t, ""))
 	assert.ErrorIs(t, err, skill.ErrNoSKILLSmd)
 }
 

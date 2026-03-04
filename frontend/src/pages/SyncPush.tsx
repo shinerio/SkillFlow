@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { GetEnabledTools, ListSkills, ListCategories, PushToTools, PushToToolsForce } from '../../wailsjs/go/main/App'
 import ConflictDialog from '../components/ConflictDialog'
 import { ArrowUpFromLine } from 'lucide-react'
+import { ToolIcon } from '../config/toolIcons'
 
 type Scope = 'all' | 'category' | 'manual'
 
@@ -67,10 +68,13 @@ export default function SyncPush() {
         <div className="flex flex-wrap gap-2">
           {tools.map(t => (
             <button
-              key={t.Name}
-              onClick={() => toggleTool(t.Name)}
-              className={`px-4 py-2 rounded-lg text-sm border transition-colors ${selectedTools.has(t.Name) ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-500'}`}
-            >{t.Name}</button>
+              key={t.name}
+              onClick={() => toggleTool(t.name)}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm border transition-colors ${selectedTools.has(t.name) ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-500'}`}
+            >
+              <ToolIcon name={t.name} size={20} />
+              {t.name}
+            </button>
           ))}
         </div>
       </section>
