@@ -1,28 +1,52 @@
-import {useState} from 'react';
-import logo from './assets/images/logo-universal.png';
-import './App.css';
-import {Greet} from "../wailsjs/go/main/App";
+import { BrowserRouter, Route, Routes, NavLink } from 'react-router-dom'
+import { Package, ArrowUpFromLine, ArrowDownToLine, Cloud, Settings } from 'lucide-react'
+import Dashboard from './pages/Dashboard'
+import SyncPush from './pages/SyncPush'
+import SyncPull from './pages/SyncPull'
+import Backup from './pages/Backup'
+import SettingsPage from './pages/Settings'
 
-function App() {
-    const [resultText, setResultText] = useState("Please enter your name below 👇");
-    const [name, setName] = useState('');
-    const updateName = (e: any) => setName(e.target.value);
-    const updateResultText = (result: string) => setResultText(result);
-
-    function greet() {
-        Greet(name).then(updateResultText);
-    }
-
-    return (
-        <div id="App">
-            <img src={logo} id="logo" alt="logo"/>
-            <div id="result" className="result">{resultText}</div>
-            <div id="input" className="input-box">
-                <input id="name" className="input" onChange={updateName} autoComplete="off" name="input" type="text"/>
-                <button className="btn" onClick={greet}>Greet</button>
-            </div>
-        </div>
-    )
+export default function App() {
+  return (
+    <BrowserRouter>
+      <div className="flex h-screen bg-gray-950 text-gray-100">
+        <aside className="w-56 bg-gray-900 border-r border-gray-800 flex flex-col p-4 gap-1">
+          <h1 className="text-lg font-bold mb-6 px-2">SkillFlow</h1>
+          <NavItem to="/" icon={<Package size={16} />} label="我的 Skills" />
+          <p className="text-xs text-gray-500 px-2 mt-3 mb-1">同步管理</p>
+          <NavItem to="/sync/push" icon={<ArrowUpFromLine size={16} />} label="推送到工具" />
+          <NavItem to="/sync/pull" icon={<ArrowDownToLine size={16} />} label="从工具拉取" />
+          <div className="flex-1" />
+          <NavItem to="/backup" icon={<Cloud size={16} />} label="云备份" />
+          <NavItem to="/settings" icon={<Settings size={16} />} label="设置" />
+        </aside>
+        <main className="flex-1 overflow-auto">
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/sync/push" element={<SyncPush />} />
+            <Route path="/sync/pull" element={<SyncPull />} />
+            <Route path="/backup" element={<Backup />} />
+            <Route path="/settings" element={<SettingsPage />} />
+          </Routes>
+        </main>
+      </div>
+    </BrowserRouter>
+  )
 }
 
-export default App
+function NavItem({ to, icon, label }: { to: string; icon: React.ReactNode; label: string }) {
+  return (
+    <NavLink
+      to={to}
+      end
+      className={({ isActive }) =>
+        `flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+          isActive ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+        }`
+      }
+    >
+      {icon}
+      {label}
+    </NavLink>
+  )
+}
