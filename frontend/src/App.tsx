@@ -17,7 +17,7 @@ export default function App() {
           <p className="text-xs text-gray-500 px-2 mt-3 mb-1">同步管理</p>
           <NavItem to="/sync/push" icon={<ArrowUpFromLine size={16} />} label="推送到工具" />
           <NavItem to="/sync/pull" icon={<ArrowDownToLine size={16} />} label="从工具拉取" />
-          <NavItem to="/starred" icon={<Star size={16} />} label="GitHub 收藏" />
+          <NavItem to="/starred" icon={<Star size={16} />} label="GitHub 收藏" end={false} />
           <div className="flex-1" />
           <NavItem to="/backup" icon={<Cloud size={16} />} label="云备份" />
           <NavItem to="/settings" icon={<Settings size={16} />} label="设置" />
@@ -38,11 +38,11 @@ export default function App() {
   )
 }
 
-function NavItem({ to, icon, label }: { to: string; icon: React.ReactNode; label: string }) {
+function NavItem({ to, icon, label, end = true }: { to: string; icon: React.ReactNode; label: string; end?: boolean }) {
   return (
     <NavLink
       to={to}
-      end
+      end={end}
       className={({ isActive }) =>
         `flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
           isActive ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'

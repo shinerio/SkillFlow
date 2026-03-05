@@ -30,7 +30,7 @@ export default function GitHubInstallDialog({ onClose, onDone }: Props) {
       if (catList.length > 0 && category === '') setCategory(catList[0])
       setSelected(new Set(skills.filter((x: any) => !x.Installed).map((x: any) => x.Name)))
       setScannedOnce(true)
-      if (skills.length === 0) setScanError('未发现任何 Skill，请确认该仓库包含含有 skill.md 的子目录')
+      if (skills.length === 0) setScanError('未发现任何 Skill，请确认该仓库包含含有 SKILLS.md 的子目录')
     } catch (e: any) {
       setScanError(String(e?.message ?? e ?? '扫描失败，请检查网络或仓库地址'))
     } finally {
