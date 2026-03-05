@@ -78,11 +78,12 @@ export default function GitHubInstallDialog({ onClose, onDone }: Props) {
             {scanning ? (
               <span className="flex items-center gap-1.5">
                 <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" />
-                扫描中
+                克隆/更新中...
               </span>
             ) : '扫描'}
           </button>
         </div>
+        <p className="text-xs text-gray-500 mb-3">首次扫描会 git clone 仓库，后续自动 git pull 更新</p>
 
         {scanError && (
           <div className="flex items-start gap-2 bg-red-950 border border-red-700 text-red-300 rounded-lg px-4 py-3 text-sm mb-4">
