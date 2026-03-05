@@ -26,6 +26,10 @@ export function DeleteSkill(arg1) {
   return window['go']['main']['App']['DeleteSkill'](arg1);
 }
 
+export function DeleteSkills(arg1) {
+  return window['go']['main']['App']['DeleteSkills'](arg1);
+}
+
 export function GetConfig() {
   return window['go']['main']['App']['GetConfig']();
 }

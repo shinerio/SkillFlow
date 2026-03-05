@@ -17,6 +17,8 @@ export function DeleteCategory(arg1:string):Promise<void>;
 
 export function DeleteSkill(arg1:string):Promise<void>;
 
+export function DeleteSkills(arg1:Array<string>):Promise<void>;
+
 export function GetConfig():Promise<config.AppConfig>;
 
 export function GetEnabledTools():Promise<Array<config.ToolConfig>>;

@@ -9,14 +9,22 @@ interface Props {
   onDelete: () => void
   onUpdate?: () => void
   onMoveCategory: (category: string) => void
+  selectMode?: boolean
+  selected?: boolean
+  onToggleSelect?: () => void
 }
 
-export default function SkillCard({ skill, categories, onDelete, onUpdate, onMoveCategory }: Props) {
+export default function SkillCard({ skill, categories, onDelete, onUpdate, onMoveCategory, selectMode, selected, onToggleSelect }: Props) {
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
 
   const handleContextMenu = (e: React.MouseEvent) => {
+    if (selectMode) return
     e.preventDefault()
     setMenu({ x: e.clientX, y: e.clientY })
+  }
+
+  const handleClick = () => {
+    if (selectMode) onToggleSelect?.()
   }
 
   const menuItems = [
@@ -31,15 +39,35 @@ export default function SkillCard({ skill, categories, onDelete, onUpdate, onMov
   return (
     <>
       <div
-        draggable
-        onDragStart={e => e.dataTransfer.setData('skillId', skill.id)}
+        draggable={!selectMode}
+        onDragStart={e => !selectMode && e.dataTransfer.setData('skillId', skill.id)}
         onContextMenu={handleContextMenu}
-        className="relative bg-gray-800 border border-gray-700 rounded-xl p-4 cursor-grab hover:border-indigo-500 transition-colors group"
+        onClick={handleClick}
+        className={`relative bg-gray-800 border rounded-xl p-4 transition-colors group ${
+          selectMode ? 'cursor-pointer' : 'cursor-grab'
+        } ${
+          selected
+            ? 'border-indigo-500 bg-indigo-900/20'
+            : 'border-gray-700 hover:border-indigo-500'
+        }`}
       >
+        {selectMode && (
+          <div className="absolute top-2 left-2 z-10">
+            <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
+              selected ? 'bg-indigo-500 border-indigo-500' : 'border-gray-500 bg-gray-700'
+            }`}>
+              {selected && (
+                <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              )}
+            </div>
+          </div>
+        )}
         {skill.hasUpdate && (
           <span className="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-red-500" />
         )}
-        <div className="flex items-center gap-2 mb-2">
+        <div className={`flex items-center gap-2 mb-2 ${selectMode ? 'pl-5' : ''}`}>
           {skill.source === 'github'
             ? <Github size={14} className="text-gray-400" />
             : <FolderOpen size={14} className="text-gray-400" />}
@@ -47,15 +75,17 @@ export default function SkillCard({ skill, categories, onDelete, onUpdate, onMov
             {skill.source}
           </span>
         </div>
-        <p className="font-medium text-sm truncate">{skill.name}</p>
-        <div className="mt-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-          {skill.hasUpdate && (
-            <button onClick={onUpdate} className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1">
-              <RefreshCw size={12} /> 更新
-            </button>
-          )}
-          <button onClick={onDelete} className="text-xs text-red-400 hover:text-red-300 ml-auto">删除</button>
-        </div>
+        <p className={`font-medium text-sm truncate ${selectMode ? 'pl-5' : ''}`}>{skill.name}</p>
+        {!selectMode && (
+          <div className="mt-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+            {skill.hasUpdate && (
+              <button onClick={onUpdate} className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1">
+                <RefreshCw size={12} /> 更新
+              </button>
+            )}
+            <button onClick={onDelete} className="text-xs text-red-400 hover:text-red-300 ml-auto">删除</button>
+          </div>
+        )}
       </div>
       {menu && (
         <ContextMenu x={menu.x} y={menu.y} items={menuItems} onClose={() => setMenu(null)} />

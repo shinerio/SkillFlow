@@ -1,13 +1,13 @@
 import { useEffect, useState, useCallback } from 'react'
 import {
   ListSkills, ListCategories, MoveSkillCategory,
-  DeleteSkill, ImportLocal, UpdateSkill, CheckUpdates, OpenFolderDialog
+  DeleteSkill, DeleteSkills, ImportLocal, UpdateSkill, CheckUpdates, OpenFolderDialog
 } from '../../wailsjs/go/main/App'
 import { EventsOn } from '../../wailsjs/runtime/runtime'
 import CategoryPanel from '../components/CategoryPanel'
 import SkillCard from '../components/SkillCard'
 import GitHubInstallDialog from '../components/GitHubInstallDialog'
-import { Github, FolderOpen, RefreshCw, Search } from 'lucide-react'
+import { Github, FolderOpen, RefreshCw, Search, Trash2, CheckSquare } from 'lucide-react'
 
 export default function Dashboard() {
   const [skills, setSkills] = useState<any[]>([])
@@ -16,6 +16,8 @@ export default function Dashboard() {
   const [search, setSearch] = useState('')
   const [showGitHub, setShowGitHub] = useState(false)
   const [dragOver, setDragOver] = useState(false)
+  const [selectMode, setSelectMode] = useState(false)
+  const [selectedIDs, setSelectedIDs] = useState<Set<string>>(new Set())
 
   const load = useCallback(async () => {
     const [s, c] = await Promise.all([ListSkills(), ListCategories()])
@@ -66,6 +68,38 @@ export default function Dashboard() {
     if (dir) { await ImportLocal(dir, selectedCat ?? ''); load() }
   }
 
+  const toggleSelectMode = () => {
+    setSelectMode(prev => !prev)
+    setSelectedIDs(new Set())
+  }
+
+  const toggleSelectID = (id: string) => {
+    setSelectedIDs(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedIDs.size === filtered.length) {
+      setSelectedIDs(new Set())
+    } else {
+      setSelectedIDs(new Set(filtered.map(sk => sk.ID)))
+    }
+  }
+
+  const handleBatchDelete = async () => {
+    if (selectedIDs.size === 0) return
+    await DeleteSkills(Array.from(selectedIDs))
+    setSelectedIDs(new Set())
+    setSelectMode(false)
+    load()
+  }
+
+  const allSelected = filtered.length > 0 && selectedIDs.size === filtered.length
+
   return (
     <div
       className={`flex h-full relative ${dragOver ? 'ring-2 ring-inset ring-indigo-500' : ''}`}
@@ -98,18 +132,50 @@ export default function Dashboard() {
               className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-8 pr-3 py-1.5 text-sm outline-none focus:border-indigo-500"
             />
           </div>
-          <button
-            onClick={() => CheckUpdates()}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-400 hover:text-white rounded-lg hover:bg-gray-800"
-          ><RefreshCw size={14} /> 检查更新</button>
-          <button
-            onClick={handleImportButton}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-400 hover:text-white rounded-lg hover:bg-gray-800"
-          ><FolderOpen size={14} /> 手动导入</button>
-          <button
-            onClick={() => setShowGitHub(true)}
-            className="flex items-center gap-1.5 px-4 py-1.5 text-sm bg-indigo-600 hover:bg-indigo-500 rounded-lg"
-          ><Github size={14} /> 从 GitHub 安装</button>
+
+          {selectMode ? (
+            <>
+              <button
+                onClick={toggleSelectAll}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-400 hover:text-white rounded-lg hover:bg-gray-800"
+              >
+                <CheckSquare size={14} />
+                {allSelected ? '取消全选' : '全选'}
+              </button>
+              <button
+                onClick={handleBatchDelete}
+                disabled={selectedIDs.size === 0}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-red-600 hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg"
+              >
+                <Trash2 size={14} /> 删除 {selectedIDs.size > 0 ? `(${selectedIDs.size})` : ''}
+              </button>
+              <button
+                onClick={toggleSelectMode}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-400 hover:text-white rounded-lg hover:bg-gray-800"
+              >
+                取消
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => CheckUpdates()}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-400 hover:text-white rounded-lg hover:bg-gray-800"
+              ><RefreshCw size={14} /> 检查更新</button>
+              <button
+                onClick={toggleSelectMode}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-400 hover:text-white rounded-lg hover:bg-gray-800"
+              ><CheckSquare size={14} /> 批量删除</button>
+              <button
+                onClick={handleImportButton}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-400 hover:text-white rounded-lg hover:bg-gray-800"
+              ><FolderOpen size={14} /> 手动导入</button>
+              <button
+                onClick={() => setShowGitHub(true)}
+                className="flex items-center gap-1.5 px-4 py-1.5 text-sm bg-indigo-600 hover:bg-indigo-500 rounded-lg"
+              ><Github size={14} /> 从 GitHub 安装</button>
+            </>
+          )}
         </div>
 
         {/* Skills grid */}
@@ -123,6 +189,9 @@ export default function Dashboard() {
                 onDelete={async () => { await DeleteSkill(sk.ID); load() }}
                 onUpdate={async () => { await UpdateSkill(sk.ID); load() }}
                 onMoveCategory={async cat => { await MoveSkillCategory(sk.ID, cat); load() }}
+                selectMode={selectMode}
+                selected={selectedIDs.has(sk.ID)}
+                onToggleSelect={() => toggleSelectID(sk.ID)}
               />
             ))}
           </div>

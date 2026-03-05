@@ -166,6 +166,16 @@ func (a *App) DeleteSkill(skillID string) error {
 	return nil
 }
 
+func (a *App) DeleteSkills(skillIDs []string) error {
+	for _, id := range skillIDs {
+		if err := a.storage.Delete(id); err != nil {
+			return err
+		}
+	}
+	go a.autoBackup()
+	return nil
+}
+
 // --- Install ---
 
 // ScanGitHub scans a GitHub repo for valid skills, marking already-installed ones.
