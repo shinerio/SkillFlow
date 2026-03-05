@@ -36,21 +36,31 @@ func NewGitHubInstaller(baseURL string, client *http.Client) *GitHubInstaller {
 
 func (g *GitHubInstaller) Type() string { return "github" }
 
+// Scan finds skill candidates in a GitHub repo.
+// It first tries the "skills/" subdirectory, then falls back to the repo root,
+// so repos like anthropics/skills (skills at root) are handled correctly.
 func (g *GitHubInstaller) Scan(ctx context.Context, source InstallSource) ([]SkillCandidate, error) {
 	owner, repo, err := parseGitHubURI(source.URI)
 	if err != nil {
 		return nil, err
 	}
+
+	// Try "skills/" subdir first; if not found, scan repo root.
 	items, err := g.listContents(ctx, owner, repo, "skills")
 	if err != nil {
-		return nil, err
+		// Fall back to root — repos like anthropics/skills keep skills at root level.
+		items, err = g.listContents(ctx, owner, repo, "")
+		if err != nil {
+			return nil, err
+		}
 	}
+
 	var candidates []SkillCandidate
 	for _, item := range items {
 		if item.Type != "dir" {
 			continue
 		}
-		if g.fileExists(ctx, owner, repo, item.Path+"/SKILLS.md") {
+		if g.hasSkillFile(ctx, owner, repo, item.Path) {
 			candidates = append(candidates, SkillCandidate{
 				Name: item.Name,
 				Path: item.Path,
@@ -58,6 +68,24 @@ func (g *GitHubInstaller) Scan(ctx context.Context, source InstallSource) ([]Ski
 		}
 	}
 	return candidates, nil
+}
+
+// hasSkillFile reports whether a directory in the repo contains a skill.md / skills.md
+// file (case-insensitive). Uses one API call per directory instead of per-filename probing.
+func (g *GitHubInstaller) hasSkillFile(ctx context.Context, owner, repo, path string) bool {
+	files, err := g.listContents(ctx, owner, repo, path)
+	if err != nil {
+		return false
+	}
+	for _, f := range files {
+		if f.Type == "file" {
+			lower := strings.ToLower(f.Name)
+			if lower == "skill.md" || lower == "skills.md" {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (g *GitHubInstaller) Install(ctx context.Context, source InstallSource, selected []SkillCandidate, category string) error {
@@ -73,27 +101,33 @@ func (g *GitHubInstaller) Install(ctx context.Context, source InstallSource, sel
 	return nil
 }
 
+// listContents calls the GitHub Contents API and returns the items in a directory.
+// Returns an error (with the API message) if the HTTP response is not 200.
 func (g *GitHubInstaller) listContents(ctx context.Context, owner, repo, path string) ([]githubContent, error) {
-	url := fmt.Sprintf("%s/repos/%s/%s/contents/%s", g.baseURL, owner, repo, path)
-	req, _ := http.NewRequestWithContext(ctx, "GET", url, nil)
+	apiURL := fmt.Sprintf("%s/repos/%s/%s/contents/%s", g.baseURL, owner, repo, path)
+	req, _ := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
 	resp, err := g.client.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	var items []githubContent
-	return items, json.NewDecoder(resp.Body).Decode(&items)
-}
-
-func (g *GitHubInstaller) fileExists(ctx context.Context, owner, repo, path string) bool {
-	url := fmt.Sprintf("%s/repos/%s/%s/contents/%s", g.baseURL, owner, repo, path)
-	req, _ := http.NewRequestWithContext(ctx, "GET", url, nil)
-	resp, err := g.client.Do(req)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return false
+		return nil, err
 	}
-	resp.Body.Close()
-	return resp.StatusCode == http.StatusOK
+	if resp.StatusCode != http.StatusOK {
+		// GitHub returns {"message":"Not Found",...} for 404 and similar errors.
+		var apiErr struct{ Message string `json:"message"` }
+		if json.Unmarshal(body, &apiErr) == nil && apiErr.Message != "" {
+			return nil, fmt.Errorf("GitHub API %d: %s", resp.StatusCode, apiErr.Message)
+		}
+		return nil, fmt.Errorf("GitHub API %d", resp.StatusCode)
+	}
+	var items []githubContent
+	if err := json.Unmarshal(body, &items); err != nil {
+		return nil, fmt.Errorf("unexpected GitHub response: %w", err)
+	}
+	return items, nil
 }
 
 func (g *GitHubInstaller) downloadDir(ctx context.Context, owner, repo, remotePath, category, name string) error {
@@ -190,8 +224,8 @@ func (g *GitHubInstaller) GetLatestSHA(ctx context.Context, repoURL, subPath str
 	if err != nil {
 		return "", err
 	}
-	url := fmt.Sprintf("%s/repos/%s/%s/commits?path=%s&per_page=1", g.baseURL, owner, repo, subPath)
-	req, _ := http.NewRequestWithContext(ctx, "GET", url, nil)
+	apiURL := fmt.Sprintf("%s/repos/%s/%s/commits?path=%s&per_page=1", g.baseURL, owner, repo, subPath)
+	req, _ := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
 	resp, err := g.client.Do(req)
 	if err != nil {
 		return "", err
@@ -204,8 +238,11 @@ func (g *GitHubInstaller) GetLatestSHA(ctx context.Context, repoURL, subPath str
 	return commits[0].SHA, nil
 }
 
+// parseGitHubURI extracts owner and repo from a GitHub URL.
+// Handles trailing slashes and optional .git suffix.
 func parseGitHubURI(uri string) (owner, repo string, err error) {
 	uri = strings.TrimSuffix(uri, "/")
+	uri = strings.TrimSuffix(uri, ".git")
 	parts := strings.Split(uri, "/")
 	if len(parts) < 2 {
 		return "", "", fmt.Errorf("invalid GitHub URI: %s", uri)
