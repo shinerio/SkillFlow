@@ -10,6 +10,8 @@ const (
 	EventSyncCompleted   EventType = "sync.completed"
 	EventUpdateAvailable EventType = "update.available"
 	EventSkillConflict   EventType = "skill.conflict"
+	EventStarSyncProgress EventType = "star.sync.progress" // one repo finished syncing
+	EventStarSyncDone     EventType = "star.sync.done"      // all repos finished
 )
 
 type Event struct {
@@ -33,4 +35,10 @@ type UpdateAvailablePayload struct {
 type ConflictPayload struct {
 	SkillName  string `json:"skillName"`
 	TargetPath string `json:"targetPath"`
+}
+
+type StarSyncProgressPayload struct {
+	RepoURL   string `json:"repoUrl"`
+	RepoName  string `json:"repoName"`
+	SyncError string `json:"syncError,omitempty"`
 }
