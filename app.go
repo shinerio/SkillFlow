@@ -9,6 +9,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	goruntime "runtime"
+	"sync"
+	"time"
 
 	"github.com/shinerio/skillflow/core/backup"
 	"github.com/shinerio/skillflow/core/config"
@@ -23,10 +25,12 @@ import (
 )
 
 type App struct {
-	ctx     context.Context
-	hub     *notify.Hub
-	storage *skill.Storage
-	config  *config.Service
+	ctx         context.Context
+	hub         *notify.Hub
+	storage     *skill.Storage
+	config      *config.Service
+	starStorage *coregit.StarStorage
+	cacheDir    string
 }
 
 func NewApp() *App {
@@ -39,6 +43,8 @@ func (a *App) startup(ctx context.Context) {
 	a.config = config.NewService(dataDir)
 	cfg, _ := a.config.Load()
 	a.storage = skill.NewStorage(cfg.SkillsStorageDir)
+	a.cacheDir = filepath.Join(dataDir, "cache")
+	a.starStorage = coregit.NewStarStorage(filepath.Join(dataDir, "star_repos.json"))
 	registerAdapters()
 	registerProviders()
 	go forwardEvents(ctx, a.hub)
@@ -640,4 +646,206 @@ func (a *App) OpenPath(path string) error {
 // Greet is kept for Wails template compatibility.
 func (a *App) Greet(name string) string {
 	return fmt.Sprintf("Hello %s, It's show time!", name)
+}
+
+// --- Starred Repos ---
+
+func (a *App) AddStarredRepo(repoURL string) (*coregit.StarredRepo, error) {
+	if err := coregit.CheckGitInstalled(); err != nil {
+		return nil, err
+	}
+	repos, err := a.starStorage.Load()
+	if err != nil {
+		return nil, err
+	}
+	for i, r := range repos {
+		if r.URL == repoURL {
+			return &repos[i], nil // already starred
+		}
+	}
+	name, err := coregit.ParseRepoName(repoURL)
+	if err != nil {
+		return nil, err
+	}
+	localDir := filepath.Join(a.cacheDir, filepath.FromSlash(name))
+	repo := coregit.StarredRepo{URL: repoURL, Name: name, LocalDir: localDir}
+	if cloneErr := coregit.CloneOrUpdate(a.ctx, repoURL, localDir, a.gitProxyURL()); cloneErr != nil {
+		repo.SyncError = cloneErr.Error()
+	} else {
+		repo.LastSync = time.Now()
+	}
+	repos = append(repos, repo)
+	if err := a.starStorage.Save(repos); err != nil {
+		return nil, err
+	}
+	return &repos[len(repos)-1], nil
+}
+
+func (a *App) RemoveStarredRepo(repoURL string) error {
+	repos, err := a.starStorage.Load()
+	if err != nil {
+		return err
+	}
+	filtered := make([]coregit.StarredRepo, 0, len(repos))
+	for _, r := range repos {
+		if r.URL != repoURL {
+			filtered = append(filtered, r)
+		}
+	}
+	return a.starStorage.Save(filtered)
+}
+
+func (a *App) ListStarredRepos() ([]coregit.StarredRepo, error) {
+	repos, err := a.starStorage.Load()
+	if repos == nil {
+		return []coregit.StarredRepo{}, err
+	}
+	return repos, err
+}
+
+func (a *App) ListAllStarSkills() ([]coregit.StarSkill, error) {
+	repos, err := a.starStorage.Load()
+	if err != nil {
+		return nil, err
+	}
+	existing, _ := a.storage.ListAll()
+	importedNames := map[string]bool{}
+	for _, sk := range existing {
+		importedNames[sk.Name] = true
+	}
+	var all []coregit.StarSkill
+	for _, r := range repos {
+		skills, _ := coregit.ScanSkills(r.LocalDir, r.URL, r.Name)
+		for i := range skills {
+			skills[i].Imported = importedNames[skills[i].Name]
+		}
+		all = append(all, skills...)
+	}
+	if all == nil {
+		return []coregit.StarSkill{}, nil
+	}
+	return all, nil
+}
+
+func (a *App) ListRepoStarSkills(repoURL string) ([]coregit.StarSkill, error) {
+	repos, err := a.starStorage.Load()
+	if err != nil {
+		return nil, err
+	}
+	existing, _ := a.storage.ListAll()
+	importedNames := map[string]bool{}
+	for _, sk := range existing {
+		importedNames[sk.Name] = true
+	}
+	for _, r := range repos {
+		if r.URL != repoURL {
+			continue
+		}
+		skills, err := coregit.ScanSkills(r.LocalDir, r.URL, r.Name)
+		if err != nil {
+			return nil, err
+		}
+		for i := range skills {
+			skills[i].Imported = importedNames[skills[i].Name]
+		}
+		if skills == nil {
+			return []coregit.StarSkill{}, nil
+		}
+		return skills, nil
+	}
+	return []coregit.StarSkill{}, nil
+}
+
+func (a *App) UpdateStarredRepo(repoURL string) error {
+	repos, err := a.starStorage.Load()
+	if err != nil {
+		return err
+	}
+	for i, r := range repos {
+		if r.URL != repoURL {
+			continue
+		}
+		syncErr := coregit.CloneOrUpdate(a.ctx, r.URL, r.LocalDir, a.gitProxyURL())
+		if syncErr != nil {
+			repos[i].SyncError = syncErr.Error()
+		} else {
+			repos[i].SyncError = ""
+			repos[i].LastSync = time.Now()
+		}
+		return a.starStorage.Save(repos)
+	}
+	return nil
+}
+
+func (a *App) UpdateAllStarredRepos() error {
+	repos, err := a.starStorage.Load()
+	if err != nil {
+		return err
+	}
+	if len(repos) == 0 {
+		return nil
+	}
+	var wg sync.WaitGroup
+	mu := &sync.Mutex{}
+	for i := range repos {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			r := repos[idx]
+			syncErr := coregit.CloneOrUpdate(a.ctx, r.URL, r.LocalDir, a.gitProxyURL())
+			mu.Lock()
+			if syncErr != nil {
+				repos[idx].SyncError = syncErr.Error()
+			} else {
+				repos[idx].SyncError = ""
+				repos[idx].LastSync = time.Now()
+			}
+			mu.Unlock()
+			a.hub.Publish(notify.Event{
+				Type: notify.EventStarSyncProgress,
+				Payload: notify.StarSyncProgressPayload{
+					RepoURL:   repos[idx].URL,
+					RepoName:  repos[idx].Name,
+					SyncError: repos[idx].SyncError,
+				},
+			})
+		}(i)
+	}
+	wg.Wait()
+	a.hub.Publish(notify.Event{Type: notify.EventStarSyncDone})
+	return a.starStorage.Save(repos)
+}
+
+func (a *App) ImportStarSkills(skillPaths []string, repoURL, category string) error {
+	if category == "" {
+		cfg, _ := a.config.Load()
+		category = cfg.DefaultCategory
+		if category == "" {
+			category = "Imported"
+		}
+	}
+	repos, _ := a.starStorage.Load()
+	var repoLocalDir string
+	for _, r := range repos {
+		if r.URL == repoURL {
+			repoLocalDir = r.LocalDir
+			break
+		}
+	}
+	for _, skillPath := range skillPaths {
+		subPath, _ := filepath.Rel(repoLocalDir, skillPath)
+		subPath = filepath.ToSlash(subPath)
+		sk, err := a.storage.Import(skillPath, category, skill.SourceGitHub, repoURL, subPath)
+		if err == skill.ErrSkillExists {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		sha, _ := coregit.GetSubPathSHA(a.ctx, repoLocalDir, subPath)
+		sk.SourceSHA = sha
+		_ = a.storage.UpdateMeta(sk)
+	}
+	go a.autoBackup()
+	return nil
 }
