@@ -178,5 +178,29 @@ export namespace skill {
 		}
 	}
 
+	export class SkillMeta {
+	    Name: string;
+	    Description: string;
+	    ArgumentHint: string;
+	    AllowedTools: string;
+	    Context: string;
+	    DisableModelInvocation: boolean;
+
+	    static createFrom(source: any = {}) {
+	        return new SkillMeta(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.Name = source["Name"];
+	        this.Description = source["Description"];
+	        this.ArgumentHint = source["ArgumentHint"];
+	        this.AllowedTools = source["AllowedTools"];
+	        this.Context = source["Context"];
+	        this.DisableModelInvocation = source["DisableModelInvocation"];
+	    }
+	}
+
+
 }
 

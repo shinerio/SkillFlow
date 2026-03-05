@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Github, FolderOpen, RefreshCw } from 'lucide-react'
 import ContextMenu from './ContextMenu'
 
@@ -12,10 +12,17 @@ interface Props {
   selectMode?: boolean
   selected?: boolean
   onToggleSelect?: () => void
+  onHoverStart?: (rect: DOMRect) => void
+  onHoverEnd?: () => void
 }
 
-export default function SkillCard({ skill, categories, onDelete, onUpdate, onMoveCategory, selectMode, selected, onToggleSelect }: Props) {
+export default function SkillCard({
+  skill, categories, onDelete, onUpdate, onMoveCategory,
+  selectMode, selected, onToggleSelect,
+  onHoverStart, onHoverEnd,
+}: Props) {
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
+  const cardRef = useRef<HTMLDivElement>(null)
 
   const handleContextMenu = (e: React.MouseEvent) => {
     if (selectMode) return
@@ -25,6 +32,15 @@ export default function SkillCard({ skill, categories, onDelete, onUpdate, onMov
 
   const handleClick = () => {
     if (selectMode) onToggleSelect?.()
+  }
+
+  const handleMouseEnter = () => {
+    if (selectMode) return
+    if (cardRef.current) onHoverStart?.(cardRef.current.getBoundingClientRect())
+  }
+
+  const handleMouseLeave = () => {
+    onHoverEnd?.()
   }
 
   const menuItems = [
@@ -39,10 +55,13 @@ export default function SkillCard({ skill, categories, onDelete, onUpdate, onMov
   return (
     <>
       <div
+        ref={cardRef}
         draggable={!selectMode}
         onDragStart={e => !selectMode && e.dataTransfer.setData('skillId', skill.id)}
         onContextMenu={handleContextMenu}
         onClick={handleClick}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
         className={`relative bg-gray-800 border rounded-xl p-4 transition-colors group ${
           selectMode ? 'cursor-pointer' : 'cursor-grab'
         } ${
@@ -79,11 +98,11 @@ export default function SkillCard({ skill, categories, onDelete, onUpdate, onMov
         {!selectMode && (
           <div className="mt-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
             {skill.hasUpdate && (
-              <button onClick={onUpdate} className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1">
+              <button onClick={e => { e.stopPropagation(); onUpdate?.() }} className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1">
                 <RefreshCw size={12} /> 更新
               </button>
             )}
-            <button onClick={onDelete} className="text-xs text-red-400 hover:text-red-300 ml-auto">删除</button>
+            <button onClick={e => { e.stopPropagation(); onDelete() }} className="text-xs text-red-400 hover:text-red-300 ml-auto">删除</button>
           </div>
         )}
       </div>
