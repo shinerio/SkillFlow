@@ -34,6 +34,10 @@ export function GetConfig() {
   return window['go']['main']['App']['GetConfig']();
 }
 
+export function GetSkillMeta(arg1) {
+  return window['go']['main']['App']['GetSkillMeta'](arg1);
+}
+
 export function GetEnabledTools() {
   return window['go']['main']['App']['GetEnabledTools']();
 }

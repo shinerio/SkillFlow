@@ -1,11 +1,13 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import {
   ListSkills, ListCategories, MoveSkillCategory,
-  DeleteSkill, DeleteSkills, ImportLocal, UpdateSkill, CheckUpdates, OpenFolderDialog
+  DeleteSkill, DeleteSkills, ImportLocal, UpdateSkill, CheckUpdates,
+  OpenFolderDialog, GetSkillMeta,
 } from '../../wailsjs/go/main/App'
 import { EventsOn } from '../../wailsjs/runtime/runtime'
 import CategoryPanel from '../components/CategoryPanel'
 import SkillCard from '../components/SkillCard'
+import SkillTooltip from '../components/SkillTooltip'
 import GitHubInstallDialog from '../components/GitHubInstallDialog'
 import { Github, FolderOpen, RefreshCw, Search, Trash2, CheckSquare } from 'lucide-react'
 
@@ -18,6 +20,11 @@ export default function Dashboard() {
   const [dragOver, setDragOver] = useState(false)
   const [selectMode, setSelectMode] = useState(false)
   const [selectedIDs, setSelectedIDs] = useState<Set<string>>(new Set())
+
+  // Hover tooltip state
+  const [hoveredSkill, setHoveredSkill] = useState<{ skill: any; rect: DOMRect } | null>(null)
+  const [hoveredMeta, setHoveredMeta] = useState<any | null>(null)
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const load = useCallback(async () => {
     const [s, c] = await Promise.all([ListSkills(), ListCategories()])
@@ -71,6 +78,7 @@ export default function Dashboard() {
   const toggleSelectMode = () => {
     setSelectMode(prev => !prev)
     setSelectedIDs(new Set())
+    clearHover()
   }
 
   const toggleSelectID = (id: string) => {
@@ -99,6 +107,27 @@ export default function Dashboard() {
   }
 
   const allSelected = filtered.length > 0 && selectedIDs.size === filtered.length
+
+  // Hover handlers
+  const clearHover = () => {
+    if (hoverTimer.current) clearTimeout(hoverTimer.current)
+    setHoveredSkill(null)
+    setHoveredMeta(null)
+  }
+
+  const handleHoverStart = (sk: any, rect: DOMRect) => {
+    if (hoverTimer.current) clearTimeout(hoverTimer.current)
+    hoverTimer.current = setTimeout(async () => {
+      setHoveredSkill({ skill: sk, rect })
+      setHoveredMeta(null)
+      const meta = await GetSkillMeta(sk.ID)
+      setHoveredMeta(meta)
+    }, 300)
+  }
+
+  const handleHoverEnd = () => {
+    clearHover()
+  }
 
   return (
     <div
@@ -192,6 +221,8 @@ export default function Dashboard() {
                 selectMode={selectMode}
                 selected={selectedIDs.has(sk.ID)}
                 onToggleSelect={() => toggleSelectID(sk.ID)}
+                onHoverStart={rect => handleHoverStart(sk, rect)}
+                onHoverEnd={handleHoverEnd}
               />
             ))}
           </div>
@@ -203,6 +234,14 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      {hoveredSkill && (
+        <SkillTooltip
+          skill={hoveredSkill.skill}
+          meta={hoveredMeta}
+          anchorRect={hoveredSkill.rect}
+        />
+      )}
 
       {showGitHub && (
         <GitHubInstallDialog onClose={() => setShowGitHub(false)} onDone={() => { setShowGitHub(false); load() }} />

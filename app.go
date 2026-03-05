@@ -176,6 +176,14 @@ func (a *App) DeleteSkills(skillIDs []string) error {
 	return nil
 }
 
+func (a *App) GetSkillMeta(skillID string) (*skill.SkillMeta, error) {
+	sk, err := a.storage.Get(skillID)
+	if err != nil {
+		return nil, err
+	}
+	return skill.ReadMeta(sk.Path)
+}
+
 // --- Install ---
 
 // ScanGitHub scans a GitHub repo for valid skills, marking already-installed ones.

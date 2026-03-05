@@ -21,6 +21,8 @@ export function DeleteSkills(arg1:Array<string>):Promise<void>;
 
 export function GetConfig():Promise<config.AppConfig>;
 
+export function GetSkillMeta(arg1:string):Promise<skill.SkillMeta>;
+
 export function GetEnabledTools():Promise<Array<config.ToolConfig>>;
 
 export function Greet(arg1:string):Promise<string>;
