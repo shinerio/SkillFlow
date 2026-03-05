@@ -837,6 +837,9 @@ func (a *App) ImportStarSkills(skillPaths []string, repoURL, category string) er
 			break
 		}
 	}
+	if repoLocalDir == "" {
+		return fmt.Errorf("starred repo not found: %s", repoURL)
+	}
 	for _, skillPath := range skillPaths {
 		subPath, _ := filepath.Rel(repoLocalDir, skillPath)
 		subPath = filepath.ToSlash(subPath)
