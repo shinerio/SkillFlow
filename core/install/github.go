@@ -23,11 +23,15 @@ type GitHubInstaller struct {
 	client  *http.Client
 }
 
-func NewGitHubInstaller(baseURL string) *GitHubInstaller {
+// NewGitHubInstaller creates a GitHubInstaller. Pass nil for client to use http.DefaultClient.
+func NewGitHubInstaller(baseURL string, client *http.Client) *GitHubInstaller {
 	if baseURL == "" {
 		baseURL = "https://api.github.com"
 	}
-	return &GitHubInstaller{baseURL: baseURL, client: http.DefaultClient}
+	if client == nil {
+		client = http.DefaultClient
+	}
+	return &GitHubInstaller{baseURL: baseURL, client: client}
 }
 
 func (g *GitHubInstaller) Type() string { return "github" }

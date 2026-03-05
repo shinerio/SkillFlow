@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -24,7 +26,6 @@ type App struct {
 	hub     *notify.Hub
 	storage *skill.Storage
 	config  *config.Service
-	checker *update.Checker
 }
 
 func NewApp() *App {
@@ -37,11 +38,34 @@ func (a *App) startup(ctx context.Context) {
 	a.config = config.NewService(dataDir)
 	cfg, _ := a.config.Load()
 	a.storage = skill.NewStorage(cfg.SkillsStorageDir)
-	a.checker = update.NewChecker("")
 	registerAdapters()
 	registerProviders()
 	go forwardEvents(ctx, a.hub)
 	go a.checkUpdatesOnStartup()
+}
+
+// proxyHTTPClient builds an *http.Client configured according to the saved proxy settings.
+// Falls back to http.DefaultClient on any error.
+func (a *App) proxyHTTPClient() *http.Client {
+	cfg, err := a.config.Load()
+	if err != nil {
+		return http.DefaultClient
+	}
+	switch cfg.Proxy.Mode {
+	case config.ProxyModeSystem:
+		return &http.Client{Transport: &http.Transport{Proxy: http.ProxyFromEnvironment}}
+	case config.ProxyModeManual:
+		if cfg.Proxy.URL == "" {
+			return http.DefaultClient
+		}
+		proxyURL, err := url.Parse(cfg.Proxy.URL)
+		if err != nil {
+			return http.DefaultClient
+		}
+		return &http.Client{Transport: &http.Transport{Proxy: http.ProxyURL(proxyURL)}}
+	default: // ProxyModeNone or empty
+		return &http.Client{Transport: &http.Transport{Proxy: nil}}
+	}
 }
 
 func (a *App) domReady(_ context.Context)          {}
@@ -190,7 +214,7 @@ func (a *App) GetSkillMeta(skillID string) (*skill.SkillMeta, error) {
 
 // ScanGitHub scans a GitHub repo for valid skills, marking already-installed ones.
 func (a *App) ScanGitHub(repoURL string) ([]install.SkillCandidate, error) {
-	inst := install.NewGitHubInstaller("")
+	inst := install.NewGitHubInstaller("", a.proxyHTTPClient())
 	candidates, err := inst.Scan(a.ctx, install.InstallSource{Type: "github", URI: repoURL})
 	if err != nil {
 		return nil, err
@@ -215,7 +239,7 @@ func (a *App) InstallFromGitHub(repoURL string, candidates []install.SkillCandid
 			category = "Imported"
 		}
 	}
-	inst := install.NewGitHubInstaller("")
+	inst := install.NewGitHubInstaller("", a.proxyHTTPClient())
 	source := install.InstallSource{Type: "github", URI: repoURL}
 
 	for _, c := range candidates {
@@ -526,8 +550,9 @@ func (a *App) CheckUpdates() error {
 	if err != nil {
 		return err
 	}
+	checker := update.NewChecker("", a.proxyHTTPClient())
 	for _, sk := range skills {
-		result, err := a.checker.Check(a.ctx, sk)
+		result, err := checker.Check(a.ctx, sk)
 		if err != nil {
 			continue
 		}
@@ -554,7 +579,7 @@ func (a *App) UpdateSkill(skillID string) error {
 	if err != nil {
 		return err
 	}
-	inst := install.NewGitHubInstaller("")
+	inst := install.NewGitHubInstaller("", a.proxyHTTPClient())
 	tmpDir := filepath.Join(os.TempDir(), "skillflow-update", sk.Name)
 	defer os.RemoveAll(tmpDir)
 
