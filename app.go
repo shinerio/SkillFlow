@@ -12,6 +12,7 @@ import (
 
 	"github.com/shinerio/skillflow/core/backup"
 	"github.com/shinerio/skillflow/core/config"
+	coregit "github.com/shinerio/skillflow/core/git"
 	"github.com/shinerio/skillflow/core/install"
 	"github.com/shinerio/skillflow/core/notify"
 	"github.com/shinerio/skillflow/core/registry"
@@ -98,6 +99,17 @@ func (a *App) autoBackup() {
 	} else {
 		a.hub.Publish(notify.Event{Type: notify.EventBackupCompleted})
 	}
+}
+
+func (a *App) gitProxyURL() string {
+	cfg, err := a.config.Load()
+	if err != nil {
+		return ""
+	}
+	if cfg.Proxy.Mode == config.ProxyModeManual {
+		return cfg.Proxy.URL
+	}
+	return ""
 }
 
 // --- Skills ---
@@ -214,8 +226,16 @@ func (a *App) GetSkillMeta(skillID string) (*skill.SkillMeta, error) {
 
 // ScanGitHub scans a GitHub repo for valid skills, marking already-installed ones.
 func (a *App) ScanGitHub(repoURL string) ([]install.SkillCandidate, error) {
-	inst := install.NewGitHubInstaller("", a.proxyHTTPClient())
-	candidates, err := inst.Scan(a.ctx, install.InstallSource{Type: "github", URI: repoURL})
+	dataDir := config.AppDataDir()
+	cacheDir, err := coregit.CacheDir(dataDir, repoURL)
+	if err != nil {
+		return nil, err
+	}
+	if err := coregit.CloneOrUpdate(a.ctx, repoURL, cacheDir, a.gitProxyURL()); err != nil {
+		return nil, err
+	}
+	repoName, _ := coregit.ParseRepoName(repoURL)
+	starSkills, err := coregit.ScanSkills(cacheDir, repoURL, repoName)
 	if err != nil {
 		return nil, err
 	}
@@ -224,8 +244,13 @@ func (a *App) ScanGitHub(repoURL string) ([]install.SkillCandidate, error) {
 	for _, sk := range existing {
 		existingNames[sk.Name] = true
 	}
-	for i := range candidates {
-		candidates[i].Installed = existingNames[candidates[i].Name]
+	var candidates []install.SkillCandidate
+	for _, ss := range starSkills {
+		candidates = append(candidates, install.SkillCandidate{
+			Name:      ss.Name,
+			Path:      ss.SubPath,
+			Installed: existingNames[ss.Name],
+		})
 	}
 	return candidates, nil
 }
@@ -239,30 +264,20 @@ func (a *App) InstallFromGitHub(repoURL string, candidates []install.SkillCandid
 			category = "Imported"
 		}
 	}
-	inst := install.NewGitHubInstaller("", a.proxyHTTPClient())
-	source := install.InstallSource{Type: "github", URI: repoURL}
-
+	dataDir := config.AppDataDir()
+	cacheDir, err := coregit.CacheDir(dataDir, repoURL)
+	if err != nil {
+		return err
+	}
 	for _, c := range candidates {
-		tmpDir := filepath.Join(os.TempDir(), "skillflow-install", c.Name)
-		defer os.RemoveAll(tmpDir)
-
-		if err := inst.DownloadTo(a.ctx, source, c, tmpDir); err != nil {
-			return fmt.Errorf("download %s: %w", c.Name, err)
-		}
-		sha, _ := inst.GetLatestSHA(a.ctx, repoURL, c.Path)
-
-		_, err := a.storage.Import(tmpDir, category, skill.SourceGitHub, repoURL, c.Path)
+		skillDir := filepath.Join(cacheDir, filepath.FromSlash(c.Path))
+		sha, _ := coregit.GetSubPathSHA(a.ctx, cacheDir, c.Path)
+		sk, err := a.storage.Import(skillDir, category, skill.SourceGitHub, repoURL, c.Path)
 		if err != nil {
-			return err
+			return fmt.Errorf("import %s: %w", c.Name, err)
 		}
-		skills, _ := a.storage.ListAll()
-		for _, sk := range skills {
-			if sk.Name == c.Name && sk.SourceURL == repoURL {
-				sk.SourceSHA = sha
-				_ = a.storage.UpdateMeta(sk)
-				break
-			}
-		}
+		sk.SourceSHA = sha
+		_ = a.storage.UpdateMeta(sk)
 	}
 	go a.autoBackup()
 	return nil
