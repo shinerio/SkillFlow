@@ -1,5 +1,14 @@
 package config
 
+import "time"
+
+type FavoriteRepo struct {
+	URL         string    `json:"url"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	AddedAt     time.Time `json:"addedAt"`
+}
+
 type ToolConfig struct {
 	Name      string `json:"name"`
 	SkillsDir string `json:"skillsDir"`
@@ -31,10 +40,11 @@ type ProxyConfig struct {
 }
 
 type AppConfig struct {
-	SkillsStorageDir string      `json:"skillsStorageDir"`
-	DefaultCategory  string      `json:"defaultCategory"`
-	Tools            []ToolConfig `json:"tools"`
-	Cloud            CloudConfig `json:"cloud"`
-	Proxy            ProxyConfig `json:"proxy"`
+	SkillsStorageDir string         `json:"skillsStorageDir"`
+	DefaultCategory  string         `json:"defaultCategory"`
+	Tools            []ToolConfig   `json:"tools"`
+	Cloud            CloudConfig    `json:"cloud"`
+	Proxy            ProxyConfig    `json:"proxy"`
+	FavoriteRepos    []FavoriteRepo `json:"favoriteRepos"`
 }
 

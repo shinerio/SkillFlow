@@ -9,6 +9,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	goruntime "runtime"
+	"strings"
+	"time"
 
 	"github.com/shinerio/skillflow/core/backup"
 	"github.com/shinerio/skillflow/core/config"
@@ -620,6 +622,91 @@ func (a *App) OpenPath(path string) error {
 		cmd = exec.Command("xdg-open", path)
 	}
 	return cmd.Start()
+}
+
+// --- Favorite Repos ---
+
+// ListFavoriteRepos returns all saved GitHub repository favorites.
+func (a *App) ListFavoriteRepos() ([]config.FavoriteRepo, error) {
+	cfg, err := a.config.Load()
+	if err != nil {
+		return nil, err
+	}
+	if cfg.FavoriteRepos == nil {
+		return []config.FavoriteRepo{}, nil
+	}
+	return cfg.FavoriteRepos, nil
+}
+
+// AddFavoriteRepo adds a GitHub repo URL to the favorites list.
+func (a *App) AddFavoriteRepo(repoURL, description string) error {
+	cfg, err := a.config.Load()
+	if err != nil {
+		return err
+	}
+	for _, r := range cfg.FavoriteRepos {
+		if r.URL == repoURL {
+			return fmt.Errorf("该仓库已在收藏列表中")
+		}
+	}
+	// Derive display name (owner/repo) from URL.
+	name := repoURL
+	uri := strings.TrimSuffix(strings.TrimSuffix(strings.TrimSuffix(repoURL, "/"), ".git"), "/")
+	parts := strings.Split(uri, "/")
+	if len(parts) >= 2 {
+		name = parts[len(parts)-2] + "/" + parts[len(parts)-1]
+	}
+	cfg.FavoriteRepos = append(cfg.FavoriteRepos, config.FavoriteRepo{
+		URL:         repoURL,
+		Name:        name,
+		Description: description,
+		AddedAt:     time.Now(),
+	})
+	return a.config.Save(cfg)
+}
+
+// RemoveFavoriteRepo removes a GitHub repo URL from the favorites list.
+func (a *App) RemoveFavoriteRepo(repoURL string) error {
+	cfg, err := a.config.Load()
+	if err != nil {
+		return err
+	}
+	var filtered []config.FavoriteRepo
+	for _, r := range cfg.FavoriteRepos {
+		if r.URL != repoURL {
+			filtered = append(filtered, r)
+		}
+	}
+	cfg.FavoriteRepos = filtered
+	return a.config.Save(cfg)
+}
+
+// InstallFromGitHubToTool installs selected skills directly into a tool's skills directory,
+// bypassing SkillFlow storage (no metadata tracking or update checks).
+func (a *App) InstallFromGitHubToTool(repoURL string, candidates []install.SkillCandidate, toolName string) error {
+	cfg, err := a.config.Load()
+	if err != nil {
+		return err
+	}
+	var targetDir string
+	for _, t := range cfg.Tools {
+		if t.Name == toolName && t.Enabled {
+			targetDir = t.SkillsDir
+			break
+		}
+	}
+	if targetDir == "" {
+		return fmt.Errorf("工具 %q 未找到或未启用", toolName)
+	}
+	inst := install.NewGitHubInstaller("", a.proxyHTTPClient())
+	source := install.InstallSource{Type: "github", URI: repoURL}
+	for _, c := range candidates {
+		skillDir := filepath.Join(targetDir, c.Name)
+		if err := inst.DownloadTo(a.ctx, source, c, skillDir); err != nil {
+			return fmt.Errorf("下载 %s 失败: %w", c.Name, err)
+		}
+	}
+	return nil
 }
 
 // Greet is kept for Wails template compatibility.

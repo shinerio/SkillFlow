@@ -5,6 +5,8 @@ import {skill} from '../models';
 import {install} from '../models';
 import {backup} from '../models';
 
+export function AddFavoriteRepo(arg1:string,arg2:string):Promise<void>;
+
 export function AddCustomTool(arg1:string,arg2:string):Promise<void>;
 
 export function BackupNow():Promise<void>;
@@ -31,6 +33,10 @@ export function ImportLocal(arg1:string,arg2:string):Promise<skill.Skill>;
 
 export function InstallFromGitHub(arg1:string,arg2:Array<install.SkillCandidate>,arg3:string):Promise<void>;
 
+export function InstallFromGitHubToTool(arg1:string,arg2:Array<install.SkillCandidate>,arg3:string):Promise<void>;
+
+export function ListFavoriteRepos():Promise<Array<config.FavoriteRepo>>;
+
 export function ListCategories():Promise<Array<string>>;
 
 export function ListCloudFiles():Promise<Array<backup.RemoteFile>>;
@@ -52,6 +58,8 @@ export function PullFromToolForce(arg1:string,arg2:Array<string>,arg3:string):Pr
 export function PushToTools(arg1:Array<string>,arg2:Array<string>):Promise<Array<string>>;
 
 export function PushToToolsForce(arg1:Array<string>,arg2:Array<string>):Promise<void>;
+
+export function RemoveFavoriteRepo(arg1:string):Promise<void>;
 
 export function RemoveCustomTool(arg1:string):Promise<void>;
 

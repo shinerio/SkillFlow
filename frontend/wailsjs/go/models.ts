@@ -20,7 +20,25 @@ export namespace backup {
 }
 
 export namespace config {
-	
+
+	export class FavoriteRepo {
+	    url: string;
+	    name: string;
+	    description: string;
+	    addedAt: any;
+
+	    static createFrom(source: any = {}) {
+	        return new FavoriteRepo(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.url = source["url"];
+	        this.name = source["name"];
+	        this.description = source["description"];
+	        this.addedAt = source["addedAt"];
+	    }
+	}
 	export class CloudConfig {
 	    provider: string;
 	    enabled: boolean;
@@ -64,17 +82,19 @@ export namespace config {
 	    defaultCategory: string;
 	    tools: ToolConfig[];
 	    cloud: CloudConfig;
-	
+	    favoriteRepos: FavoriteRepo[];
+
 	    static createFrom(source: any = {}) {
 	        return new AppConfig(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.skillsStorageDir = source["skillsStorageDir"];
 	        this.defaultCategory = source["defaultCategory"];
 	        this.tools = this.convertValues(source["tools"], ToolConfig);
 	        this.cloud = this.convertValues(source["cloud"], CloudConfig);
+	        this.favoriteRepos = this.convertValues(source["favoriteRepos"], FavoriteRepo);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
