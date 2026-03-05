@@ -19,7 +19,7 @@ func TestCheckerDetectsUpdate(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	checker := update.NewChecker(srv.URL)
+	checker := update.NewChecker(srv.URL, nil)
 	sk := &skill.Skill{
 		Source:        skill.SourceGitHub,
 		SourceURL:     "https://github.com/user/repo",
@@ -38,7 +38,7 @@ func TestCheckerNoUpdateWhenSHAMatches(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	checker := update.NewChecker(srv.URL)
+	checker := update.NewChecker(srv.URL, nil)
 	sk := &skill.Skill{
 		Source:    skill.SourceGitHub,
 		SourceSHA: "sameSHA",

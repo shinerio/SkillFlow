@@ -39,7 +39,7 @@ func TestGitHubInstallerScan(t *testing.T) {
 	srv := mockGitHubServer(t)
 	defer srv.Close()
 
-	installer := install.NewGitHubInstaller(srv.URL)
+	installer := install.NewGitHubInstaller(srv.URL, nil)
 	candidates, err := installer.Scan(context.Background(), install.InstallSource{
 		Type: "github",
 		URI:  srv.URL + "/repos/user/repo",

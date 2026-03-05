@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ScanGitHub, InstallFromGitHub, ListCategories } from '../../wailsjs/go/main/App'
-import { Github, X } from 'lucide-react'
+import { Github, X, AlertCircle } from 'lucide-react'
 
 interface Props { onClose: () => void; onDone: () => void }
 
@@ -12,26 +12,44 @@ export default function GitHubInstallDialog({ onClose, onDone }: Props) {
   const [category, setCategory] = useState('')
   const [scanning, setScanning] = useState(false)
   const [installing, setInstalling] = useState(false)
+  const [scanError, setScanError] = useState('')
+  const [installError, setInstallError] = useState('')
+  const [scannedOnce, setScannedOnce] = useState(false)
 
   const scan = async () => {
     setScanning(true)
-    const [c, cats] = await Promise.all([ScanGitHub(url), ListCategories()])
-    setCandidates(c ?? [])
-    setCategories(cats ?? [])
-    // 默认选择第一个分类（Imported）
-    if ((cats ?? []).length > 0 && category === "") {
-      setCategory(cats[0])
+    setScanError('')
+    setCandidates([])
+    setScannedOnce(false)
+    try {
+      const [c, cats] = await Promise.all([ScanGitHub(url), ListCategories()])
+      const skills = c ?? []
+      const catList = cats ?? []
+      setCandidates(skills)
+      setCategories(catList)
+      if (catList.length > 0 && category === '') setCategory(catList[0])
+      setSelected(new Set(skills.filter((x: any) => !x.Installed).map((x: any) => x.Name)))
+      setScannedOnce(true)
+      if (skills.length === 0) setScanError('未发现任何 Skill，请确认该仓库包含含有 skill.md 的子目录')
+    } catch (e: any) {
+      setScanError(String(e?.message ?? e ?? '扫描失败，请检查网络或仓库地址'))
+    } finally {
+      setScanning(false)
     }
-    setSelected(new Set((c ?? []).filter((x: any) => !x.Installed).map((x: any) => x.Name)))
-    setScanning(false)
   }
 
   const install = async () => {
     setInstalling(true)
-    const toInstall = candidates.filter(c => selected.has(c.Name))
-    await InstallFromGitHub(url, toInstall, category)
-    setInstalling(false)
-    onDone()
+    setInstallError('')
+    try {
+      const toInstall = candidates.filter(c => selected.has(c.Name))
+      await InstallFromGitHub(url, toInstall, category)
+      onDone()
+    } catch (e: any) {
+      setInstallError(String(e?.message ?? e ?? '安装失败'))
+    } finally {
+      setInstalling(false)
+    }
   }
 
   const toggle = (name: string) => {
@@ -50,14 +68,28 @@ export default function GitHubInstallDialog({ onClose, onDone }: Props) {
 
         <div className="flex gap-2 mb-4">
           <input
-            value={url} onChange={e => setUrl(e.target.value)}
+            value={url}
+            onChange={e => setUrl(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && !scanning && url && scan()}
             placeholder="https://github.com/user/repo"
             className="flex-1 bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500"
           />
-          <button onClick={scan} disabled={scanning || !url} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm disabled:opacity-50">
-            {scanning ? '扫描中...' : '扫描'}
+          <button onClick={scan} disabled={scanning || !url} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm disabled:opacity-50 min-w-[72px]">
+            {scanning ? (
+              <span className="flex items-center gap-1.5">
+                <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" />
+                扫描中
+              </span>
+            ) : '扫描'}
           </button>
         </div>
+
+        {scanError && (
+          <div className="flex items-start gap-2 bg-red-950 border border-red-700 text-red-300 rounded-lg px-4 py-3 text-sm mb-4">
+            <AlertCircle size={15} className="mt-0.5 shrink-0 text-red-400" />
+            <span className="flex-1">{scanError}</span>
+          </div>
+        )}
 
         {candidates.length > 0 && (
           <>
@@ -79,6 +111,12 @@ export default function GitHubInstallDialog({ onClose, onDone }: Props) {
                 {categories.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
+            {installError && (
+              <div className="flex items-start gap-2 bg-red-950 border border-red-700 text-red-300 rounded-lg px-4 py-3 text-sm mb-3">
+                <AlertCircle size={15} className="mt-0.5 shrink-0 text-red-400" />
+                <span>{installError}</span>
+              </div>
+            )}
             <button
               onClick={install} disabled={installing || selected.size === 0}
               className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm disabled:opacity-50"

@@ -15,9 +15,26 @@ type CloudConfig struct {
 	Credentials map[string]string `json:"credentials"`
 }
 
-type AppConfig struct {
-	SkillsStorageDir string       `json:"skillsStorageDir"`
-	DefaultCategory  string       `json:"defaultCategory"`
-	Tools            []ToolConfig `json:"tools"`
-	Cloud            CloudConfig  `json:"cloud"`
+// ProxyMode controls how outbound HTTP requests are routed.
+// "none" = direct, "system" = read HTTP_PROXY/HTTPS_PROXY env vars, "manual" = use URL field.
+type ProxyMode string
+
+const (
+	ProxyModeNone   ProxyMode = "none"
+	ProxyModeSystem ProxyMode = "system"
+	ProxyModeManual ProxyMode = "manual"
+)
+
+type ProxyConfig struct {
+	Mode ProxyMode `json:"mode"` // "none" | "system" | "manual"
+	URL  string    `json:"url"`  // used when Mode == "manual", e.g. "http://127.0.0.1:7890"
 }
+
+type AppConfig struct {
+	SkillsStorageDir string      `json:"skillsStorageDir"`
+	DefaultCategory  string      `json:"defaultCategory"`
+	Tools            []ToolConfig `json:"tools"`
+	Cloud            CloudConfig `json:"cloud"`
+	Proxy            ProxyConfig `json:"proxy"`
+}
+

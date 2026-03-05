@@ -120,6 +120,22 @@ export namespace install {
 
 }
 
+
+	export class ProxyConfig {
+	    Mode: string;
+	    URL: string;
+
+	    static createFrom(source: any = {}) {
+	        return new ProxyConfig(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.Mode = source["Mode"];
+	        this.URL = source["URL"];
+	    }
+	}
+
 export namespace skill {
 	
 	export class Skill {
