@@ -48,7 +48,7 @@ func CloneOrUpdate(ctx context.Context, repoURL, dir, proxyURL string) error {
 		if err := runGit(ctx, dir, proxyURL, "fetch", "origin"); err != nil {
 			return fmt.Errorf("git fetch: %w", err)
 		}
-		return runGit(ctx, dir, proxyURL, "reset", "--hard", "origin/HEAD")
+		return runGit(ctx, dir, proxyURL, "reset", "--hard", "FETCH_HEAD")
 	}
 	if err := os.MkdirAll(filepath.Dir(dir), 0755); err != nil {
 		return err
