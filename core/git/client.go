@@ -197,18 +197,64 @@ func GetSubPathSHA(ctx context.Context, repoDir, subPath string) (string, error)
 	return strings.TrimSpace(string(out)), nil
 }
 
+// IsAuthError reports whether err looks like an HTTP authentication failure from git.
+func IsAuthError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "authentication failed") ||
+		strings.Contains(msg, "invalid username or password") ||
+		strings.Contains(msg, "could not read username") ||
+		strings.Contains(msg, "terminal prompts disabled") ||
+		strings.Contains(msg, "repository not found") ||
+		strings.Contains(msg, "http basic: access denied") ||
+		strings.Contains(msg, "the requested url returned error: 403") ||
+		strings.Contains(msg, "the requested url returned error: 401")
+}
+
+// IsSSHAuthError reports whether err looks like an SSH key authentication failure.
+func IsSSHAuthError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "permission denied (publickey") ||
+		strings.Contains(msg, "no supported authentication methods") ||
+		(strings.Contains(msg, "could not read from remote repository") &&
+			!strings.Contains(msg, "http"))
+}
+
+// CloneOrUpdateWithCreds clones or updates a repo using embedded username/password for HTTP(S) URLs.
+// It always removes any partial clone directory first to ensure a clean state.
+func CloneOrUpdateWithCreds(ctx context.Context, repoURL, dir, proxyURL, username, password string) error {
+	cloneURL := repoURL
+	if (username != "" || password != "") && strings.Contains(repoURL, "://") {
+		if parsed, err := url.Parse(repoURL); err == nil &&
+			(parsed.Scheme == "https" || parsed.Scheme == "http") {
+			parsed.User = url.UserPassword(username, password)
+			cloneURL = parsed.String()
+		}
+	}
+	// Remove any partial clone so CloneOrUpdate always does a fresh clone.
+	_ = os.RemoveAll(dir)
+	return CloneOrUpdate(ctx, cloneURL, dir, proxyURL)
+}
+
 func runGit(ctx context.Context, dir, proxyURL string, args ...string) error {
 	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Dir = dir
 	hideConsole(cmd)
+	env := append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
 	if proxyURL != "" {
-		cmd.Env = append(os.Environ(),
+		env = append(env,
 			"HTTP_PROXY="+proxyURL,
 			"HTTPS_PROXY="+proxyURL,
 			"http_proxy="+proxyURL,
 			"https_proxy="+proxyURL,
 		)
 	}
+	cmd.Env = env
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("%w: %s", err, strings.TrimSpace(string(out)))
