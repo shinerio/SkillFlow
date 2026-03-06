@@ -172,7 +172,7 @@ type ProxyConfig struct {
 
 type AppConfig struct {
     SkillsStorageDir string        // default: ~/.skillflow/skills
-    DefaultCategory  string        // default: "Imported"
+    DefaultCategory  string        // default: "Default"
     Tools            []ToolConfig
     Cloud            CloudConfig
     Proxy            ProxyConfig

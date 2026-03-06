@@ -299,7 +299,7 @@ func (a *App) ListSkills() ([]*skill.Skill, error) {
 	cfg, _ := a.config.Load()
 	defaultCat := cfg.DefaultCategory
 	if defaultCat == "" {
-		defaultCat = "Imported"
+		defaultCat = "Default"
 	}
 	for _, sk := range skills {
 		if sk.Category == "" {
@@ -317,7 +317,7 @@ func (a *App) ListCategories() ([]string, error) {
 	cfg, _ := a.config.Load()
 	defaultCat := cfg.DefaultCategory
 	if defaultCat == "" {
-		defaultCat = "Imported"
+		defaultCat = "Default"
 	}
 	// 检查 defaultCat 是否已在列表中
 	hasDefault := false
@@ -346,7 +346,7 @@ func (a *App) DeleteCategory(name string) error {
 	cfg, _ := a.config.Load()
 	defaultCat := cfg.DefaultCategory
 	if defaultCat == "" {
-		defaultCat = "Imported"
+		defaultCat = "Default"
 	}
 	skills, err := a.storage.ListAll()
 	if err != nil {
@@ -367,7 +367,7 @@ func (a *App) MoveSkillCategory(skillID, category string) error {
 		cfg, _ := a.config.Load()
 		category = cfg.DefaultCategory
 		if category == "" {
-			category = "Imported"
+			category = "Default"
 		}
 	}
 	return a.storage.MoveCategory(skillID, category)
@@ -538,7 +538,7 @@ func (a *App) InstallFromGitHub(repoURL string, candidates []install.SkillCandid
 		cfg, _ := a.config.Load()
 		category = cfg.DefaultCategory
 		if category == "" {
-			category = "Imported"
+			category = "Default"
 		}
 	}
 	dataDir := config.AppDataDir()
@@ -569,7 +569,7 @@ func (a *App) ImportLocal(dir, category string) (*skill.Skill, error) {
 		cfg, _ := a.config.Load()
 		category = cfg.DefaultCategory
 		if category == "" {
-			category = "Imported"
+			category = "Default"
 		}
 	}
 	sk, err := a.storage.Import(dir, category, skill.SourceManual, "", "")
@@ -700,7 +700,7 @@ func (a *App) PullFromTool(toolName string, skillNames []string, category string
 		cfg, _ := a.config.Load()
 		category = cfg.DefaultCategory
 		if category == "" {
-			category = "Imported"
+			category = "Default"
 		}
 	}
 	cfg, _ := a.config.Load()
@@ -737,7 +737,7 @@ func (a *App) PullFromToolForce(toolName string, skillNames []string, category s
 		cfg, _ := a.config.Load()
 		category = cfg.DefaultCategory
 		if category == "" {
-			category = "Imported"
+			category = "Default"
 		}
 	}
 	cfg, _ := a.config.Load()
@@ -1263,7 +1263,7 @@ func (a *App) ImportStarSkills(skillPaths []string, repoURL, category string) er
 		cfg, _ := a.config.Load()
 		category = cfg.DefaultCategory
 		if category == "" {
-			category = "Imported"
+			category = "Default"
 		}
 	}
 	repos, _ := a.starStorage.Load()

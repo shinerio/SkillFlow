@@ -16,7 +16,7 @@ func TestLoadDefaultConfig(t *testing.T) {
 	cfg, err := svc.Load()
 	require.NoError(t, err)
 	assert.NotEmpty(t, cfg.SkillsStorageDir)
-	assert.Equal(t, "Imported", cfg.DefaultCategory)
+	assert.Equal(t, "Default", cfg.DefaultCategory)
 	assert.NotEmpty(t, cfg.Tools)
 }
 

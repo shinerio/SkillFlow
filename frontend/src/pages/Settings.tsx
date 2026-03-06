@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { GetConfig, SaveConfig, ListCloudProviders, AddCustomTool, RemoveCustomTool, OpenFolderDialog, CheckAppUpdate, GetAppVersion } from '../../wailsjs/go/main/App'
+import { GetConfig, SaveConfig, ListCloudProviders, AddCustomTool, RemoveCustomTool, OpenFolderDialog, CheckAppUpdateAndNotify, GetAppVersion } from '../../wailsjs/go/main/App'
 import { Plus, Trash2, Settings, Globe, FolderOpen, RefreshCw } from 'lucide-react'
 import { ToolIcon } from '../config/toolIcons'
 
@@ -40,14 +40,14 @@ export default function SettingsPage() {
     setCheckingUpdate(true)
     setUpdateResult(null)
     try {
-      const info = await CheckAppUpdate()
+      const info = await CheckAppUpdateAndNotify()
       if (info.hasUpdate) {
-        setUpdateResult(`发现新版本 ${info.latestVersion}，请查看顶部横幅`)
+        setUpdateResult(`发现新版本 ${info.latestVersion}`)
       } else {
         setUpdateResult(`已是最新版本 (${info.currentVersion})`)
       }
-    } catch {
-      setUpdateResult('检测失败，请检查网络')
+    } catch (e: any) {
+      setUpdateResult(`检测失败: ${e?.message ?? String(e)}`)
     } finally {
       setCheckingUpdate(false)
     }
@@ -130,7 +130,9 @@ export default function SettingsPage() {
             <span className="text-xs text-gray-400">{updateResult}</span>
           )}
           {appVersion && (
-            <span className="text-xs text-gray-500">v{appVersion.replace(/^v/, '')}</span>
+            <span className="text-xs text-gray-500">
+              {appVersion === 'dev' ? 'dev' : appVersion.startsWith('v') ? appVersion : `v${appVersion}`}
+            </span>
           )}
           <button
             onClick={checkUpdate}

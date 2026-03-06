@@ -172,7 +172,7 @@ export default function SyncPull() {
                 onChange={e => setTargetCategory(e.target.value)}
                 className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm"
               >
-                <option value="">Imported（默认）</option>
+                <option value="">Default（默认）</option>
                 {categories.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>

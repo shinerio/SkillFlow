@@ -38,8 +38,8 @@ func (a *App) GetAppVersion() string {
 // CheckAppUpdate queries GitHub Releases API and returns update information.
 func (a *App) CheckAppUpdate() (*AppUpdateInfo, error) {
 	client := a.proxyHTTPClient()
-	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/latest", githubOwner, githubRepo)
-	req, err := http.NewRequest("GET", url, nil)
+	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/latest", githubOwner, githubRepo)
+	req, err := http.NewRequestWithContext(a.ctx, "GET", apiURL, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -164,7 +164,24 @@ del "%%~f0"
 	return nil
 }
 
+// CheckAppUpdateAndNotify checks for updates and, if a new version is found, publishes
+// EventAppUpdateAvailable so the top banner activates. Returns the update info.
+func (a *App) CheckAppUpdateAndNotify() (*AppUpdateInfo, error) {
+	info, err := a.CheckAppUpdate()
+	if err != nil {
+		return nil, err
+	}
+	if info.HasUpdate {
+		a.hub.Publish(notify.Event{
+			Type:    notify.EventAppUpdateAvailable,
+			Payload: info,
+		})
+	}
+	return info, nil
+}
+
 // checkAppUpdateOnStartup checks for app updates and emits EventAppUpdateAvailable if found.
+// Skipped in dev builds to avoid noise during development.
 func (a *App) checkAppUpdateOnStartup() {
 	if Version == "dev" {
 		return

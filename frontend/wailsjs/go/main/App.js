@@ -26,6 +26,10 @@ export function CheckAppUpdate() {
   return window['go']['main']['App']['CheckAppUpdate']();
 }
 
+export function CheckAppUpdateAndNotify() {
+  return window['go']['main']['App']['CheckAppUpdateAndNotify']();
+}
+
 export function CheckMissingPushDirs(arg1) {
   return window['go']['main']['App']['CheckMissingPushDirs'](arg1);
 }
