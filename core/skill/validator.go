@@ -43,7 +43,7 @@ func requireSkillMd(dir string) error {
 			continue
 		}
 		lower := strings.ToLower(e.Name())
-		if lower == "skill.md" || lower == "skill.md" {
+		if lower == "skill.md" {
 			return nil
 		}
 	}

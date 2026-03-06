@@ -14,6 +14,7 @@ func makeLocalRepo(t *testing.T, dir string) {
 		{"init"},
 		{"config", "user.email", "test@test.com"},
 		{"config", "user.name", "Test"},
+		{"config", "commit.gpgsign", "false"},
 	} {
 		if err := runGit(context.Background(), dir, "", args...); err != nil {
 			t.Fatalf("git %v: %v", args, err)

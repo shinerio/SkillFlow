@@ -34,7 +34,7 @@ func ReadMeta(skillPath string) (*SkillMeta, error) {
 			continue
 		}
 		lower := strings.ToLower(e.Name())
-		if lower == "skill.md" || lower == "skill.md" {
+		if lower == "skill.md" {
 			mdPath = filepath.Join(skillPath, e.Name())
 			break
 		}

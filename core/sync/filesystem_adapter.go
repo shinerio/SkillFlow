@@ -80,7 +80,7 @@ func (f *FilesystemAdapter) Pull(_ context.Context, sourceDir string) ([]*skill.
 
 func isSkillMd(name string) bool {
 	lower := strings.ToLower(name)
-	return lower == "skill.md" || lower == "skill.md"
+	return lower == "skill.md"
 }
 
 func copyDir(src, dst string) error {
