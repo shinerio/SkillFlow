@@ -17,6 +17,7 @@ var excludedDirs = []string{
 // A path matches if its base name equals the entry.
 var excludedFiles = []string{
 	".DS_Store",
+	"config_local.json",
 }
 
 // ShouldSkipBackupPath reports whether a relative path should be excluded from backup sync/list/restore.

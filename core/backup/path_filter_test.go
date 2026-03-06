@@ -19,6 +19,7 @@ func TestShouldSkipBackupPath(t *testing.T) {
 		{rel: "logs/skillflow.log.1", want: true},
 		{rel: ".DS_Store", want: true},
 		{rel: "skills/my-skill/.DS_Store", want: true},
+		{rel: "config_local.json", want: true},
 		{rel: ".git", want: true},
 		{rel: ".git/index", want: true},
 		{rel: "./.git/objects/xx", want: true},
