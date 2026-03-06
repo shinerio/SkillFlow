@@ -10,6 +10,8 @@ export function AddCustomTool(arg1:string,arg2:string):Promise<void>;
 
 export function AddStarredRepo(arg1:string):Promise<git.StarredRepo>;
 
+export function AddStarredRepoWithCredentials(arg1:string,arg2:string,arg3:string):Promise<git.StarredRepo>;
+
 export function BackupNow():Promise<void>;
 
 export function CheckUpdates():Promise<void>;

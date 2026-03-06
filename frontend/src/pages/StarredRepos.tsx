@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
-  ListStarredRepos, AddStarredRepo, RemoveStarredRepo,
+  ListStarredRepos, AddStarredRepo, AddStarredRepoWithCredentials, RemoveStarredRepo,
   UpdateStarredRepo, UpdateAllStarredRepos,
   ListAllStarSkills, ListRepoStarSkills,
   ImportStarSkills, ListCategories, OpenURL,
@@ -10,7 +10,7 @@ import {
 import { EventsOn } from '../../wailsjs/runtime/runtime'
 import {
   Star, RefreshCw, Plus, Trash2, LayoutGrid, Folder,
-  ChevronLeft, CheckSquare, Download, AlertCircle, X, ExternalLink, ArrowUpToLine,
+  ChevronLeft, CheckSquare, Download, AlertCircle, X, ExternalLink, ArrowUpToLine, Lock, KeyRound,
 } from 'lucide-react'
 import SyncSkillCard from '../components/SyncSkillCard'
 
@@ -40,6 +40,14 @@ export default function StarredRepos() {
   const [pushingToTools, setPushingToTools] = useState(false)
   const [pushConflicts, setPushConflicts] = useState<string[]>([])
   const [showPushConflictDialog, setShowPushConflictDialog] = useState(false)
+  // Auth dialogs
+  const [showHttpAuthDialog, setShowHttpAuthDialog] = useState(false)
+  const [showSshErrorDialog, setShowSshErrorDialog] = useState(false)
+  const [authUrl, setAuthUrl] = useState('')
+  const [authUsername, setAuthUsername] = useState('')
+  const [authPassword, setAuthPassword] = useState('')
+  const [authError, setAuthError] = useState('')
+  const [authAdding, setAuthAdding] = useState(false)
 
   const loadRepos = async () => {
     const r = await ListStarredRepos()
@@ -80,8 +88,30 @@ export default function StarredRepos() {
       setShowAdd(false); setAddUrl('')
       await Promise.all([loadRepos(), loadAllSkills()])
     } catch (e: any) {
-      setAddError(String(e?.message ?? e ?? '添加失败'))
+      const msg = String(e?.message ?? e ?? '添加失败')
+      if (msg.startsWith('AUTH_SSH:')) {
+        setShowAdd(false)
+        setShowSshErrorDialog(true)
+      } else if (msg.startsWith('AUTH_HTTP:')) {
+        setAuthUrl(addUrl)
+        setAuthUsername(''); setAuthPassword(''); setAuthError('')
+        setShowHttpAuthDialog(true)
+      } else {
+        setAddError(msg)
+      }
     } finally { setAdding(false) }
+  }
+
+  const handleAuthRetry = async () => {
+    setAuthAdding(true); setAuthError('')
+    try {
+      await AddStarredRepoWithCredentials(authUrl, authUsername, authPassword)
+      setShowHttpAuthDialog(false)
+      setShowAdd(false); setAddUrl('')
+      await Promise.all([loadRepos(), loadAllSkills()])
+    } catch (e: any) {
+      setAuthError(String(e?.message ?? e ?? '认证失败'))
+    } finally { setAuthAdding(false) }
   }
 
   const handleUpdateAll = async () => {
@@ -352,6 +382,69 @@ export default function StarredRepos() {
         </div>
       )}
 
+      {/* HTTP auth dialog */}
+      {showHttpAuthDialog && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-2xl p-6 w-[460px] border border-gray-700">
+            <div className="flex justify-between items-center mb-1">
+              <h3 className="font-semibold flex items-center gap-2"><Lock size={16} /> 需要认证</h3>
+              <button onClick={() => setShowHttpAuthDialog(false)}><X size={16} className="text-gray-400" /></button>
+            </div>
+            <p className="text-xs text-gray-500 mb-4">仓库需要用户名和密码（或 Access Token）才能访问</p>
+            <div className="space-y-2 mb-4">
+              <input
+                value={authUsername}
+                onChange={e => setAuthUsername(e.target.value)}
+                placeholder="用户名"
+                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500"
+              />
+              <input
+                type="password"
+                value={authPassword}
+                onChange={e => setAuthPassword(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && !authAdding && handleAuthRetry()}
+                placeholder="密码 / Access Token"
+                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500"
+              />
+            </div>
+            {authError && (
+              <div className="flex items-start gap-2 bg-red-950 border border-red-700 text-red-300 rounded-lg px-4 py-3 text-sm mb-3">
+                <AlertCircle size={15} className="mt-0.5 shrink-0" />
+                <span>{authError}</span>
+              </div>
+            )}
+            <div className="flex gap-3">
+              <button onClick={handleAuthRetry} disabled={authAdding}
+                className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm disabled:opacity-50">
+                {authAdding ? '连接中...' : '确认'}
+              </button>
+              <button onClick={() => setShowHttpAuthDialog(false)}
+                className="flex-1 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm">取消</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SSH auth error dialog */}
+      {showSshErrorDialog && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-2xl p-6 w-[460px] border border-gray-700">
+            <h3 className="font-semibold mb-2 flex items-center gap-2 text-amber-400">
+              <KeyRound size={16} /> SSH 认证失败
+            </h3>
+            <p className="text-sm text-gray-300 mb-3">无法使用 SSH 访问远程仓库，请检查以下配置：</p>
+            <ul className="text-sm text-gray-400 space-y-1.5 list-disc list-inside mb-4">
+              <li>SSH 密钥是否已生成（<code className="text-gray-300">ssh-keygen</code>）</li>
+              <li>公钥是否已添加到 GitHub / GitLab 等远程仓库</li>
+              <li>SSH Agent 是否正在运行（<code className="text-gray-300">ssh-add</code>）</li>
+              <li>可尝试改用 HTTPS 协议克隆</li>
+            </ul>
+            <button onClick={() => setShowSshErrorDialog(false)}
+              className="w-full py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm">关闭</button>
+          </div>
+        </div>
+      )}
+
       {/* Push conflict dialog */}
       {showPushConflictDialog && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
@@ -449,19 +542,23 @@ function SkillGrid({ skills, selectMode, selectedPaths, onToggle, showRepo = fal
   }
   return (
     <div className="grid grid-cols-3 xl:grid-cols-4 gap-4">
-      {skills.map((sk: any) => (
+      {skills.map((sk: any) => {
+        const src = sk.source || sk.repoUrl || ''
+        const sourceType = src.includes('github.com') ? 'github' : src ? 'git' : undefined
+        return (
         <SyncSkillCard
           key={sk.path}
           name={sk.name}
           path={sk.path}
-          source={sk.source || undefined}
+          source={sourceType}
           subtitle={showRepo ? sk.repoName : undefined}
           imported={sk.imported}
           showSelection={selectMode}
           selected={selectedPaths.has(sk.path)}
           onToggle={() => selectMode && onToggle(sk.path)}
         />
-      ))}
+        )
+      })}
     </div>
   )
 }

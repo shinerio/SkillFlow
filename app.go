@@ -254,8 +254,15 @@ func (a *App) ReadSkillFileContent(path string) (string, error) {
 }
 
 // OpenURL opens the given URL in the system default browser.
-func (a *App) OpenURL(url string) error {
-	runtime.BrowserOpenURL(a.ctx, url)
+// Non-HTTP URLs (e.g. SSH git remotes) are first converted to HTTPS.
+func (a *App) OpenURL(rawURL string) error {
+	target := rawURL
+	if !strings.HasPrefix(rawURL, "http://") && !strings.HasPrefix(rawURL, "https://") {
+		if canonical, err := coregit.CanonicalRepoURL(rawURL); err == nil {
+			target = canonical
+		}
+	}
+	runtime.BrowserOpenURL(a.ctx, target)
 	return nil
 }
 
@@ -825,6 +832,13 @@ func (a *App) AddStarredRepo(repoURL string) (*coregit.StarredRepo, error) {
 	}
 	repo := coregit.StarredRepo{URL: repoURL, Name: name, Source: source, LocalDir: localDir}
 	if cloneErr := coregit.CloneOrUpdate(a.ctx, repoURL, localDir, a.gitProxyURL()); cloneErr != nil {
+		// Return typed errors for auth failures so the frontend can show the right dialog.
+		if coregit.IsSSHAuthError(cloneErr) {
+			return nil, fmt.Errorf("AUTH_SSH:%s", cloneErr.Error())
+		}
+		if coregit.IsAuthError(cloneErr) {
+			return nil, fmt.Errorf("AUTH_HTTP:%s", cloneErr.Error())
+		}
 		repo.SyncError = cloneErr.Error()
 	} else {
 		repo.LastSync = time.Now()
@@ -834,6 +848,48 @@ func (a *App) AddStarredRepo(repoURL string) (*coregit.StarredRepo, error) {
 		return nil, err
 	}
 	return &repos[len(repos)-1], nil
+}
+
+// AddStarredRepoWithCredentials clones a repo using the provided HTTP username/password,
+// removing any previously failed entry for the same URL first.
+func (a *App) AddStarredRepoWithCredentials(repoURL, username, password string) (*coregit.StarredRepo, error) {
+	if err := coregit.CheckGitInstalled(); err != nil {
+		return nil, err
+	}
+	repos, err := a.starStorage.Load()
+	if err != nil {
+		return nil, err
+	}
+	// Remove any existing (possibly failed) entry for this URL.
+	filtered := repos[:0]
+	for _, r := range repos {
+		if !coregit.SameRepo(r.URL, repoURL) {
+			filtered = append(filtered, r)
+		}
+	}
+	name, err := coregit.ParseRepoName(repoURL)
+	if err != nil {
+		return nil, err
+	}
+	dataDir := filepath.Dir(a.cacheDir)
+	localDir, err := coregit.CacheDir(dataDir, repoURL)
+	if err != nil {
+		return nil, err
+	}
+	source, err := coregit.RepoSource(repoURL)
+	if err != nil {
+		return nil, err
+	}
+	repo := coregit.StarredRepo{URL: repoURL, Name: name, Source: source, LocalDir: localDir}
+	if cloneErr := coregit.CloneOrUpdateWithCreds(a.ctx, repoURL, localDir, a.gitProxyURL(), username, password); cloneErr != nil {
+		return nil, cloneErr
+	}
+	repo.LastSync = time.Now()
+	filtered = append(filtered, repo)
+	if err := a.starStorage.Save(filtered); err != nil {
+		return nil, err
+	}
+	return &filtered[len(filtered)-1], nil
 }
 
 func (a *App) RemoveStarredRepo(repoURL string) error {

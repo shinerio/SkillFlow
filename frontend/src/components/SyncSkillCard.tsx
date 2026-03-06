@@ -112,9 +112,9 @@ export default function SyncSkillCard({
             ? <Github size={12} className="text-gray-400 shrink-0" />
             : <FolderOpen size={12} className="text-gray-400 shrink-0" />}
           {source && (
-            <span className={`text-xs px-1.5 py-0.5 rounded ${
+            <span className={`text-xs px-1.5 py-0.5 rounded max-w-[72px] truncate ${
               source === 'github' ? 'bg-blue-900/50 text-blue-300' : 'bg-gray-700 text-gray-400'
-            }`}>{source}</span>
+            }`} title={source}>{source}</span>
           )}
           {imported && (
             <span className="text-xs bg-green-900/50 text-green-300 px-1.5 py-0.5 rounded">已导入</span>
