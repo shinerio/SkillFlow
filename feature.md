@@ -144,7 +144,7 @@ Imports skills from external tool directories into your library.
 
 ### Bottom Bar
 
-- **Target Category dropdown** — pick which category to import into (defaults to the configured default category).
+- **Target Category dropdown** — pick which category to import into (defaults to the configured default category; fresh installs use `Default`).
 - **"Start Pull (n)"** button — calls `PullFromTool()`.
 - **"Pull complete ✓"** — green success message.
 - Conflicts handled by the same [Conflict Dialog](#101-conflict-dialog).
@@ -340,7 +340,7 @@ For each built-in or custom tool:
 | Control | Description |
 |---------|-------------|
 | **Skills storage directory** | Root path where all skills are stored on disk; manual text entry + folder-picker button |
-| **Default category** | Category assigned when pulling from tools without specifying one |
+| **Default category** | Category assigned when pulling from tools without specifying one (initial value: `Default`) |
 
 ### Network Tab
 
@@ -490,6 +490,16 @@ A fixed top banner that appears when a new app version is detected at startup. D
 
 - **Windows** — Full auto-update flow: download → bat script replaces exe → restart.
 - **macOS** — Notification only: "查看详情" link opens the GitHub Releases page in the browser.
+
+### Manual Check Button (Settings Page)
+
+A **"检测更新"** button in the top-right corner of the Settings page header:
+
+- Displays current app version (`vX.Y.Z`) next to the button.
+- Click → calls `CheckAppUpdate()`; button shows a spinner while checking.
+- Result shown inline: "已是最新版本 (vX.Y.Z)" or "发现新版本 vX.Y.Z，请查看顶部横幅".
+- On error: "检测失败，请检查网络".
+- If a new version is found, the top banner in `App.tsx` is activated via the `app.update.available` event (emitted by `checkAppUpdateOnStartup` on next launch, or the user can trigger the banner manually via the startup flow).
 
 ### Controls
 

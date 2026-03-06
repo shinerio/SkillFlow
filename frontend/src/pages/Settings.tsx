@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { GetConfig, SaveConfig, ListCloudProviders, AddCustomTool, RemoveCustomTool, OpenFolderDialog } from '../../wailsjs/go/main/App'
-import { Plus, Trash2, Settings, Globe, FolderOpen } from 'lucide-react'
+import { GetConfig, SaveConfig, ListCloudProviders, AddCustomTool, RemoveCustomTool, OpenFolderDialog, CheckAppUpdate, GetAppVersion } from '../../wailsjs/go/main/App'
+import { Plus, Trash2, Settings, Globe, FolderOpen, RefreshCw } from 'lucide-react'
 import { ToolIcon } from '../config/toolIcons'
 
 type Tab = 'tools' | 'cloud' | 'general' | 'network'
@@ -24,13 +24,34 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false)
   const [newTool, setNewTool] = useState({ name: '', pushDir: '' })
   const [newScanDirs, setNewScanDirs] = useState<Record<string, string>>({})
+  const [appVersion, setAppVersion] = useState('')
+  const [checkingUpdate, setCheckingUpdate] = useState(false)
+  const [updateResult, setUpdateResult] = useState<string | null>(null)
 
   useEffect(() => {
-    Promise.all([GetConfig(), ListCloudProviders()]).then(([c, p]) => {
+    Promise.all([GetConfig(), ListCloudProviders(), GetAppVersion()]).then(([c, p, v]) => {
       setCfg(c)
       setProviders(p ?? [])
+      setAppVersion(v as string)
     })
   }, [])
+
+  const checkUpdate = async () => {
+    setCheckingUpdate(true)
+    setUpdateResult(null)
+    try {
+      const info = await CheckAppUpdate()
+      if (info.hasUpdate) {
+        setUpdateResult(`发现新版本 ${info.latestVersion}，请查看顶部横幅`)
+      } else {
+        setUpdateResult(`已是最新版本 (${info.currentVersion})`)
+      }
+    } catch {
+      setUpdateResult('检测失败，请检查网络')
+    } finally {
+      setCheckingUpdate(false)
+    }
+  }
 
   const save = async () => {
     setSaving(true)
@@ -102,7 +123,25 @@ export default function SettingsPage() {
 
   return (
     <div className="p-8 max-w-2xl">
-      <h2 className="text-lg font-semibold mb-6 flex items-center gap-2"><Settings size={18} /> 设置</h2>
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-lg font-semibold flex items-center gap-2"><Settings size={18} /> 设置</h2>
+        <div className="flex items-center gap-3">
+          {updateResult && (
+            <span className="text-xs text-gray-400">{updateResult}</span>
+          )}
+          {appVersion && (
+            <span className="text-xs text-gray-500">v{appVersion.replace(/^v/, '')}</span>
+          )}
+          <button
+            onClick={checkUpdate}
+            disabled={checkingUpdate}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg transition-colors disabled:opacity-50"
+          >
+            <RefreshCw size={12} className={checkingUpdate ? 'animate-spin' : ''} />
+            检测更新
+          </button>
+        </div>
+      </div>
 
       {/* Tabs */}
       <div className="flex gap-1 mb-6 bg-gray-800 rounded-xl p-1 w-fit">
