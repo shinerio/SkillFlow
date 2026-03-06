@@ -21,6 +21,10 @@ export function CheckAppUpdate():Promise<main.AppUpdateInfo>;
 
 export function CheckAppUpdateAndNotify():Promise<main.AppUpdateInfo>;
 
+export function GetSkippedUpdateVersion():Promise<string>;
+
+export function SetSkippedUpdateVersion(arg1:string):Promise<void>;
+
 export function CheckMissingPushDirs(arg1:Array<string>):Promise<Array<Record<string, string>>>;
 
 export function CheckUpdates():Promise<void>;

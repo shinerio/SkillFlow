@@ -44,6 +44,8 @@ export default function SettingsPage() {
     try {
       const info = await CheckAppUpdateAndNotify()
       if (info.hasUpdate) {
+        // The update dialog is shown via the app.update.available event emitted by CheckAppUpdateAndNotify.
+        // Show a brief hint so the user knows a dialog appeared.
         setUpdateResult(`发现新版本 ${info.latestVersion}`)
       } else {
         setUpdateResult(`已是最新版本 (${info.currentVersion})`)

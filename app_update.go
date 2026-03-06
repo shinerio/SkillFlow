@@ -182,8 +182,35 @@ del "%%~f0"
 	return nil
 }
 
+// GetSkippedUpdateVersion returns the version tag that the user chose to skip on startup prompts.
+func (a *App) GetSkippedUpdateVersion() string {
+	cfg, err := a.config.Load()
+	if err != nil {
+		return ""
+	}
+	return cfg.SkippedUpdateVersion
+}
+
+// SetSkippedUpdateVersion persists a version tag so that the startup update prompt is
+// suppressed for that specific version. Pass an empty string to clear the skip.
+func (a *App) SetSkippedUpdateVersion(version string) error {
+	cfg, err := a.config.Load()
+	if err != nil {
+		a.logErrorf("set skipped update version failed: %v", err)
+		return err
+	}
+	cfg.SkippedUpdateVersion = version
+	if err := a.config.Save(cfg); err != nil {
+		a.logErrorf("set skipped update version failed: %v", err)
+		return err
+	}
+	a.logInfof("set skipped update version completed: %s", version)
+	return nil
+}
+
 // CheckAppUpdateAndNotify checks for updates and, if a new version is found, publishes
-// EventAppUpdateAvailable so the top banner activates. Returns the update info.
+// EventAppUpdateAvailable so the update dialog opens. Always notifies regardless of the
+// skipped version (used by the manual check in Settings).
 func (a *App) CheckAppUpdateAndNotify() (*AppUpdateInfo, error) {
 	info, err := a.CheckAppUpdate()
 	if err != nil {
@@ -200,12 +227,19 @@ func (a *App) CheckAppUpdateAndNotify() (*AppUpdateInfo, error) {
 
 // checkAppUpdateOnStartup checks for app updates and emits EventAppUpdateAvailable if found.
 // Skipped in dev builds to avoid noise during development.
+// If the user previously chose "skip this version" for the detected version, the event is not emitted.
 func (a *App) checkAppUpdateOnStartup() {
 	if Version == "dev" {
 		return
 	}
 	info, err := a.CheckAppUpdate()
 	if err != nil || !info.HasUpdate {
+		return
+	}
+	// Suppress the startup prompt when the user explicitly skipped this version.
+	skipped := a.GetSkippedUpdateVersion()
+	if skipped != "" && skipped == info.LatestVersion {
+		a.logDebugf("check app update: version %s is skipped by user, suppressing startup prompt", info.LatestVersion)
 		return
 	}
 	a.hub.Publish(notify.Event{

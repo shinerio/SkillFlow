@@ -30,6 +30,14 @@ export function CheckAppUpdateAndNotify() {
   return window['go']['main']['App']['CheckAppUpdateAndNotify']();
 }
 
+export function GetSkippedUpdateVersion() {
+  return window['go']['main']['App']['GetSkippedUpdateVersion']();
+}
+
+export function SetSkippedUpdateVersion(arg1) {
+  return window['go']['main']['App']['SetSkippedUpdateVersion'](arg1);
+}
+
 export function CheckMissingPushDirs(arg1) {
   return window['go']['main']['App']['CheckMissingPushDirs'](arg1);
 }

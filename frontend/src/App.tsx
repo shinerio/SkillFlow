@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { BrowserRouter, Route, Routes, NavLink } from 'react-router-dom'
-import { Package, ArrowUpFromLine, ArrowDownToLine, Cloud, Settings, Star, X, Download, RefreshCw, AlertTriangle, GitMerge, MessageSquareWarning } from 'lucide-react'
+import { Package, ArrowUpFromLine, ArrowDownToLine, Cloud, Settings, Star, X, Download, RefreshCw, AlertTriangle, GitMerge, MessageSquareWarning, ExternalLink } from 'lucide-react'
 import Dashboard from './pages/Dashboard'
 import SyncPush from './pages/SyncPush'
 import SyncPull from './pages/SyncPull'
@@ -8,10 +8,10 @@ import Backup from './pages/Backup'
 import SettingsPage from './pages/Settings'
 import StarredRepos from './pages/StarredRepos'
 import { EventsOn } from '../wailsjs/runtime/runtime'
-import { DownloadAppUpdate, ApplyAppUpdate, GetGitConflictPending, ResolveGitConflict, OpenURL } from '../wailsjs/go/main/App'
+import { DownloadAppUpdate, ApplyAppUpdate, GetGitConflictPending, ResolveGitConflict, OpenURL, SetSkippedUpdateVersion } from '../wailsjs/go/main/App'
 import { main } from '../wailsjs/go/models'
 
-type BannerState = 'idle' | 'available' | 'downloading' | 'ready_to_restart' | 'download_failed'
+type UpdateDialogState = 'idle' | 'available' | 'downloading' | 'ready_to_restart' | 'download_failed'
 
 type GitConflictInfo = {
   message: string
@@ -34,9 +34,8 @@ function parseConflictPayload(data: string): GitConflictInfo {
 }
 
 export default function App() {
-  const [bannerState, setBannerState] = useState<BannerState>('idle')
+  const [dialogState, setDialogState] = useState<UpdateDialogState>('idle')
   const [updateInfo, setUpdateInfo] = useState<main.AppUpdateInfo | null>(null)
-  const [dismissed, setDismissed] = useState(false)
 
   const [conflictOpen, setConflictOpen] = useState(false)
   const [conflictInfo, setConflictInfo] = useState<GitConflictInfo>({ message: '', files: [] })
@@ -59,13 +58,13 @@ export default function App() {
   useEffect(() => {
     EventsOn('app.update.available', (data: main.AppUpdateInfo) => {
       setUpdateInfo(data)
-      setBannerState('available')
+      setDialogState('available')
     })
     EventsOn('app.update.download.done', () => {
-      setBannerState('ready_to_restart')
+      setDialogState('ready_to_restart')
     })
     EventsOn('app.update.download.fail', () => {
-      setBannerState('download_failed')
+      setDialogState('download_failed')
     })
     EventsOn('git.conflict', (data: string) => {
       setConflictInfo(parseConflictPayload(data))
@@ -78,7 +77,7 @@ export default function App() {
 
   const handleDownload = () => {
     if (!updateInfo?.downloadUrl) return
-    setBannerState('downloading')
+    setDialogState('downloading')
     DownloadAppUpdate(updateInfo.downloadUrl)
   }
 
@@ -86,7 +85,19 @@ export default function App() {
     ApplyAppUpdate()
   }
 
-  const showBanner = !dismissed && bannerState !== 'idle'
+  const handleSkip = async () => {
+    if (updateInfo?.latestVersion) {
+      await SetSkippedUpdateVersion(updateInfo.latestVersion)
+    }
+    setDialogState('idle')
+  }
+
+  const handleOpenRelease = () => {
+    if (updateInfo?.releaseUrl) {
+      OpenURL(updateInfo.releaseUrl)
+    }
+    setDialogState('idle')
+  }
 
   return (
     <BrowserRouter>
@@ -148,13 +159,15 @@ export default function App() {
             </div>
           </div>
         )}
-        {showBanner && (
-          <UpdateBanner
-            state={bannerState}
+        {dialogState !== 'idle' && (
+          <UpdateDialog
+            state={dialogState}
             info={updateInfo}
             onDownload={handleDownload}
             onRestart={handleRestart}
-            onDismiss={() => setDismissed(true)}
+            onOpenRelease={handleOpenRelease}
+            onSkip={handleSkip}
+            onClose={() => setDialogState('idle')}
           />
         )}
         <div className="flex flex-1 overflow-hidden">
@@ -195,77 +208,142 @@ export default function App() {
   )
 }
 
-interface UpdateBannerProps {
-  state: BannerState
+interface UpdateDialogProps {
+  state: UpdateDialogState
   info: main.AppUpdateInfo | null
   onDownload: () => void
   onRestart: () => void
-  onDismiss: () => void
+  onOpenRelease: () => void
+  onSkip: () => void
+  onClose: () => void
 }
 
-function UpdateBanner({ state, info, onDownload, onRestart, onDismiss }: UpdateBannerProps) {
+function UpdateDialog({ state, info, onDownload, onRestart, onOpenRelease, onSkip, onClose }: UpdateDialogProps) {
+  const isDownloading = state === 'downloading'
+
   return (
-    <div className="flex items-center justify-between px-4 py-2 bg-indigo-700 text-white text-sm shrink-0">
-      <div className="flex items-center gap-3">
-        {state === 'available' && (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+      <div className="bg-gray-800 rounded-2xl p-6 w-[440px] border border-gray-700 shadow-2xl">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Download size={18} className="text-indigo-400" />
+            <span className="font-semibold text-base">
+              {state === 'ready_to_restart' ? '更新已就绪' : state === 'download_failed' ? '下载失败' : '发现新版本'}
+            </span>
+          </div>
+          {!isDownloading && (
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-200">
+              <X size={16} />
+            </button>
+          )}
+        </div>
+
+        {/* Body */}
+        {(state === 'available' || state === 'downloading') && (
           <>
-            <span>新版本可用: {info?.latestVersion}</span>
-            {info?.canAutoUpdate ? (
-              <button
-                onClick={onDownload}
-                className="flex items-center gap-1 px-2 py-0.5 bg-white text-indigo-700 rounded text-xs font-medium hover:bg-indigo-100"
-              >
-                <Download size={12} />
-                立即下载
-              </button>
-            ) : (
-              <a
-                href={info?.releaseUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center gap-1 px-2 py-0.5 bg-white text-indigo-700 rounded text-xs font-medium hover:bg-indigo-100"
-              >
-                查看详情
-              </a>
+            <p className="text-sm text-gray-300 mb-1">
+              最新版本：<span className="font-mono text-indigo-300 font-medium">{info?.latestVersion}</span>
+            </p>
+            <p className="text-sm text-gray-400 mb-4">
+              当前版本：<span className="font-mono text-gray-500">{info?.currentVersion}</span>
+            </p>
+            {info?.releaseNotes && (
+              <div className="mb-4 rounded-lg border border-gray-700 bg-gray-900/60 px-3 py-2 max-h-32 overflow-y-auto">
+                <p className="text-[11px] text-gray-500 mb-1">更新说明</p>
+                <pre className="text-xs text-gray-300 whitespace-pre-wrap break-all">{info.releaseNotes}</pre>
+              </div>
             )}
           </>
         )}
+
         {state === 'downloading' && (
-          <>
-            <RefreshCw size={14} className="animate-spin" />
-            <span>正在下载 {info?.latestVersion}...</span>
-          </>
+          <div className="flex items-center gap-2 mb-4 text-sm text-gray-300">
+            <RefreshCw size={14} className="animate-spin text-indigo-400" />
+            <span>正在下载 {info?.latestVersion}，请稍候...</span>
+          </div>
         )}
+
         {state === 'ready_to_restart' && (
-          <>
-            <span>已下载完成，点击重启以完成更新</span>
+          <p className="text-sm text-gray-300 mb-4">
+            新版本已下载完成，点击下方按钮重启应用以完成更新。
+          </p>
+        )}
+
+        {state === 'download_failed' && (
+          <p className="text-sm text-gray-300 mb-4">
+            自动下载失败，请前往 Release 页面手动下载最新版本。
+          </p>
+        )}
+
+        {/* Actions */}
+        {state === 'available' && (
+          <div className="flex flex-col gap-2">
+            {info?.canAutoUpdate && (
+              <button
+                onClick={onDownload}
+                className="flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-sm font-medium transition-colors"
+              >
+                <Download size={14} />
+                下载并自动重启更新
+              </button>
+            )}
+            <button
+              onClick={onOpenRelease}
+              className="flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-gray-700 hover:bg-gray-600 rounded-xl text-sm transition-colors"
+            >
+              <ExternalLink size={14} />
+              前往 Release 页面手动下载
+            </button>
+            <button
+              onClick={onSkip}
+              className="flex items-center justify-center gap-2 w-full px-4 py-2 text-gray-500 hover:text-gray-300 text-sm transition-colors"
+            >
+              跳过此版本（下次启动不再提示）
+            </button>
+          </div>
+        )}
+
+        {state === 'downloading' && (
+          <p className="text-xs text-gray-500 text-center">下载完成后将自动提示重启</p>
+        )}
+
+        {state === 'ready_to_restart' && (
+          <div className="flex gap-3 justify-end">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 text-sm rounded-xl bg-gray-700 hover:bg-gray-600 transition-colors"
+            >
+              稍后重启
+            </button>
             <button
               onClick={onRestart}
-              className="flex items-center gap-1 px-2 py-0.5 bg-white text-indigo-700 rounded text-xs font-medium hover:bg-indigo-100"
+              className="flex items-center gap-2 px-4 py-2 text-sm rounded-xl bg-indigo-600 hover:bg-indigo-500 transition-colors"
             >
+              <RefreshCw size={13} />
               立即重启
             </button>
-          </>
+          </div>
         )}
+
         {state === 'download_failed' && (
-          <>
-            <span>下载失败，请手动下载</span>
-            <a
-              href={info?.releaseUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-1 px-2 py-0.5 bg-white text-indigo-700 rounded text-xs font-medium hover:bg-indigo-100"
+          <div className="flex gap-3 justify-end">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 text-sm rounded-xl bg-gray-700 hover:bg-gray-600 transition-colors"
             >
+              关闭
+            </button>
+            <button
+              onClick={onOpenRelease}
+              className="flex items-center gap-2 px-4 py-2 text-sm rounded-xl bg-indigo-600 hover:bg-indigo-500 transition-colors"
+            >
+              <ExternalLink size={13} />
               前往下载页
-            </a>
-          </>
+            </button>
+          </div>
         )}
       </div>
-      {state !== 'downloading' && (
-        <button onClick={onDismiss} className="text-white hover:text-indigo-200 ml-4">
-          <X size={14} />
-        </button>
-      )}
     </div>
   )
 }

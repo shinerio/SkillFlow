@@ -491,45 +491,61 @@ Events emitted from the Go backend to the frontend via Wails runtime:
 
 The Dashboard listens to `update.available` and marks affected skill cards with a red update dot in real time.
 The Backup page listens to all `git.*` events and surfaces the conflict resolution dialog on `git.conflict`.
-`App.tsx` listens to all three `app.update.*` events and drives the update banner state machine.
+`App.tsx` listens to all three `app.update.*` events and drives the update dialog state machine.
 
 ---
 
-## 12. App Update Banner
+## 12. App Update Dialog
 
-A fixed top banner that appears when a new app version is detected at startup. Driven by a four-state machine:
+A centered modal dialog that appears when a new app version is detected. Triggered by both the automatic startup check and the manual check in Settings. Driven by a four-state machine:
 
-| State | Trigger | Banner content |
+| State | Trigger | Dialog content |
 |-------|---------|---------------|
-| `available` | `app.update.available` event | Version label + platform-specific action |
-| `downloading` | User clicks "立即下载" (Windows only) | Spinner + version label |
-| `ready_to_restart` | `app.update.download.done` event | Completion message + "立即重启" button |
-| `download_failed` | `app.update.download.fail` event | Error message + link to release page |
+| `available` | `app.update.available` event | Version labels + release notes + platform-specific action buttons |
+| `downloading` | User clicks "下载并自动重启更新" (Windows only) | Spinner + progress message |
+| `ready_to_restart` | `app.update.download.done` event | Completion message + "立即重启" / "稍后重启" buttons |
+| `download_failed` | `app.update.download.fail` event | Error message + "前往下载页" button |
 
 ### Platform Behavior
 
-- **Windows** — Full auto-update flow: download → bat script replaces exe → restart.
-- **macOS** — Notification only: "查看详情" link opens the GitHub Releases page in the browser.
+Both startup and manual checks surface the same modal dialog.
+
+- **Windows** — Three choices in the `available` state:
+  1. **下载并自动重启更新** — downloads new exe in the background, then prompts restart.
+  2. **前往 Release 页面手动下载** — opens the GitHub Releases page in the system browser.
+  3. **跳过此版本（下次启动不再提示）** — persists the skipped version; the startup check will not prompt for this version again. The manual check always shows the dialog regardless.
+- **macOS** — Two choices in the `available` state (auto-download not supported):
+  1. **前往 Release 页面手动下载** — opens the GitHub Releases page.
+  2. **跳过此版本（下次启动不再提示）** — same skip behavior as Windows.
+
+### Skip Version Behavior
+
+- The skipped version tag is stored in `AppConfig.SkippedUpdateVersion` (persisted to `config.json`).
+- On app startup, if `latestVersion == skippedUpdateVersion` the `app.update.available` event is **not** emitted and no dialog appears.
+- When the user manually clicks "检测更新" in Settings, `CheckAppUpdateAndNotify` always emits the event, bypassing the skip — the dialog always appears for manual checks.
+- Clicking "跳过此版本" calls `SetSkippedUpdateVersion(latestVersion)`.
 
 ### Manual Check Button (Settings Page)
 
 A **"检测更新"** button in the top-right corner of the Settings page header:
 
 - Displays current app version (`vX.Y.Z`) next to the button.
-- Click → calls `CheckAppUpdate()`; button shows a spinner while checking.
-- Result shown inline: "已是最新版本 (vX.Y.Z)" or "发现新版本 vX.Y.Z，请查看顶部横幅".
-- On error: "检测失败，请检查网络".
-- If a new version is found, the top banner in `App.tsx` is activated via the `app.update.available` event (emitted by `checkAppUpdateOnStartup` on next launch, or the user can trigger the banner manually via the startup flow).
+- Click → calls `CheckAppUpdateAndNotify()`; button shows a spinner while checking.
+- If a new version is found, the update dialog opens automatically via the `app.update.available` event.
+- If already up-to-date, inline text shows "已是最新版本 (vX.Y.Z)".
+- On error: "检测失败: …" shown inline.
 
 ### Controls
 
 | Control | Action |
 |---------|--------|
-| **查看详情** (macOS, `available`) | Opens `releaseUrl` in system browser |
-| **立即下载** (Windows, `available`) | `DownloadAppUpdate(downloadUrl)` — starts async download |
+| **下载并自动重启更新** (Windows, `available`) | `DownloadAppUpdate(downloadUrl)` — starts async download |
+| **前往 Release 页面手动下载** (`available`) | `OpenURL(releaseUrl)` — opens release page in browser; closes dialog |
+| **跳过此版本** (`available`) | `SetSkippedUpdateVersion(latestVersion)` — persists skip; closes dialog |
 | **立即重启** (`ready_to_restart`) | `ApplyAppUpdate()` — writes bat script and exits; bat replaces exe and relaunches |
-| **前往下载页** (`download_failed`) | Opens `releaseUrl` in system browser |
-| **×** (all states except `downloading`) | Dismisses banner for the current session |
+| **稍后重启** (`ready_to_restart`) | Closes dialog without restarting |
+| **前往下载页** (`download_failed`) | `OpenURL(releaseUrl)` — opens release page in browser; closes dialog |
+| **×** (all states except `downloading`) | Closes dialog for the current session |
 
 ### Backend Methods
 
@@ -537,6 +553,9 @@ A **"检测更新"** button in the top-right corner of the Settings page header:
 |--------|-------------|
 | `GetAppVersion()` | Returns current version string (injected by `-ldflags` at build time; `"dev"` in local dev) |
 | `CheckAppUpdate()` | Queries GitHub Releases API; returns `AppUpdateInfo` with platform-matched download URL |
+| `CheckAppUpdateAndNotify()` | Calls `CheckAppUpdate()` and emits `EventAppUpdateAvailable` if an update is found; always notifies regardless of skipped version |
+| `GetSkippedUpdateVersion()` | Returns the version tag stored in config as the user-skipped version |
+| `SetSkippedUpdateVersion(version)` | Persists the skipped version tag to config; pass `""` to clear |
 | `DownloadAppUpdate(url)` | Downloads new exe to temp file asynchronously; emits `app.update.download.done` or `app.update.download.fail` |
 | `ApplyAppUpdate()` | Windows only — writes bat script for post-exit exe replacement, then calls `os.Exit(0)` |
 
@@ -550,4 +569,4 @@ The startup check is skipped when `Version == "dev"` (local development).
 
 ---
 
-*Last updated: 2026-03-07*
+*Last updated: 2026-03-06*
