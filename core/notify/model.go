@@ -3,15 +3,15 @@ package notify
 type EventType string
 
 const (
-	EventBackupStarted   EventType = "backup.started"
-	EventBackupProgress  EventType = "backup.progress"
-	EventBackupCompleted EventType = "backup.completed"
-	EventBackupFailed    EventType = "backup.failed"
-	EventSyncCompleted   EventType = "sync.completed"
-	EventUpdateAvailable EventType = "update.available"
-	EventSkillConflict   EventType = "skill.conflict"
+	EventBackupStarted    EventType = "backup.started"
+	EventBackupProgress   EventType = "backup.progress"
+	EventBackupCompleted  EventType = "backup.completed"
+	EventBackupFailed     EventType = "backup.failed"
+	EventSyncCompleted    EventType = "sync.completed"
+	EventUpdateAvailable  EventType = "update.available"
+	EventSkillConflict    EventType = "skill.conflict"
 	EventStarSyncProgress EventType = "star.sync.progress" // one repo finished syncing
-	EventStarSyncDone     EventType = "star.sync.done"      // all repos finished
+	EventStarSyncDone     EventType = "star.sync.done"     // all repos finished
 
 	EventGitSyncStarted   EventType = "git.sync.started"
 	EventGitSyncCompleted EventType = "git.sync.completed"
@@ -49,5 +49,6 @@ type StarSyncProgressPayload struct {
 }
 
 type GitConflictPayload struct {
-	Message string `json:"message"`
+	Message string   `json:"message"`
+	Files   []string `json:"files,omitempty"`
 }

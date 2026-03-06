@@ -41,6 +41,7 @@ export namespace config {
 	    bucketName: string;
 	    remotePath: string;
 	    credentials: Record<string, string>;
+	    syncIntervalMinutes: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new CloudConfig(source);
@@ -53,6 +54,7 @@ export namespace config {
 	        this.bucketName = source["bucketName"];
 	        this.remotePath = source["remotePath"];
 	        this.credentials = source["credentials"];
+	        this.syncIntervalMinutes = source["syncIntervalMinutes"];
 	    }
 	}
 	export class ToolConfig {

@@ -267,6 +267,7 @@ Mirror your skill library to cloud storage. Two backend types are supported: **O
 - Object storage: file path (monospace) + size in KB.
 - Git: files tracked by `git ls-files`, each showing relative path + size.
 - Scrollable, max-height container.
+- **Unified backup scope (all providers)** — backup root is the app data root (`skills/`, `meta/`, `config.json`, etc.); `cache/` and `.git/` are excluded.
 
 ### Auto-Backup
 
@@ -285,13 +286,19 @@ Progress events surface in the UI via the Wails event system (`backup.started`, 
 
 When the **git** provider is selected:
 
-- **Startup pull** — on every app launch, SkillFlow runs `git pull` on the skills directory to fetch the latest remote changes.
+- **Repository bootstrap** — if the Skills directory is not a git repo, SkillFlow auto-initializes it and configures `origin` from the configured repo URL.
+- **Remote binding self-heal** — if `origin` is missing or changed, SkillFlow auto-adds/updates it before pull/push.
+- **Startup pull** — on every app launch, SkillFlow runs `git pull` on the Git backup root directory to fetch the latest remote changes.
+- **Missing branch tolerance** — if the configured remote branch does not exist yet (first-time setup), startup pull is skipped without failing the backup page.
 - **Auto-push after mutations** — same post-mutation trigger as object storage; runs `git add -A && git commit && git push`.
 - **Periodic auto-sync** — controlled by the "Auto-sync interval" setting (in minutes, 0 = disabled). A background timer fires `autoBackup()` on the configured interval.
+- **Manual actions with conflict detection** — both **Backup Now** and **Restore / Pull** detect git conflicts/divergence and emit `git.conflict` when user action is required.
 - **Conflict resolution dialog** — if `git pull` or `git push` detects a conflict or diverged history, a modal appears:
+  - The dialog includes a conflict file list when available.
   - **"以本地为准"** (Keep Local) — aborts the merge, force-pushes local state to remote. Calls `ResolveGitConflict(true)`.
   - **"以远端为准"** (Use Remote) — aborts the merge, resets local to `origin/<branch>`. Calls `ResolveGitConflict(false)`.
-  - Both options reload the skill library and emit `git.sync.completed` on success.
+  - Both options reload app state from disk (skills/meta/config) and emit `git.sync.completed` on success.
+- **State refresh after pull** — after successful startup pull or manual pull, app state is immediately reloaded from disk so changed `meta/` and config files take effect.
 - If a conflict is detected during startup (before the UI loads), it is stored as a pending flag and surfaced when the Backup page mounts (`GetGitConflictPending()`).
 
 ---
@@ -459,7 +466,7 @@ Events emitted from the Go backend to the frontend via Wails runtime:
 | `git.sync.started` | Git pull/push begins | — |
 | `git.sync.completed` | Git sync succeeded | — |
 | `git.sync.failed` | Git sync error | — |
-| `git.conflict` | Git merge conflict detected | `{ message: string }` |
+| `git.conflict` | Git merge conflict detected | `{ message: string, files?: string[] }` |
 
 The Dashboard listens to `update.available` and marks affected skill cards with a red update dot in real time.
 The Backup page listens to all `git.*` events and surfaces the conflict resolution dialog on `git.conflict`.

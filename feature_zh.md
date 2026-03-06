@@ -267,6 +267,7 @@
 - 对象存储：文件路径（等宽字体）+ 文件大小（KB）。
 - Git：通过 `git ls-files` 列出的跟踪文件，显示相对路径和文件大小。
 - 可滚动容器（最大高度限制）。
+- **统一备份范围（所有服务商）** — 备份根目录为应用数据根目录（`skills/`、`meta/`、`config.json` 等）；`cache/` 与 `.git/` 会被排除。
 
 ### 自动备份
 
@@ -285,13 +286,19 @@
 
 选择 **git** 服务商后：
 
-- **启动时自动拉取** — 每次 App 启动时，自动对 Skills 目录执行 `git pull`，拉取远端最新内容。
+- **仓库自举初始化** — 若 Skills 目录还不是 Git 仓库，SkillFlow 会自动执行初始化，并按配置仓库地址设置 `origin`。
+- **远端绑定自动修复** — 若 `origin` 缺失或地址变更，拉取/推送前会自动补齐或更新。
+- **启动时自动拉取** — 每次 App 启动时，自动对 Git 备份根目录执行 `git pull`，拉取远端最新内容。
+- **远端分支缺失容错** — 首次配置时若远端分支尚未创建，启动拉取会跳过而非直接报错。
 - **变更后自动推送** — 与对象存储相同的触发时机；执行 `git add -A && git commit && git push`。
 - **定时自动同步** — 由"定时自动同步间隔"设置控制（单位：分钟；0 表示禁用）。后台定时器按配置间隔调用 `autoBackup()`。
+- **手动操作冲突检测** — 点击 **立即备份** 与 **拉取远端** 时都会检测 Git 冲突/分叉，若需要用户决策会触发 `git.conflict` 事件。
 - **冲突解决对话框** — 若 `git pull` 或 `git push` 检测到冲突或历史分叉，弹出模态框：
+  - 对话框会在可用时展示冲突相关文件列表。
   - **"以本地为准"** — 中止合并，将本地状态强制推送到远端。调用 `ResolveGitConflict(true)`。
   - **"以远端为准"** — 中止合并，将本地重置为 `origin/<分支>`。调用 `ResolveGitConflict(false)`。
-  - 两种操作成功后均重新加载 Skill 库，并发送 `git.sync.completed` 事件。
+  - 两种操作成功后均从磁盘重载应用状态（skills/meta/config），并发送 `git.sync.completed` 事件。
+- **拉取后即时刷新** — 启动自动拉取或手动拉取成功后，会立刻重载磁盘状态，使 `meta/` 与配置变更立即生效。
 - 若冲突发生在启动阶段（前端尚未加载），将以待处理标志存储，并在备份页面挂载时通过 `GetGitConflictPending()` 弹出对话框。
 
 ---
@@ -459,7 +466,7 @@ Go 后端通过 Wails runtime 向前端推送的事件：
 | `git.sync.started` | Git 拉取/推送开始 | — |
 | `git.sync.completed` | Git 同步成功 | — |
 | `git.sync.failed` | Git 同步出错 | — |
-| `git.conflict` | 检测到 Git 合并冲突 | `{ message: string }` |
+| `git.conflict` | 检测到 Git 合并冲突 | `{ message: string, files?: string[] }` |
 
 主面板监听 `update.available` 事件，实时在对应 Skill 卡片上标记红色更新红点。
 备份页监听所有 `git.*` 事件，并在收到 `git.conflict` 时弹出冲突解决对话框。

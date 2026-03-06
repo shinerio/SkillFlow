@@ -32,8 +32,6 @@ export function GetEnabledTools():Promise<Array<config.ToolConfig>>;
 
 export function GetGitConflictPending():Promise<boolean>;
 
-export function ResolveGitConflict(arg1:boolean):Promise<void>;
-
 export function GetSkillMeta(arg1:string):Promise<skill.SkillMeta>;
 
 export function GetSkillMetaByPath(arg1:string):Promise<skill.SkillMeta>;
@@ -87,6 +85,8 @@ export function RemoveCustomTool(arg1:string):Promise<void>;
 export function RemoveStarredRepo(arg1:string):Promise<void>;
 
 export function RenameCategory(arg1:string,arg2:string):Promise<void>;
+
+export function ResolveGitConflict(arg1:boolean):Promise<void>;
 
 export function RestoreFromCloud():Promise<void>;
 

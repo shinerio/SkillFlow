@@ -3,8 +3,13 @@ import { BackupNow, ListCloudFiles, RestoreFromCloud, GetConfig, GetGitConflictP
 import { EventsOn } from '../../wailsjs/runtime/runtime'
 import { Cloud, Upload, Download, RefreshCw, GitMerge, AlertTriangle } from 'lucide-react'
 
+type GitConflictInfo = {
+  message: string
+  files: string[]
+}
+
 export default function Backup() {
-  const [files, setFiles] = useState<any[]>([])
+  const [files, setFiles] = useState<Array<{ path: string; size: number }>>([])
   const [status, setStatus] = useState<'idle' | 'backing-up' | 'done' | 'error'>('idle')
   const [currentFile, setCurrentFile] = useState('')
   const [cloudEnabled, setCloudEnabled] = useState(false)
@@ -13,6 +18,22 @@ export default function Backup() {
   // Git conflict dialog state
   const [conflictOpen, setConflictOpen] = useState(false)
   const [resolving, setResolving] = useState(false)
+  const [conflictInfo, setConflictInfo] = useState<GitConflictInfo>({ message: '', files: [] })
+
+  const parseConflictPayload = (data: string): GitConflictInfo => {
+    try {
+      const parsed = JSON.parse(data)
+      if (typeof parsed === 'string') {
+        return { message: parsed, files: [] }
+      }
+      return {
+        message: parsed?.message ?? '',
+        files: Array.isArray(parsed?.files) ? parsed.files.filter((f: any) => typeof f === 'string' && f.trim() !== '') : [],
+      }
+    } catch {
+      return { message: data, files: [] }
+    }
+  }
 
   useEffect(() => {
     GetConfig().then(cfg => {
@@ -31,12 +52,23 @@ export default function Backup() {
     EventsOn('git.sync.started', () => setStatus('backing-up'))
     EventsOn('git.sync.completed', () => { setStatus('done'); loadFiles() })
     EventsOn('git.sync.failed', () => setStatus('error'))
-    EventsOn('git.conflict', () => setConflictOpen(true))
+    EventsOn('git.conflict', (data: string) => {
+      setConflictInfo(parseConflictPayload(data))
+      setConflictOpen(true)
+    })
   }, [])
 
   const loadFiles = async () => {
     const f = await ListCloudFiles()
-    setFiles(f ?? [])
+    const normalized = (f ?? [])
+      .map((item: any) => {
+        const path = item?.path ?? item?.Path ?? ''
+        const rawSize = item?.size ?? item?.Size ?? 0
+        const size = typeof rawSize === 'number' ? rawSize : Number(rawSize) || 0
+        return { path, size }
+      })
+      .filter((item: { path: string }) => item.path !== '')
+    setFiles(normalized)
   }
 
   const handleResolve = async (useLocal: boolean) => {
@@ -65,7 +97,14 @@ export default function Backup() {
 
       <div className="flex gap-3 mb-8">
         <button
-          onClick={async () => { await BackupNow() }}
+          onClick={async () => {
+            try {
+              setStatus('backing-up')
+              await BackupNow()
+            } catch {
+              setStatus('error')
+            }
+          }}
           disabled={!cloudEnabled || status === 'backing-up'}
           className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm disabled:opacity-50"
         >
@@ -73,7 +112,16 @@ export default function Backup() {
           {status === 'backing-up' ? `备份中 ${currentFile}` : '立即备份'}
         </button>
         <button
-          onClick={async () => { await RestoreFromCloud(); loadFiles() }}
+          onClick={async () => {
+            try {
+              setStatus('backing-up')
+              await RestoreFromCloud()
+              loadFiles()
+              if (!isGit) setStatus('done')
+            } catch {
+              setStatus('error')
+            }
+          }}
           disabled={!cloudEnabled}
           className="flex items-center gap-2 px-5 py-2.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm disabled:opacity-50"
         ><Download size={14} /> {isGit ? '拉取远端' : '从云端恢复'}</button>
@@ -91,8 +139,8 @@ export default function Backup() {
           <div className="max-h-96 overflow-y-auto border border-gray-800 rounded-xl divide-y divide-gray-800">
             {files.map((f, i) => (
               <div key={i} className="flex items-center justify-between px-4 py-2.5 text-sm">
-                <span className="text-gray-300 font-mono text-xs">{f.Path}</span>
-                <span className="text-gray-500 text-xs">{(f.Size / 1024).toFixed(1)} KB</span>
+                <span className="text-gray-300 font-mono text-xs">{f.path}</span>
+                <span className="text-gray-500 text-xs">{(f.size / 1024).toFixed(1)} KB</span>
               </div>
             ))}
           </div>
@@ -110,6 +158,25 @@ export default function Backup() {
             <p className="text-sm text-gray-300 mb-2">
               本地 Skills 与远端仓库存在冲突，请选择以哪一方为准：
             </p>
+            {conflictInfo.files.length > 0 && (
+              <div className="mb-3">
+                <p className="text-xs text-gray-400 mb-1.5">冲突相关文件（{conflictInfo.files.length}）</p>
+                <div className="max-h-28 overflow-y-auto rounded-lg border border-gray-700 bg-gray-900/70 px-2 py-1.5">
+                  {conflictInfo.files.slice(0, 30).map((f, i) => (
+                    <div key={`${f}-${i}`} className="font-mono text-[11px] text-gray-300 truncate">{f}</div>
+                  ))}
+                  {conflictInfo.files.length > 30 && (
+                    <div className="text-[11px] text-gray-500">... 还有 {conflictInfo.files.length - 30} 个文件</div>
+                  )}
+                </div>
+              </div>
+            )}
+            {conflictInfo.message && (
+              <div className="mb-3 rounded-lg border border-gray-700 bg-gray-900/70 px-2 py-1.5">
+                <p className="text-[11px] text-gray-500 mb-1">Git 输出</p>
+                <pre className="text-[11px] text-gray-300 whitespace-pre-wrap break-all max-h-20 overflow-y-auto">{conflictInfo.message}</pre>
+              </div>
+            )}
             <ul className="text-xs text-gray-400 list-disc list-inside mb-6 space-y-1">
               <li><span className="text-white font-medium">以本地为准</span> — 保留本地内容，强制推送到远端</li>
               <li><span className="text-white font-medium">以远端为准</span> — 丢弃本地冲突部分，恢复为远端内容</li>

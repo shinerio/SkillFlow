@@ -43,10 +43,19 @@ func (t *TencentProvider) Init(creds map[string]string) error {
 
 func (t *TencentProvider) Sync(ctx context.Context, localDir, bucket, remotePath string, onProgress func(string)) error {
 	return filepath.Walk(localDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() {
+		if err != nil {
 			return err
 		}
 		rel, _ := filepath.Rel(localDir, path)
+		if ShouldSkipBackupPath(rel) {
+			if info.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if info.IsDir() {
+			return nil
+		}
 		key := remotePath + strings.ReplaceAll(rel, string(filepath.Separator), "/")
 		if onProgress != nil {
 			onProgress(rel)
@@ -73,6 +82,9 @@ func (t *TencentProvider) Restore(ctx context.Context, bucket, remotePath, local
 		}
 		for _, obj := range result.Contents {
 			rel := strings.TrimPrefix(obj.Key, remotePath)
+			if ShouldSkipBackupPath(rel) {
+				continue
+			}
 			local := filepath.Join(localDir, filepath.FromSlash(rel))
 			if err := os.MkdirAll(filepath.Dir(local), 0755); err != nil {
 				return err
@@ -97,8 +109,12 @@ func (t *TencentProvider) List(ctx context.Context, bucket, remotePath string) (
 	}
 	var files []RemoteFile
 	for _, obj := range result.Contents {
+		rel := strings.TrimPrefix(obj.Key, remotePath)
+		if ShouldSkipBackupPath(rel) {
+			continue
+		}
 		files = append(files, RemoteFile{
-			Path: strings.TrimPrefix(obj.Key, remotePath),
+			Path: rel,
 			Size: obj.Size,
 		})
 	}

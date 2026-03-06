@@ -91,19 +91,28 @@ func (a *App) shutdown(_ context.Context)         {}
 
 // autoBackup triggers cloud backup after any mutating operation if cloud is enabled.
 func (a *App) autoBackup() {
+	_ = a.runBackup()
+}
+
+func (a *App) runBackup() error {
 	cfg, err := a.config.Load()
 	if err != nil || !cfg.Cloud.Enabled || cfg.Cloud.Provider == "" {
-		return
+		return err
 	}
 	provider, ok := registry.GetCloudProvider(cfg.Cloud.Provider)
 	if !ok {
-		return
+		return fmt.Errorf("provider not found: %s", cfg.Cloud.Provider)
 	}
 	if err := provider.Init(cfg.Cloud.Credentials); err != nil {
-		return
+		return err
+	}
+	backupDir := a.backupRootDir(cfg)
+	isGit := cfg.Cloud.Provider == backup.GitProviderName
+	if isGit {
+		a.hub.Publish(notify.Event{Type: notify.EventGitSyncStarted})
 	}
 	a.hub.Publish(notify.Event{Type: notify.EventBackupStarted})
-	err = provider.Sync(a.ctx, cfg.SkillsStorageDir, cfg.Cloud.BucketName, cfg.Cloud.RemotePath,
+	err = provider.Sync(a.ctx, backupDir, cfg.Cloud.BucketName, cfg.Cloud.RemotePath,
 		func(file string) {
 			a.hub.Publish(notify.Event{
 				Type:    notify.EventBackupProgress,
@@ -111,10 +120,51 @@ func (a *App) autoBackup() {
 			})
 		})
 	if err != nil {
+		var conflictErr *backup.GitConflictError
+		if isGit && errors.As(err, &conflictErr) {
+			a.publishGitConflict(conflictErr)
+		}
+		if isGit {
+			a.hub.Publish(notify.Event{Type: notify.EventGitSyncFailed, Payload: err.Error()})
+		}
 		a.hub.Publish(notify.Event{Type: notify.EventBackupFailed, Payload: err.Error()})
+		return err
 	} else {
+		if isGit {
+			a.clearGitConflictPending()
+			a.hub.Publish(notify.Event{Type: notify.EventGitSyncCompleted})
+		}
 		a.hub.Publish(notify.Event{Type: notify.EventBackupCompleted})
+		return nil
 	}
+}
+
+func (a *App) publishGitConflict(conflictErr *backup.GitConflictError) {
+	a.gitConflictMu.Lock()
+	a.gitConflictPending = true
+	a.gitConflictMu.Unlock()
+	a.hub.Publish(notify.Event{
+		Type: notify.EventGitConflict,
+		Payload: notify.GitConflictPayload{
+			Message: conflictErr.Output,
+			Files:   conflictErr.Files,
+		},
+	})
+}
+
+func (a *App) clearGitConflictPending() {
+	a.gitConflictMu.Lock()
+	a.gitConflictPending = false
+	a.gitConflictMu.Unlock()
+}
+
+func (a *App) reloadStateFromDisk() {
+	cfg, err := a.config.Load()
+	if err != nil {
+		return
+	}
+	a.storage = skill.NewStorage(cfg.SkillsStorageDir)
+	a.startAutoSyncTimer(cfg.Cloud.SyncIntervalMinutes)
 }
 
 // gitPullOnStartup pulls from the remote git repo at startup when the git provider is enabled.
@@ -131,27 +181,21 @@ func (a *App) gitPullOnStartup() {
 		return
 	}
 	gitP := p.(*backup.GitProvider)
+	backupDir := a.backupRootDir(cfg)
 	a.hub.Publish(notify.Event{Type: notify.EventGitSyncStarted})
-	if err := gitP.Restore(a.ctx, "", "", cfg.SkillsStorageDir); err != nil {
+	if err := gitP.Restore(a.ctx, "", "", backupDir); err != nil {
 		var conflictErr *backup.GitConflictError
 		if errors.As(err, &conflictErr) {
-			a.gitConflictMu.Lock()
-			a.gitConflictPending = true
-			a.gitConflictMu.Unlock()
-			a.hub.Publish(notify.Event{
-				Type:    notify.EventGitConflict,
-				Payload: notify.GitConflictPayload{Message: conflictErr.Output},
-			})
+			a.publishGitConflict(conflictErr)
+			a.hub.Publish(notify.Event{Type: notify.EventGitSyncFailed, Payload: err.Error()})
 		} else {
 			a.hub.Publish(notify.Event{Type: notify.EventGitSyncFailed, Payload: err.Error()})
 		}
 		return
 	}
+	a.clearGitConflictPending()
 	a.hub.Publish(notify.Event{Type: notify.EventGitSyncCompleted})
-	// Reload storage so newly pulled skills are visible
-	if cfg2, err := a.config.Load(); err == nil {
-		a.storage = skill.NewStorage(cfg2.SkillsStorageDir)
-	}
+	a.reloadStateFromDisk()
 }
 
 // startAutoSyncTimer starts (or restarts) a periodic auto-backup ticker.
@@ -203,10 +247,11 @@ func (a *App) ResolveGitConflict(useLocal bool) error {
 		return err
 	}
 	gitP := p.(*backup.GitProvider)
+	backupDir := a.backupRootDir(cfg)
 	if useLocal {
-		err = gitP.ResolveConflictUseLocal(cfg.SkillsStorageDir)
+		err = gitP.ResolveConflictUseLocal(backupDir)
 	} else {
-		err = gitP.ResolveConflictUseRemote(cfg.SkillsStorageDir)
+		err = gitP.ResolveConflictUseRemote(backupDir)
 	}
 	if err != nil {
 		return err
@@ -214,12 +259,22 @@ func (a *App) ResolveGitConflict(useLocal bool) error {
 	a.gitConflictMu.Lock()
 	a.gitConflictPending = false
 	a.gitConflictMu.Unlock()
-	// Reload storage so the dashboard reflects the resolved state
-	if cfg2, err2 := a.config.Load(); err2 == nil {
-		a.storage = skill.NewStorage(cfg2.SkillsStorageDir)
-	}
+	a.reloadStateFromDisk()
 	a.hub.Publish(notify.Event{Type: notify.EventGitSyncCompleted})
 	return nil
+}
+
+func (a *App) backupRootDir(cfg config.AppConfig) string {
+	appDataDir := filepath.Clean(config.AppDataDir())
+	skillsDir := filepath.Clean(cfg.SkillsStorageDir)
+
+	// Prefer app data dir so cloud backup includes config/meta/skills.
+	if rel, err := filepath.Rel(appDataDir, skillsDir); err == nil &&
+		rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return appDataDir
+	}
+	// If skills dir is outside app data dir, use its parent as the git root.
+	return filepath.Dir(skillsDir)
 }
 
 func (a *App) gitProxyURL() string {
@@ -797,8 +852,7 @@ func (a *App) RemoveCustomTool(name string) error {
 // --- Backup ---
 
 func (a *App) BackupNow() error {
-	a.autoBackup()
-	return nil
+	return a.runBackup()
 }
 
 func (a *App) ListCloudFiles() ([]backup.RemoteFile, error) {
@@ -828,7 +882,27 @@ func (a *App) RestoreFromCloud() error {
 	if err := provider.Init(cfg.Cloud.Credentials); err != nil {
 		return err
 	}
-	return provider.Restore(a.ctx, cfg.Cloud.BucketName, cfg.Cloud.RemotePath, cfg.SkillsStorageDir)
+	restoreDir := a.backupRootDir(cfg)
+	isGit := cfg.Cloud.Provider == backup.GitProviderName
+	if isGit {
+		a.hub.Publish(notify.Event{Type: notify.EventGitSyncStarted})
+	}
+	if err := provider.Restore(a.ctx, cfg.Cloud.BucketName, cfg.Cloud.RemotePath, restoreDir); err != nil {
+		var conflictErr *backup.GitConflictError
+		if isGit && errors.As(err, &conflictErr) {
+			a.publishGitConflict(conflictErr)
+		}
+		if isGit {
+			a.hub.Publish(notify.Event{Type: notify.EventGitSyncFailed, Payload: err.Error()})
+		}
+		return err
+	}
+	a.reloadStateFromDisk()
+	if isGit {
+		a.clearGitConflictPending()
+		a.hub.Publish(notify.Event{Type: notify.EventGitSyncCompleted})
+	}
+	return nil
 }
 
 // ListCloudProviders returns all registered provider names and their required credential fields.

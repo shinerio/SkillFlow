@@ -40,10 +40,19 @@ func (a *AliyunProvider) Sync(_ context.Context, localDir, bucket, remotePath st
 		return err
 	}
 	return filepath.Walk(localDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() {
+		if err != nil {
 			return err
 		}
 		rel, _ := filepath.Rel(localDir, path)
+		if ShouldSkipBackupPath(rel) {
+			if info.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if info.IsDir() {
+			return nil
+		}
 		key := remotePath + strings.ReplaceAll(rel, string(filepath.Separator), "/")
 		if onProgress != nil {
 			onProgress(rel)
@@ -65,6 +74,9 @@ func (a *AliyunProvider) Restore(_ context.Context, bucket, remotePath, localDir
 		}
 		for _, obj := range result.Objects {
 			rel := strings.TrimPrefix(obj.Key, remotePath)
+			if ShouldSkipBackupPath(rel) {
+				continue
+			}
 			local := filepath.Join(localDir, filepath.FromSlash(rel))
 			if err := os.MkdirAll(filepath.Dir(local), 0755); err != nil {
 				return err
@@ -92,8 +104,12 @@ func (a *AliyunProvider) List(_ context.Context, bucket, remotePath string) ([]R
 	}
 	var files []RemoteFile
 	for _, obj := range result.Objects {
+		rel := strings.TrimPrefix(obj.Key, remotePath)
+		if ShouldSkipBackupPath(rel) {
+			continue
+		}
 		files = append(files, RemoteFile{
-			Path: strings.TrimPrefix(obj.Key, remotePath),
+			Path: rel,
 			Size: obj.Size,
 		})
 	}
