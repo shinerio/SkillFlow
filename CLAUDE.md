@@ -2,6 +2,22 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Documentation Sync Rule — MANDATORY
+
+**Any time a feature is added, changed, or removed, you MUST update the following files in the same commit:**
+
+| File | What to update |
+|------|---------------|
+| `feature.md` | Add / edit / remove the corresponding section(s) in English. Update the "Last updated" date at the bottom. |
+| `feature_zh.md` | Same changes in Chinese. Update the "最后更新" date at the bottom. |
+| `README.md` | Update the Features table row(s) if the high-level description changes. |
+| `README_zh.md` | Same in Chinese. |
+
+**Rules:**
+- A "feature change" includes: any new UI element (button, dialog, toggle, input), behavior change, removal of a control, new backend method callable from the frontend, and new event type.
+- Do **not** leave the docs stale. Never commit a feature change without the corresponding doc update in the same commit.
+- The feature files are the source of truth for UX details. README files only carry high-level summaries with links to the feature files.
+
 ## Commands
 
 ### Make targets (recommended)

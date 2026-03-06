@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { GetConfig, SaveConfig, ListCloudProviders, AddCustomTool, RemoveCustomTool } from '../../wailsjs/go/main/App'
-import { Plus, Trash2, Settings, Globe } from 'lucide-react'
+import { GetConfig, SaveConfig, ListCloudProviders, AddCustomTool, RemoveCustomTool, OpenFolderDialog } from '../../wailsjs/go/main/App'
+import { Plus, Trash2, Settings, Globe, FolderOpen } from 'lucide-react'
 import { ToolIcon } from '../config/toolIcons'
 
 type Tab = 'tools' | 'cloud' | 'general' | 'network'
@@ -90,6 +90,11 @@ export default function SettingsPage() {
     setCfg((prev: any) => ({ ...prev, proxy: { ...prev.proxy, URL: url } }))
   }
 
+  const pickDir = async (onPick: (path: string) => void) => {
+    const dir = await OpenFolderDialog()
+    if (dir) onPick(dir)
+  }
+
   const selectedProvider = providers.find((p: any) => p.name === cfg?.cloud?.provider)
   const proxyMode: ProxyMode = (cfg?.proxy?.Mode as ProxyMode) || 'none'
 
@@ -126,11 +131,17 @@ export default function SettingsPage() {
 
               <div className="mb-3">
                 <p className="text-xs text-gray-400 mb-1.5">推送路径（仅 1 个）</p>
-                <input
-                  value={t.pushDir ?? ''}
-                  onChange={e => updateTool(t.name, 'pushDir', e.target.value)}
-                  className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-1.5 text-sm font-mono outline-none focus:border-indigo-500"
-                />
+                <div className="flex gap-2">
+                  <input
+                    value={t.pushDir ?? ''}
+                    onChange={e => updateTool(t.name, 'pushDir', e.target.value)}
+                    className="flex-1 bg-gray-900 border border-gray-700 rounded-lg px-3 py-1.5 text-sm font-mono outline-none focus:border-indigo-500"
+                  />
+                  <button onClick={() => pickDir(dir => updateTool(t.name, 'pushDir', dir))}
+                    className="px-2.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-gray-300" title="选择目录">
+                    <FolderOpen size={14} />
+                  </button>
+                </div>
               </div>
 
               <div>
@@ -143,6 +154,10 @@ export default function SettingsPage() {
                         onChange={e => updateScanDir(t.name, idx, e.target.value)}
                         className="flex-1 bg-gray-900 border border-gray-700 rounded-lg px-3 py-1.5 text-sm font-mono outline-none focus:border-indigo-500"
                       />
+                      <button onClick={() => pickDir(d => updateScanDir(t.name, idx, d))}
+                        className="px-2.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-gray-300" title="选择目录">
+                        <FolderOpen size={14} />
+                      </button>
                       <button
                         onClick={() => removeScanDir(t.name, idx)}
                         className="px-2.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-gray-300"
@@ -160,6 +175,10 @@ export default function SettingsPage() {
                     placeholder="/path/to/scan"
                     className="flex-1 bg-gray-900 border border-gray-700 rounded-lg px-3 py-1.5 text-sm font-mono outline-none focus:border-indigo-500"
                   />
+                  <button onClick={() => pickDir(d => setNewScanDirs(prev => ({ ...prev, [t.name]: d })))}
+                    className="px-2.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-gray-300" title="选择目录">
+                    <FolderOpen size={14} />
+                  </button>
                   <button
                     onClick={() => addScanDir(t.name)}
                     className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm flex items-center gap-1"
@@ -188,6 +207,10 @@ export default function SettingsPage() {
             <div className="flex gap-2">
               <input value={newTool.pushDir} onChange={e => setNewTool(p => ({ ...p, pushDir: e.target.value }))}
                 placeholder="/path/to/push" className="flex-1 bg-gray-900 border border-gray-700 rounded-lg px-3 py-1.5 text-sm font-mono outline-none" />
+              <button onClick={() => pickDir(d => setNewTool(p => ({ ...p, pushDir: d })))}
+                className="px-2.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-gray-300" title="选择目录">
+                <FolderOpen size={14} />
+              </button>
               <button
                 onClick={async () => {
                   if (newTool.name && newTool.pushDir) {
@@ -256,8 +279,14 @@ export default function SettingsPage() {
         <div className="space-y-4">
           <div>
             <p className="text-sm text-gray-400 mb-2">本地 Skills 存储目录</p>
-            <input value={cfg.skillsStorageDir ?? ''} onChange={e => setCfg((p: any) => ({ ...p, skillsStorageDir: e.target.value }))}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm font-mono outline-none focus:border-indigo-500" />
+            <div className="flex gap-2">
+              <input value={cfg.skillsStorageDir ?? ''} onChange={e => setCfg((p: any) => ({ ...p, skillsStorageDir: e.target.value }))}
+                className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm font-mono outline-none focus:border-indigo-500" />
+              <button onClick={() => pickDir(d => setCfg((p: any) => ({ ...p, skillsStorageDir: d })))}
+                className="px-2.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-gray-300" title="选择目录">
+                <FolderOpen size={16} />
+              </button>
+            </div>
           </div>
           <div>
             <p className="text-sm text-gray-400 mb-2">从工具拉取时的默认分类</p>
