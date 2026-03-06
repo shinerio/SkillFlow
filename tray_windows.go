@@ -26,7 +26,8 @@ const (
 	wmLDouble = 0x0203
 	wmApp     = 0x8000
 
-	trayCallbackMessage = wmApp + 1
+	trayCallbackMessage  = wmApp + 1
+	trayShowWindowMsg    = wmApp + 2 // sent by a second instance to request window focus
 
 	nifMessage = 0x00000001
 	nifIcon    = 0x00000002
@@ -70,8 +71,6 @@ var (
 	procShellNotifyIconW    = shell32.NewProc("Shell_NotifyIconW")
 	procCreateMutexW        = kernel32.NewProc("CreateMutexW")
 	procFindWindowW         = user32.NewProc("FindWindowW")
-	procShowWindow          = user32.NewProc("ShowWindow")
-	procIsIconic            = user32.NewProc("IsIconic")
 	trayWndProcCallback     = syscall.NewCallback(trayWndProc)
 	windowsTrayStartOnce    sync.Once
 	windowsTrayStartErr     error
@@ -344,6 +343,11 @@ func trayWndProc(hwnd uintptr, message uint32, wParam, lParam uintptr) uintptr {
 				go app.quitApp()
 			})
 		}
+		return 0
+	case trayShowWindowMsg:
+		withWindowsTrayApp(func(app *App) {
+			go app.showMainWindow()
+		})
 		return 0
 	case wmClose:
 		procDestroyWindow.Call(hwnd)

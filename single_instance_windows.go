@@ -8,8 +8,6 @@ import (
 	"unsafe"
 )
 
-const swRestore = 9
-
 // ensureSingleInstance uses a named mutex to guarantee only one instance runs.
 // If another instance is already running, it brings that window to the foreground
 // and exits the current process.
@@ -21,15 +19,13 @@ func ensureSingleInstance() {
 		return
 	}
 	if err == syscall.ERROR_ALREADY_EXISTS {
-		// Another instance is running: find its window and bring it to front.
-		title, _ := syscall.UTF16PtrFromString("SkillFlow")
-		hwnd, _, _ := procFindWindowW.Call(0, uintptr(unsafe.Pointer(title)))
+		// Another instance is running: signal its tray window to show the main window.
+		// We find the tray window by its known class name so it works even when the
+		// main Wails window is hidden (not just minimized).
+		className, _ := syscall.UTF16PtrFromString(trayWindowClass)
+		hwnd, _, _ := procFindWindowW.Call(uintptr(unsafe.Pointer(className)), 0)
 		if hwnd != 0 {
-			iconic, _, _ := procIsIconic.Call(hwnd)
-			if iconic != 0 {
-				procShowWindow.Call(hwnd, swRestore)
-			}
-			procSetForegroundWindow.Call(hwnd)
+			procPostMessageW.Call(hwnd, trayShowWindowMsg, 0, 0)
 		}
 		os.Exit(0)
 	}
