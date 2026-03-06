@@ -259,6 +259,66 @@ func (a *App) OpenURL(url string) error {
 	return nil
 }
 
+// PushStarSkillsToTools copies starred skill directories directly to the push directory of each
+// specified tool, skipping skills that already exist. Returns a list of conflict descriptions.
+func (a *App) PushStarSkillsToTools(skillPaths []string, toolNames []string) ([]string, error) {
+	cfg, _ := a.config.Load()
+	var conflicts []string
+	for _, toolName := range toolNames {
+		for _, t := range cfg.Tools {
+			if t.Name != toolName {
+				continue
+			}
+			if t.PushDir == "" {
+				return nil, fmt.Errorf("工具 %s 未配置推送路径", toolName)
+			}
+			if err := os.MkdirAll(t.PushDir, 0755); err != nil {
+				return nil, err
+			}
+			adapter := getAdapter(t)
+			for _, skillPath := range skillPaths {
+				name := filepath.Base(skillPath)
+				dst := filepath.Join(t.PushDir, name)
+				if _, err := os.Stat(dst); err == nil {
+					conflicts = append(conflicts, fmt.Sprintf("%s → %s", name, toolName))
+					continue
+				}
+				sk := []*skill.Skill{{Name: name, Path: skillPath}}
+				if err := adapter.Push(a.ctx, sk, t.PushDir); err != nil {
+					return nil, err
+				}
+			}
+		}
+	}
+	return conflicts, nil
+}
+
+// PushStarSkillsToToolsForce copies starred skill directories to tool push directories,
+// overwriting any existing skills.
+func (a *App) PushStarSkillsToToolsForce(skillPaths []string, toolNames []string) error {
+	cfg, _ := a.config.Load()
+	for _, toolName := range toolNames {
+		for _, t := range cfg.Tools {
+			if t.Name != toolName {
+				continue
+			}
+			if t.PushDir == "" {
+				return fmt.Errorf("工具 %s 未配置推送路径", toolName)
+			}
+			var tempSkills []*skill.Skill
+			for _, skillPath := range skillPaths {
+				name := filepath.Base(skillPath)
+				_ = os.RemoveAll(filepath.Join(t.PushDir, name))
+				tempSkills = append(tempSkills, &skill.Skill{Name: name, Path: skillPath})
+			}
+			if err := getAdapter(t).Push(a.ctx, tempSkills, t.PushDir); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 // --- Install ---
 
 // ScanGitHub scans a remote git repo for valid skills, marking already-installed ones.

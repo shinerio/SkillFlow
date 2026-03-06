@@ -118,6 +118,14 @@ export function PullFromToolForce(arg1, arg2, arg3) {
   return window['go']['main']['App']['PullFromToolForce'](arg1, arg2, arg3);
 }
 
+export function PushStarSkillsToTools(arg1, arg2) {
+  return window['go']['main']['App']['PushStarSkillsToTools'](arg1, arg2);
+}
+
+export function PushStarSkillsToToolsForce(arg1, arg2) {
+  return window['go']['main']['App']['PushStarSkillsToToolsForce'](arg1, arg2);
+}
+
 export function PushToTools(arg1, arg2) {
   return window['go']['main']['App']['PushToTools'](arg1, arg2);
 }

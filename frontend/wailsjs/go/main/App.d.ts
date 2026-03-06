@@ -64,6 +64,10 @@ export function PullFromTool(arg1:string,arg2:Array<string>,arg3:string):Promise
 
 export function PullFromToolForce(arg1:string,arg2:Array<string>,arg3:string):Promise<void>;
 
+export function PushStarSkillsToTools(arg1:Array<string>,arg2:Array<string>):Promise<Array<string>>;
+
+export function PushStarSkillsToToolsForce(arg1:Array<string>,arg2:Array<string>):Promise<void>;
+
 export function PushToTools(arg1:Array<string>,arg2:Array<string>):Promise<Array<string>>;
 
 export function PushToToolsForce(arg1:Array<string>,arg2:Array<string>):Promise<void>;

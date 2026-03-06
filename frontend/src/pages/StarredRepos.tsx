@@ -5,11 +5,12 @@ import {
   UpdateStarredRepo, UpdateAllStarredRepos,
   ListAllStarSkills, ListRepoStarSkills,
   ImportStarSkills, ListCategories, OpenURL,
+  GetEnabledTools, PushStarSkillsToTools, PushStarSkillsToToolsForce,
 } from '../../wailsjs/go/main/App'
 import { EventsOn } from '../../wailsjs/runtime/runtime'
 import {
   Star, RefreshCw, Plus, Trash2, LayoutGrid, Folder,
-  ChevronLeft, CheckSquare, Download, AlertCircle, X, ExternalLink,
+  ChevronLeft, CheckSquare, Download, AlertCircle, X, ExternalLink, ArrowUpToLine,
 } from 'lucide-react'
 import SyncSkillCard from '../components/SyncSkillCard'
 
@@ -33,6 +34,12 @@ export default function StarredRepos() {
   const [importCategory, setImportCategory] = useState('')
   const [showImportDialog, setShowImportDialog] = useState(false)
   const [importing, setImporting] = useState(false)
+  const [tools, setTools] = useState<any[]>([])
+  const [showPushToolDialog, setShowPushToolDialog] = useState(false)
+  const [selectedTools, setSelectedTools] = useState<Set<string>>(new Set())
+  const [pushingToTools, setPushingToTools] = useState(false)
+  const [pushConflicts, setPushConflicts] = useState<string[]>([])
+  const [showPushConflictDialog, setShowPushConflictDialog] = useState(false)
 
   const loadRepos = async () => {
     const r = await ListStarredRepos()
@@ -56,6 +63,7 @@ export default function StarredRepos() {
       setCategories(c ?? [])
       if (c && c.length > 0) setImportCategory(c[0])
     })
+    GetEnabledTools().then(t => setTools(t ?? []))
     const off1 = EventsOn('star.sync.progress', () => loadRepos())
     const off2 = EventsOn('star.sync.done', () => { loadRepos(); loadAllSkills(); setSyncing(false) })
     return () => { off1?.(); off2?.() }
@@ -134,6 +142,47 @@ export default function StarredRepos() {
     } finally { setImporting(false) }
   }
 
+  const handlePushToTools = async () => {
+    setPushingToTools(true)
+    try {
+      const paths = [...selectedPaths]
+      const toolNames = [...selectedTools]
+      const conflicts = await PushStarSkillsToTools(paths, toolNames)
+      setShowPushToolDialog(false)
+      if (conflicts && conflicts.length > 0) {
+        setPushConflicts(conflicts)
+        setShowPushConflictDialog(true)
+      } else {
+        setSelectMode(false)
+        setSelectedPaths(new Set())
+      }
+    } catch (e: any) {
+      console.error('Push to tools failed:', e)
+    } finally {
+      setPushingToTools(false)
+    }
+  }
+
+  const handlePushToToolsForce = async () => {
+    try {
+      await PushStarSkillsToToolsForce([...selectedPaths], [...selectedTools])
+      setShowPushConflictDialog(false)
+      setSelectMode(false)
+      setSelectedPaths(new Set())
+      setPushConflicts([])
+    } catch (e: any) {
+      console.error('Force push failed:', e)
+    }
+  }
+
+  const toggleTool = (name: string) => {
+    setSelectedTools(prev => {
+      const next = new Set(prev)
+      next.has(name) ? next.delete(name) : next.add(name)
+      return next
+    })
+  }
+
   const skills = currentRepo ? repoSkills : allSkills
 
   return (
@@ -158,9 +207,13 @@ export default function StarredRepos() {
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-400 hover:text-white rounded-lg hover:bg-gray-800">
               <CheckSquare size={14} />{selectedPaths.size === skills.length ? '取消全选' : '全选'}
             </button>
+            <button onClick={() => { setSelectedTools(new Set()); setShowPushToolDialog(true) }} disabled={selectedPaths.size === 0}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-400 hover:text-white disabled:opacity-40 rounded-lg hover:bg-gray-800">
+              <ArrowUpToLine size={14} /> 推送到工具 {selectedPaths.size > 0 ? `(${selectedPaths.size})` : ''}
+            </button>
             <button onClick={() => setShowImportDialog(true)} disabled={selectedPaths.size === 0}
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 rounded-lg">
-              <Download size={14} /> 导入 {selectedPaths.size > 0 ? `(${selectedPaths.size})` : ''}
+              <Download size={14} /> 导入到我的Skills {selectedPaths.size > 0 ? `(${selectedPaths.size})` : ''}
             </button>
             <button onClick={() => { setSelectMode(false); setSelectedPaths(new Set()) }}
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-400 hover:text-white rounded-lg hover:bg-gray-800">取消</button>
@@ -240,7 +293,7 @@ export default function StarredRepos() {
         </div>
       )}
 
-      {/* Import category dialog */}
+      {/* Import to My Skills dialog */}
       {showImportDialog && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
           <div className="bg-gray-800 rounded-2xl p-6 w-[380px] border border-gray-700">
@@ -256,6 +309,67 @@ export default function StarredRepos() {
               </button>
               <button onClick={() => setShowImportDialog(false)}
                 className="flex-1 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm">取消</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Push to tool dialog */}
+      {showPushToolDialog && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-2xl p-6 w-[420px] border border-gray-700">
+            <div className="flex justify-between items-center mb-1">
+              <h3 className="font-semibold flex items-center gap-2"><ArrowUpToLine size={16} /> 推送到工具</h3>
+              <button onClick={() => setShowPushToolDialog(false)}><X size={16} className="text-gray-400" /></button>
+            </div>
+            <p className="text-xs text-gray-500 mb-4">将 Skill 直接复制到工具目录，无需导入到「我的Skills」</p>
+            {tools.length === 0 ? (
+              <p className="text-sm text-gray-500 py-4 text-center">没有可用的工具，请在设置中启用工具</p>
+            ) : (
+              <div className="space-y-1 mb-4 max-h-52 overflow-y-auto">
+                {tools.map((t: any) => (
+                  <label key={t.Name} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-gray-700 cursor-pointer">
+                    <input type="checkbox" className="accent-indigo-500 shrink-0"
+                      checked={selectedTools.has(t.Name)}
+                      onChange={() => toggleTool(t.Name)} />
+                    <span className="text-sm font-medium">{t.Name}</span>
+                    {t.PushDir && (
+                      <span className="text-xs text-gray-500 truncate flex-1 text-right" title={t.PushDir}>{t.PushDir}</span>
+                    )}
+                  </label>
+                ))}
+              </div>
+            )}
+            <div className="flex gap-3">
+              <button onClick={handlePushToTools} disabled={pushingToTools || selectedTools.size === 0 || tools.length === 0}
+                className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm disabled:opacity-50">
+                {pushingToTools ? '推送中...' : `推送到 ${selectedTools.size} 个工具`}
+              </button>
+              <button onClick={() => setShowPushToolDialog(false)}
+                className="flex-1 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm">取消</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Push conflict dialog */}
+      {showPushConflictDialog && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-2xl p-6 w-[420px] border border-gray-700">
+            <h3 className="font-semibold mb-2 flex items-center gap-2 text-amber-400">
+              <AlertCircle size={16} /> 发现冲突
+            </h3>
+            <p className="text-sm text-gray-400 mb-3">以下 Skill 在目标工具目录中已存在：</p>
+            <ul className="space-y-1 mb-4 max-h-40 overflow-y-auto">
+              {pushConflicts.map(c => (
+                <li key={c} className="text-sm text-gray-300 bg-gray-900 px-3 py-1.5 rounded">{c}</li>
+              ))}
+            </ul>
+            <div className="flex gap-3">
+              <button onClick={handlePushToToolsForce}
+                className="flex-1 py-2 bg-amber-600 hover:bg-amber-500 rounded-lg text-sm">覆盖全部</button>
+              <button onClick={() => { setShowPushConflictDialog(false); setSelectMode(false); setSelectedPaths(new Set()); setPushConflicts([]) }}
+                className="flex-1 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm">跳过冲突</button>
             </div>
           </div>
         </div>
