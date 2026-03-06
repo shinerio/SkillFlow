@@ -48,6 +48,14 @@ The root directory must contain **no Go source files**. All code lives in clearl
 - The `//go:embed all:frontend/dist` directive in `main.go` works because both are in `cmd/skillflow/`.
 - `go test ./core/...` is run from the module root (where `go.mod` is).
 - Import paths use the full module path: `github.com/shinerio/skillflow/core/...` (no change from before).
+- **`cmd/skillflow/*.go` files must remain flat (no subdirectories).** Go requires all files in a package to be in the same directory; since Wails binds to `package main`, splitting into subdirectories is not possible. Use file-name prefixes as the organization convention:
+  - `app.go`, `app_log.go`, `app_update.go` — App struct and method groups
+  - `events.go` — event type definitions and emitters
+  - `adapters.go`, `providers.go` — registration of `core/` implementations
+  - `tray_darwin.go`, `tray_windows.go`, `tray_stub.go` — platform-specific system tray
+  - `single_instance_other.go`, `single_instance_windows.go` — platform-specific single-instance lock
+  - `version.go` — build-time version constant; `main.go` — entry point
+- When a concern grows large enough to warrant its own package, extract it to `core/<name>/` (reusable, no Wails dependency) rather than creating a subdirectory inside `cmd/skillflow/`.
 
 ## Documentation Organization Rule — MANDATORY
 
