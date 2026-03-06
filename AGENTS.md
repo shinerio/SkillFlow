@@ -2,6 +2,53 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Directory Organization Rule — MANDATORY
+
+The root directory must contain **no Go source files**. All code lives in clearly scoped subdirectories:
+
+```
+/ (project root — no .go files here)
+  go.mod, go.sum         ← module definition (must stay at root)
+  Makefile               ← build orchestration
+  README.md, README_zh.md
+  LICENSE, .gitignore, .github/
+  docs/                  ← all documentation
+  core/                  ← reusable internal packages (no package main)
+    skill/               ← Skill model, Storage, Validator
+    config/              ← AppConfig model, Service
+    notify/              ← event Hub
+    install/             ← Installer interface + implementations
+    sync/                ← ToolAdapter interface + FilesystemAdapter
+    backup/              ← CloudProvider interface + implementations
+    update/              ← update Checker
+    registry/            ← global adapter/provider maps
+    git/                 ← git operations, starred repo storage
+  cmd/
+    skillflow/           ← package main (Wails desktop app)
+      main.go            ← entry point + //go:embed all:frontend/dist
+      app.go, app_update.go, app_log.go
+      adapters.go, providers.go, events.go, version.go
+      tray_darwin.go, tray_windows.go, tray_stub.go
+      single_instance_other.go, single_instance_windows.go
+      wails.json         ← Wails project config (must be co-located with frontend/)
+      build/             ← Wails build assets + binary output
+        darwin/          ← macOS resources (iconfile.icns, Info.plist)
+        windows/         ← Windows resources (icon.ico, installer/)
+        appicon.png
+        bin/             ← compiled output (git-ignored)
+      frontend/          ← React/TypeScript app
+        src/             ← source code
+        dist/            ← built output (git-ignored, embedded by Go)
+        package.json, vite.config.ts, tsconfig.json
+```
+
+**Rules:**
+- Never add `.go` files to the project root. New application code goes in `cmd/skillflow/`; new reusable packages go in `core/<name>/`.
+- `wails.json` must be co-located with `frontend/` inside `cmd/skillflow/`. All `wails dev/build/generate` commands must be run from `cmd/skillflow/` (the Makefile handles this).
+- The `//go:embed all:frontend/dist` directive in `main.go` works because both are in `cmd/skillflow/`.
+- `go test ./core/...` is run from the module root (where `go.mod` is).
+- Import paths use the full module path: `github.com/shinerio/skillflow/core/...` (no change from before).
+
 ## Documentation Organization Rule — MANDATORY
 
 **Root directory must contain only `README.md` and `README_zh.md` as documentation files.**
@@ -107,19 +154,19 @@ make help             # List all targets
 
 ```bash
 # Run the app in dev mode (hot-reload for both Go and frontend)
-~/go/bin/wails dev
+cd cmd/skillflow && ~/go/bin/wails dev
 
 # Build production binary
-~/go/bin/wails build
+cd cmd/skillflow && ~/go/bin/wails build
 
 # Regenerate TypeScript bindings after changing App struct methods
-~/go/bin/wails generate module
+cd cmd/skillflow && ~/go/bin/wails generate module
 ```
 
 ### Go (backend)
 
 ```bash
-# Run all tests
+# Run all tests (from project root)
 go test ./core/...
 
 # Run tests for a single package
@@ -137,10 +184,10 @@ go mod tidy
 ### Frontend
 
 ```bash
-cd frontend
+cd cmd/skillflow/frontend
 npm install        # install dependencies
 npm run dev        # Vite dev server (used by wails dev)
-npm run build      # production build (output: frontend/dist/)
+npm run build      # production build (output: cmd/skillflow/frontend/dist/)
 ```
 
 ## Architecture
@@ -152,25 +199,25 @@ For comprehensive architecture docs, data models, and extension guides, see **[d
 ### Key Design Decisions
 
 - **`core/sync` import alias** — always import as `toolsync "github.com/shinerio/skillflow/core/sync"` (conflicts with stdlib `sync`)
-- **`package main` files at root** — `app.go`, `adapters.go`, `providers.go`, `events.go` are all `package main` alongside `main.go` because Wails requires the app struct in the same package as `main`
-- **Wails bindings are auto-generated** — after adding/removing exported methods on `App`, run `make generate` to update `frontend/wailsjs/go/main/App.{js,d.ts}`; also manually add entries to `App.js` and `App.d.ts` if Wails CLI is unavailable
+- **`package main` files in `cmd/skillflow/`** — `app.go`, `adapters.go`, `providers.go`, `events.go` are all `package main` alongside `main.go` in `cmd/skillflow/` because Wails requires the app struct in the same package as `main`
+- **Wails bindings are auto-generated** — after adding/removing exported methods on `App`, run `make generate` to update `cmd/skillflow/frontend/wailsjs/go/main/App.{js,d.ts}`; also manually add entries to `App.js` and `App.d.ts` if Wails CLI is unavailable
 - **UUID-based skills** — skills are identified by UUID, metadata stored in JSON sidecars under `meta/`
 - **GitHub as source of truth** — update checker polls GitHub Commits API to compare SHA values
 - **`SkippedUpdateVersion` in AppConfig** — persists which app version the user chose to skip on startup; `checkAppUpdateOnStartup` respects this; `CheckAppUpdateAndNotify` (manual check) always notifies regardless
 
 ### Adding a New App Method (Frontend-callable)
 
-1. Add exported method to `App` struct in `app.go` (or a new `package main` file at root)
-2. Run `make generate` (or `wails generate module`) to update `frontend/wailsjs/go/main/App.{js,d.ts}`
+1. Add exported method to `App` struct in `cmd/skillflow/app.go` (or a new `package main` file in `cmd/skillflow/`)
+2. Run `make generate` (or `cd cmd/skillflow && wails generate module`) to update `cmd/skillflow/frontend/wailsjs/go/main/App.{js,d.ts}`
 3. Import and call from frontend: `import { MyNewMethod } from '../../wailsjs/go/main/App'`
 
 ### Adding a New Cloud Provider
 
 1. Create `core/backup/<name>.go` implementing `backup.CloudProvider`
-2. Register in `providers.go`: `registry.RegisterCloudProvider(NewXxxProvider())`
+2. Register in `cmd/skillflow/providers.go`: `registry.RegisterCloudProvider(NewXxxProvider())`
 3. Settings page auto-renders credential fields from `RequiredCredentials()`
 
 ### Adding a New Tool Adapter
 
-Standard flat-directory tools: add to `registerAdapters()` in `adapters.go`.
+Standard flat-directory tools: add to `registerAdapters()` in `cmd/skillflow/adapters.go`.
 Custom behavior: implement `toolsync.ToolAdapter` and register via `registry.RegisterAdapter()`.
