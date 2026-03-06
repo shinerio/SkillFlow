@@ -39,9 +39,10 @@ A fixed left sidebar (w-56) provides navigation throughout the app.
 
 - Active route: highlighted with indigo background.
 - Inactive routes: gray text with hover highlight.
+- Bottom-left **Feedback** button: opens the GitHub "new issue" page in the default browser.
 - Window close button behavior: clicking the top-left close button hides the main window and keeps the app running in background.
 - macOS tray behavior: app remains in the menu-bar status area (`SF` item); use native single-click to open a menu with `Show Window`, `Hide Window`, and `Quit SkillFlow`.
-- Windows tray behavior: app remains in the system notification area; click the tray icon to open a menu with `Show SkillFlow` and `Exit`.
+- Windows tray behavior: app remains in the system notification area with the app's own icon; click the tray icon to open a menu with `Show SkillFlow` and `Exit`.
 
 ---
 
@@ -53,11 +54,11 @@ Central library for managing your skill collection.
 
 | Control | Action |
 |---------|--------|
-| **Search input** | Real-time case-insensitive filter by skill name |
-| **Check Updates** (RefreshCw) | Calls backend `CheckUpdates()`; marks updated skills with a red dot |
+| **Search input** | Wide search field for real-time case-insensitive filter by skill name; the toolbar wraps on narrower window widths so controls stay visible |
+| **Update** (RefreshCw) | Calls backend `CheckUpdates()`; marks updated skills with a red dot |
 | **Batch Delete** (CheckSquare) | Toggles multi-select mode |
-| **Manual Import** (FolderOpen) | Opens native folder-picker → `ImportLocal(dir)` |
-| **Install from Remote** (Github) | Opens the GitHub Install dialog |
+| **Import** (FolderOpen) | Opens native folder-picker → `ImportLocal(dir)` |
+| **Remote Install** (Github) | Opens the GitHub Install dialog |
 
 ### Select Mode (activated by "Batch Delete")
 
@@ -72,6 +73,7 @@ Central library for managing your skill collection.
 - Lists all categories; clicking one filters the skill grid.
 - **"All" button** — shows every skill regardless of category.
 - **Drag-and-drop target** — dragging a skill card onto a category moves it there.
+- **Drop highlight** — the target category is highlighted more prominently while dragging a skill card over it.
 - **Right-click context menu** on each category:
   - **Rename** — shows inline text input; confirm with Enter, cancel with Escape; calls `RenameCategory()`. (Not available for `Default`.)
   - **Delete** — calls `DeleteCategory()`; skills are moved to the default category. (Not available for `Default`.)
@@ -81,7 +83,8 @@ Central library for managing your skill collection.
 
 - Grid layout: 3 columns, 4 on wide screens.
 - **Empty state** — "No Skills found" message with usage hint.
-- **Drag-and-drop** — drag a skill card to a category in the sidebar to move it; drag a folder from the OS file manager onto the window to import it directly.
+- **Right-click skill menu** — includes move-to-category actions for every category other than the current one, plus delete and update where applicable.
+- **Drag-and-drop** — drag a skill card to a category in the sidebar to move it; when drag starts, a smaller floating card follows the cursor; once a sidebar category is targeted, the original card collapses into a thin line until drag ends. Dragging a folder from the OS file manager onto the window imports it directly.
 - **Window-level drag overlay** — semi-transparent indigo overlay with "Release to import Skill" message activates when a file is dragged over the window.
 - **Hover tooltip** — appears after 300 ms hovering over a card (see [Skill Tooltip](#9-skill-tooltip)).
 
@@ -91,6 +94,12 @@ Central library for managing your skill collection.
 
 Copies skills from your library to external tool directories.
 
+### Layout
+
+- Uses a two-column layout similar to My Skills.
+- Left sidebar shows category filters: **All** plus every existing category.
+- Right side shows the tool selector, push mode controls, and a skill-card grid for the current category scope.
+
 ### Tool Selection
 
 - One toggle button per enabled tool (icon + name).
@@ -98,13 +107,12 @@ Copies skills from your library to external tool directories.
 
 ### Sync Scope
 
-Three mutually exclusive modes:
+Two push behaviors based on the current left-sidebar category filter:
 
 | Mode | Behavior |
 |------|----------|
-| **All Skills** | Pushes every skill in the library |
-| **By Category** | Dropdown appears to pick a category; pushes only those skills |
-| **Manual** | Skill grid appears; select individual skills; select-all toggle available |
+| **Push All / Push Current Category** | If the sidebar is on **All**, pushes the whole library; if a category is selected, pushes only that category |
+| **Manual** | Uses the current sidebar filter as the candidate list, shows selection checkboxes on cards, and allows select-all for the visible list |
 
 ### Missing Directory Check
 
@@ -270,8 +278,10 @@ Mirror your skill library to cloud storage. Two backend types are supported: **O
 
 - Object storage: file path (monospace) + size in KB.
 - Git: files tracked by `git ls-files`, each showing relative path + size.
+- Object storage listings are paginated internally, so the UI shows the complete remote file set instead of only the first page.
 - Scrollable, max-height container.
 - **Unified backup scope (all providers)** — backup root is the app data root (`skills/`, `meta/`, `config.json`, etc.); `cache/` and `.git/` are excluded.
+- **Git backup compatibility** — when Git backup uses a parent directory as the working tree, SkillFlow automatically moves any legacy nested `skills/.git` metadata aside so actual skill files remain trackable.
 
 ### Auto-Backup
 
@@ -540,4 +550,4 @@ The startup check is skipped when `Version == "dev"` (local development).
 
 ---
 
-*Last updated: 2026-03-06*
+*Last updated: 2026-03-07*

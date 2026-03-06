@@ -10,6 +10,9 @@ interface Props {
   onDelete: () => void
   onUpdate?: () => void
   onMoveCategory: (category: string) => void
+  dragging?: boolean
+  dropTargetActive?: boolean
+  onDragStateChange?: (dragging: boolean) => void
   selectMode?: boolean
   selected?: boolean
   onToggleSelect?: () => void
@@ -19,12 +22,39 @@ interface Props {
 
 export default function SkillCard({
   skill, categories, onDelete, onUpdate, onMoveCategory,
+  dragging = false, dropTargetActive = false, onDragStateChange,
   selectMode, selected, onToggleSelect,
   onHoverStart, onHoverEnd,
 }: Props) {
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
   const [copied, setCopied] = useState(false)
   const cardRef = useRef<HTMLDivElement>(null)
+  const dragGhostRef = useRef<HTMLDivElement | null>(null)
+
+  const setCardDragImage = (e: React.DragEvent) => {
+    if (!cardRef.current) return
+    const clone = cardRef.current.cloneNode(true) as HTMLDivElement
+    const rect = cardRef.current.getBoundingClientRect()
+    clone.style.width = `${Math.max(rect.width * 0.82, 180)}px`
+    clone.style.transform = 'scale(0.82)'
+    clone.style.transformOrigin = 'top left'
+    clone.style.opacity = '0.96'
+    clone.style.pointerEvents = 'none'
+    clone.style.position = 'fixed'
+    clone.style.top = '-1000px'
+    clone.style.left = '-1000px'
+    clone.style.zIndex = '9999'
+    document.body.appendChild(clone)
+    dragGhostRef.current = clone
+    e.dataTransfer.setDragImage(clone, 24, 18)
+  }
+
+  const cleanupDragGhost = () => {
+    if (dragGhostRef.current?.parentNode) {
+      dragGhostRef.current.parentNode.removeChild(dragGhostRef.current)
+    }
+    dragGhostRef.current = null
+  }
 
   const handleContextMenu = (e: React.MouseEvent) => {
     if (selectMode) return
@@ -75,19 +105,37 @@ export default function SkillCard({
       <div
         ref={cardRef}
         draggable={!selectMode}
-        onDragStart={e => !selectMode && e.dataTransfer.setData('skillId', skill.id)}
+        onDragStart={e => {
+          if (selectMode) return
+          e.dataTransfer.setData('text/plain', skill.id)
+          e.dataTransfer.setData('application/x-skillflow-skill-id', skill.id)
+          e.dataTransfer.effectAllowed = 'move'
+          setCardDragImage(e)
+          onDragStateChange?.(true)
+        }}
+        onDragEnd={() => {
+          cleanupDragGhost()
+          onDragStateChange?.(false)
+        }}
         onContextMenu={handleContextMenu}
         onClick={handleClick}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
-        className={`relative bg-gray-800 border rounded-xl p-4 transition-colors group ${
+        className={`relative border rounded-xl transition-all duration-150 group ${
           selectMode ? 'cursor-pointer' : 'cursor-grab'
         } ${
+          dragging && dropTargetActive ? 'bg-transparent border-transparent min-h-[88px]' :
+          dragging ? 'bg-gray-800/50 border-indigo-400/50 p-4 scale-[0.96] opacity-55' :
           selected
-            ? 'border-indigo-500 bg-indigo-900/20'
-            : 'border-gray-700 hover:border-indigo-500'
+            ? 'bg-gray-800 border-indigo-500 bg-indigo-900/20 p-4'
+            : 'bg-gray-800 border-gray-700 hover:border-indigo-500 p-4'
         }`}
       >
+        {dragging && dropTargetActive && (
+          <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 h-[2px] rounded-full bg-indigo-400 shadow-[0_0_0_1px_rgba(99,102,241,0.3)]" />
+        )}
+
+        <div className={`${dragging && dropTargetActive ? 'opacity-0 pointer-events-none' : 'opacity-100'} transition-opacity`}>
         {selectMode && (
           <div className="absolute top-2 left-2 z-10">
             <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
@@ -144,6 +192,7 @@ export default function SkillCard({
             <button onClick={e => { e.stopPropagation(); onDelete() }} className="text-xs text-red-400 hover:text-red-300 ml-auto">删除</button>
           </div>
         )}
+        </div>
       </div>
       {menu && (
         <ContextMenu x={menu.x} y={menu.y} items={menuItems} onClose={() => setMenu(null)} />

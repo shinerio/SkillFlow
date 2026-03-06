@@ -103,20 +103,30 @@ func (t *TencentProvider) Restore(ctx context.Context, bucket, remotePath, local
 }
 
 func (t *TencentProvider) List(ctx context.Context, bucket, remotePath string) ([]RemoteFile, error) {
-	result, _, err := t.client.Bucket.Get(ctx, &cos.BucketGetOptions{Prefix: remotePath})
-	if err != nil {
-		return nil, err
-	}
 	var files []RemoteFile
-	for _, obj := range result.Contents {
-		rel := strings.TrimPrefix(obj.Key, remotePath)
-		if ShouldSkipBackupPath(rel) {
-			continue
-		}
-		files = append(files, RemoteFile{
-			Path: rel,
-			Size: obj.Size,
+	var marker string
+	for {
+		result, _, err := t.client.Bucket.Get(ctx, &cos.BucketGetOptions{
+			Prefix: remotePath,
+			Marker: marker,
 		})
+		if err != nil {
+			return nil, err
+		}
+		for _, obj := range result.Contents {
+			rel := strings.TrimPrefix(obj.Key, remotePath)
+			if ShouldSkipBackupPath(rel) {
+				continue
+			}
+			files = append(files, RemoteFile{
+				Path: rel,
+				Size: obj.Size,
+			})
+		}
+		if !result.IsTruncated {
+			break
+		}
+		marker = result.NextMarker
 	}
 	return files, nil
 }

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { BrowserRouter, Route, Routes, NavLink } from 'react-router-dom'
-import { Package, ArrowUpFromLine, ArrowDownToLine, Cloud, Settings, Star, X, Download, RefreshCw, AlertTriangle, GitMerge } from 'lucide-react'
+import { Package, ArrowUpFromLine, ArrowDownToLine, Cloud, Settings, Star, X, Download, RefreshCw, AlertTriangle, GitMerge, MessageSquareWarning } from 'lucide-react'
 import Dashboard from './pages/Dashboard'
 import SyncPush from './pages/SyncPush'
 import SyncPull from './pages/SyncPull'
@@ -8,7 +8,7 @@ import Backup from './pages/Backup'
 import SettingsPage from './pages/Settings'
 import StarredRepos from './pages/StarredRepos'
 import { EventsOn } from '../wailsjs/runtime/runtime'
-import { DownloadAppUpdate, ApplyAppUpdate, GetGitConflictPending, ResolveGitConflict } from '../wailsjs/go/main/App'
+import { DownloadAppUpdate, ApplyAppUpdate, GetGitConflictPending, ResolveGitConflict, OpenURL } from '../wailsjs/go/main/App'
 import { main } from '../wailsjs/go/models'
 
 type BannerState = 'idle' | 'available' | 'downloading' | 'ready_to_restart' | 'download_failed'
@@ -17,6 +17,8 @@ type GitConflictInfo = {
   message: string
   files: string[]
 }
+
+const feedbackIssueURL = 'https://github.com/shinerio/skillflow/issues/new/choose'
 
 function parseConflictPayload(data: string): GitConflictInfo {
   try {
@@ -164,8 +166,17 @@ export default function App() {
             <NavItem to="/sync/pull" icon={<ArrowDownToLine size={16} />} label="从工具拉取" />
             <NavItem to="/starred" icon={<Star size={16} />} label="仓库收藏" end={false} />
             <div className="flex-1" />
-            <NavItem to="/backup" icon={<Cloud size={16} />} label="云备份" />
-            <NavItem to="/settings" icon={<Settings size={16} />} label="设置" />
+            <div className="flex flex-col gap-1">
+              <NavItem to="/backup" icon={<Cloud size={16} />} label="云备份" />
+              <NavItem to="/settings" icon={<Settings size={16} />} label="设置" />
+              <button
+                onClick={() => OpenURL(feedbackIssueURL)}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-400 hover:bg-gray-800 hover:text-white transition-colors"
+              >
+                <MessageSquareWarning size={16} />
+                意见反馈
+              </button>
+            </div>
           </aside>
           <main className="flex-1 overflow-auto">
             <Routes>

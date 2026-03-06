@@ -151,8 +151,14 @@ func (a *App) runBackup() error {
 	if err := provider.Init(cfg.Cloud.Credentials); err != nil {
 		return err
 	}
-	backupDir := a.backupRootDir(cfg)
 	isGit := cfg.Cloud.Provider == backup.GitProviderName
+	backupDir := a.backupRootDir(cfg)
+	if isGit {
+		backupDir, err = a.prepareGitBackupRoot(cfg)
+		if err != nil {
+			return err
+		}
+	}
 	if isGit {
 		a.hub.Publish(notify.Event{Type: notify.EventGitSyncStarted})
 	}
@@ -229,7 +235,12 @@ func (a *App) gitPullOnStartup() {
 		return
 	}
 	gitP := p.(*backup.GitProvider)
-	backupDir := a.backupRootDir(cfg)
+	backupDir, prepErr := a.prepareGitBackupRoot(cfg)
+	if prepErr != nil {
+		a.logErrorf("startup git pull failed: prepare git backup root failed: %v", prepErr)
+		a.hub.Publish(notify.Event{Type: notify.EventGitSyncFailed, Payload: prepErr.Error()})
+		return
+	}
 	a.hub.Publish(notify.Event{Type: notify.EventGitSyncStarted})
 	if err := gitP.Restore(a.ctx, "", "", backupDir); err != nil {
 		a.logErrorf("startup git pull failed: %v", err)
@@ -325,6 +336,19 @@ func (a *App) backupRootDir(cfg config.AppConfig) string {
 	}
 	// If skills dir is outside app data dir, use its parent as the git root.
 	return filepath.Dir(skillsDir)
+}
+
+func (a *App) prepareGitBackupRoot(cfg config.AppConfig) (string, error) {
+	backupDir := a.backupRootDir(cfg)
+	migratedTo, migrated, err := backup.MigrateLegacyNestedGitDir(cfg.SkillsStorageDir, backupDir)
+	if err != nil {
+		a.logErrorf("git backup root preparation failed: skillsDir=%s, backupDir=%s, err=%v", cfg.SkillsStorageDir, backupDir, err)
+		return "", err
+	}
+	if migrated {
+		a.logInfof("git backup root preparation completed: moved legacy nested git dir from skills storage to %s", migratedTo)
+	}
+	return backupDir, nil
 }
 
 func (a *App) gitProxyURL() string {
@@ -900,16 +924,27 @@ func (a *App) BackupNow() error {
 func (a *App) ListCloudFiles() ([]backup.RemoteFile, error) {
 	cfg, err := a.config.Load()
 	if err != nil {
+		a.logErrorf("list cloud files failed: load config failed: %v", err)
 		return nil, err
 	}
+	a.logInfof("list cloud files started (provider=%s, remotePath=%s)", cfg.Cloud.Provider, cfg.Cloud.RemotePath)
 	provider, ok := registry.GetCloudProvider(cfg.Cloud.Provider)
 	if !ok {
-		return nil, fmt.Errorf("provider not found: %s", cfg.Cloud.Provider)
-	}
-	if err := provider.Init(cfg.Cloud.Credentials); err != nil {
+		err := fmt.Errorf("provider not found: %s", cfg.Cloud.Provider)
+		a.logErrorf("list cloud files failed: %v", err)
 		return nil, err
 	}
-	return provider.List(a.ctx, cfg.Cloud.BucketName, cfg.Cloud.RemotePath)
+	if err := provider.Init(cfg.Cloud.Credentials); err != nil {
+		a.logErrorf("list cloud files failed: init provider %s failed: %v", cfg.Cloud.Provider, err)
+		return nil, err
+	}
+	files, err := provider.List(a.ctx, cfg.Cloud.BucketName, cfg.Cloud.RemotePath)
+	if err != nil {
+		a.logErrorf("list cloud files failed: provider=%s, remotePath=%s, err=%v", cfg.Cloud.Provider, cfg.Cloud.RemotePath, err)
+		return nil, err
+	}
+	a.logInfof("list cloud files completed (provider=%s, remotePath=%s, count=%d)", cfg.Cloud.Provider, cfg.Cloud.RemotePath, len(files))
+	return files, nil
 }
 
 func (a *App) RestoreFromCloud() error {
@@ -926,8 +961,15 @@ func (a *App) RestoreFromCloud() error {
 	if err := provider.Init(cfg.Cloud.Credentials); err != nil {
 		return err
 	}
-	restoreDir := a.backupRootDir(cfg)
 	isGit := cfg.Cloud.Provider == backup.GitProviderName
+	restoreDir := a.backupRootDir(cfg)
+	if isGit {
+		restoreDir, err = a.prepareGitBackupRoot(cfg)
+		if err != nil {
+			a.logErrorf("restore from cloud failed: prepare git backup root failed: %v", err)
+			return err
+		}
+	}
 	if isGit {
 		a.hub.Publish(notify.Event{Type: notify.EventGitSyncStarted})
 	}

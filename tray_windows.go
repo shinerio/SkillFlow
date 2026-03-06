@@ -4,6 +4,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	goruntime "runtime"
 	"sync"
 	"syscall"
@@ -26,8 +27,8 @@ const (
 	wmLDouble = 0x0203
 	wmApp     = 0x8000
 
-	trayCallbackMessage  = wmApp + 1
-	trayShowWindowMsg    = wmApp + 2 // sent by a second instance to request window focus
+	trayCallbackMessage = wmApp + 1
+	trayShowWindowMsg   = wmApp + 2 // sent by a second instance to request window focus
 
 	nifMessage = 0x00000001
 	nifIcon    = 0x00000002
@@ -57,6 +58,7 @@ var (
 	procDestroyWindow       = user32.NewProc("DestroyWindow")
 	procLoadIconW           = user32.NewProc("LoadIconW")
 	procLoadCursorW         = user32.NewProc("LoadCursorW")
+	procDestroyIcon         = user32.NewProc("DestroyIcon")
 	procGetMessageW         = user32.NewProc("GetMessageW")
 	procTranslateMessage    = user32.NewProc("TranslateMessage")
 	procDispatchMessageW    = user32.NewProc("DispatchMessageW")
@@ -69,6 +71,7 @@ var (
 	procTrackPopupMenu      = user32.NewProc("TrackPopupMenu")
 	procGetModuleHandleW    = kernel32.NewProc("GetModuleHandleW")
 	procShellNotifyIconW    = shell32.NewProc("Shell_NotifyIconW")
+	procExtractIconExW      = shell32.NewProc("ExtractIconExW")
 	procCreateMutexW        = kernel32.NewProc("CreateMutexW")
 	procFindWindowW         = user32.NewProc("FindWindowW")
 	trayWndProcCallback     = syscall.NewCallback(trayWndProc)
@@ -80,6 +83,8 @@ var (
 		hwnd uintptr
 		menu uintptr
 		nid  notifyIconData
+		icon uintptr
+		own  bool
 	}
 )
 
@@ -171,7 +176,7 @@ func trayLoop(started chan<- error) {
 		CbSize:        uint32(unsafe.Sizeof(wndClassEx{})),
 		LpfnWndProc:   trayWndProcCallback,
 		HInstance:     hInstance,
-		HIcon:         loadIcon(0, idiApplication),
+		HIcon:         trayIconHandle(),
 		HCursor:       loadCursor(0, idcArrow),
 		LpszClassName: className,
 	}
@@ -223,6 +228,7 @@ func trayLoop(started chan<- error) {
 	windowsTrayState.hwnd = 0
 	windowsTrayState.menu = 0
 	windowsTrayState.nid = notifyIconData{}
+	destroyTrayIconLocked()
 	windowsTrayState.mu.Unlock()
 }
 
@@ -233,7 +239,7 @@ func addTrayIcon(hwnd uintptr) error {
 		UID:              trayIconID,
 		UFlags:           nifMessage | nifIcon | nifTip,
 		UCallbackMessage: trayCallbackMessage,
-		HIcon:            loadIcon(0, idiApplication),
+		HIcon:            trayIconHandle(),
 	}
 	copy(nid.SzTip[:], syscall.StringToUTF16("SkillFlow"))
 
@@ -265,6 +271,63 @@ func currentModuleHandle() uintptr {
 func loadIcon(instance uintptr, iconID uintptr) uintptr {
 	h, _, _ := procLoadIconW.Call(instance, iconID)
 	return h
+}
+
+func trayIconHandle() uintptr {
+	windowsTrayState.mu.RLock()
+	icon := windowsTrayState.icon
+	windowsTrayState.mu.RUnlock()
+	if icon != 0 {
+		return icon
+	}
+
+	var loaded uintptr
+	var own bool
+	if exe, err := os.Executable(); err == nil {
+		if icon := extractExecutableIcon(exe); icon != 0 {
+			loaded = icon
+			own = true
+		}
+	}
+	if loaded == 0 {
+		loaded = loadIcon(0, idiApplication)
+	}
+
+	windowsTrayState.mu.Lock()
+	defer windowsTrayState.mu.Unlock()
+	if windowsTrayState.icon != 0 {
+		if own {
+			procDestroyIcon.Call(loaded)
+		}
+		return windowsTrayState.icon
+	}
+	windowsTrayState.icon = loaded
+	windowsTrayState.own = own
+	return windowsTrayState.icon
+}
+
+func extractExecutableIcon(exe string) uintptr {
+	path, err := syscall.UTF16PtrFromString(exe)
+	if err != nil {
+		return 0
+	}
+	var small uintptr
+	procExtractIconExW.Call(
+		uintptr(unsafe.Pointer(path)),
+		0,
+		0,
+		uintptr(unsafe.Pointer(&small)),
+		1,
+	)
+	return small
+}
+
+func destroyTrayIconLocked() {
+	if windowsTrayState.icon != 0 && windowsTrayState.own {
+		procDestroyIcon.Call(windowsTrayState.icon)
+	}
+	windowsTrayState.icon = 0
+	windowsTrayState.own = false
 }
 
 func loadCursor(instance uintptr, cursorID uintptr) uintptr {

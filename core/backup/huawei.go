@@ -109,20 +109,26 @@ func (h *HuaweiProvider) Restore(_ context.Context, bucket, remotePath, localDir
 func (h *HuaweiProvider) List(_ context.Context, bucket, remotePath string) ([]RemoteFile, error) {
 	input := &obs.ListObjectsInput{Bucket: bucket}
 	input.Prefix = remotePath
-	result, err := h.client.ListObjects(input)
-	if err != nil {
-		return nil, err
-	}
 	var files []RemoteFile
-	for _, obj := range result.Contents {
-		rel := strings.TrimPrefix(obj.Key, remotePath)
-		if ShouldSkipBackupPath(rel) {
-			continue
+	for {
+		result, err := h.client.ListObjects(input)
+		if err != nil {
+			return nil, err
 		}
-		files = append(files, RemoteFile{
-			Path: rel,
-			Size: obj.Size,
-		})
+		for _, obj := range result.Contents {
+			rel := strings.TrimPrefix(obj.Key, remotePath)
+			if ShouldSkipBackupPath(rel) {
+				continue
+			}
+			files = append(files, RemoteFile{
+				Path: rel,
+				Size: obj.Size,
+			})
+		}
+		if !result.IsTruncated {
+			break
+		}
+		input.Marker = result.NextMarker
 	}
 	return files, nil
 }

@@ -402,10 +402,10 @@ func (p *GitProvider) ResolveConflictUseLocal(localDir string) error {
 	if err := p.ensureRepo(localDir); err != nil {
 		return err
 	}
-	p.run(localDir, "merge", "--abort") //nolint — may not be in merge state
+	p.run(localDir, "merge", "--abort") //nolint – may not be in merge state
 	// Ensure all local changes are committed before force-push
 	p.run(localDir, "add", "-A")                                               //nolint
-	p.run(localDir, "commit", "-m", "SkillFlow: resolve conflict (use local)") //nolint — may have nothing to commit
+	p.run(localDir, "commit", "-m", "SkillFlow: resolve conflict (use local)") //nolint – may have nothing to commit
 	out, err := p.run(localDir, "push", "origin", "HEAD:"+p.branch, "--force-with-lease")
 	if err != nil {
 		// Fallback to force push when --force-with-lease fails

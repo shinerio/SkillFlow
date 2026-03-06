@@ -114,6 +114,7 @@ func TestGitProviderSyncAddsOriginForExistingRepo(t *testing.T) {
 	}
 }
 
+
 func TestGitProviderRestoreAllowsMissingRemoteBranch(t *testing.T) {
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git not installed")

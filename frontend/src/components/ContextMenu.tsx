@@ -9,13 +9,14 @@ export default function ContextMenu({ x, y, items, onClose }: Props) {
     const handler = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) onClose()
     }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
+    document.addEventListener('click', handler)
+    return () => document.removeEventListener('click', handler)
   }, [onClose])
 
   return (
     <div
       ref={ref}
+      onClick={e => e.stopPropagation()}
       style={{ position: 'fixed', top: y, left: x, zIndex: 9999 }}
       className="bg-gray-800 border border-gray-700 rounded-lg shadow-xl py-1 min-w-36"
     >

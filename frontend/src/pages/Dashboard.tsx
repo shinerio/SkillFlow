@@ -18,6 +18,8 @@ export default function Dashboard() {
   const [search, setSearch] = useState('')
   const [showGitHub, setShowGitHub] = useState(false)
   const [dragOver, setDragOver] = useState(false)
+  const [draggingSkillID, setDraggingSkillID] = useState<string | null>(null)
+  const [categoryDragActive, setCategoryDragActive] = useState(false)
   const [selectMode, setSelectMode] = useState(false)
   const [selectedIDs, setSelectedIDs] = useState<Set<string>>(new Set())
 
@@ -45,15 +47,24 @@ export default function Dashboard() {
 
   const handleDrop = async (skillId: string, category: string) => {
     await MoveSkillCategory(skillId, category)
+    setDraggingSkillID(null)
+    setCategoryDragActive(false)
     load()
   }
 
+  const isFileDrag = (e: React.DragEvent) => e.dataTransfer.types.includes('Files')
+
   const handleWindowDragOver = (e: React.DragEvent) => {
+    if (!isFileDrag(e)) return
     e.preventDefault()
     setDragOver(true)
   }
-  const handleWindowDragLeave = () => setDragOver(false)
+  const handleWindowDragLeave = (e: React.DragEvent) => {
+    if (!isFileDrag(e)) return
+    setDragOver(false)
+  }
   const handleWindowDrop = async (e: React.DragEvent) => {
+    if (!isFileDrag(e)) return
     e.preventDefault()
     setDragOver(false)
     const items = Array.from(e.dataTransfer.items)
@@ -145,28 +156,30 @@ export default function Dashboard() {
       <CategoryPanel
         categories={categories}
         selected={selectedCat}
+        draggingSkillId={draggingSkillID}
         onSelect={setSelectedCat}
+        onCategoryDragStateChange={setCategoryDragActive}
         onDrop={handleDrop}
         onRefresh={load}
       />
 
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Toolbar */}
-        <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-800">
-          <div className="relative flex-1 max-w-xs">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+        <div className="flex flex-wrap items-center gap-3 px-6 py-4 border-b border-gray-800">
+          <div className="relative flex-1 min-w-[260px] max-w-[520px]">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
             <input
               value={search} onChange={e => setSearch(e.target.value)}
               placeholder="搜索 Skills..."
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-8 pr-3 py-1.5 text-sm outline-none focus:border-indigo-500"
+              className="w-full bg-gray-800 border border-gray-700 rounded-xl pl-10 pr-3 py-2 text-sm outline-none focus:border-indigo-500"
             />
           </div>
 
           {selectMode ? (
-            <>
+            <div className="flex flex-wrap items-center gap-2 min-w-0">
               <button
                 onClick={toggleSelectAll}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-400 hover:text-white rounded-lg hover:bg-gray-800"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm text-gray-400 hover:text-white rounded-lg hover:bg-gray-800"
               >
                 <CheckSquare size={14} />
                 {allSelected ? '取消全选' : '全选'}
@@ -174,36 +187,36 @@ export default function Dashboard() {
               <button
                 onClick={handleBatchDelete}
                 disabled={selectedIDs.size === 0}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-red-600 hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm bg-red-600 hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg"
               >
                 <Trash2 size={14} /> 删除 {selectedIDs.size > 0 ? `(${selectedIDs.size})` : ''}
               </button>
               <button
                 onClick={toggleSelectMode}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-400 hover:text-white rounded-lg hover:bg-gray-800"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm text-gray-400 hover:text-white rounded-lg hover:bg-gray-800"
               >
                 取消
               </button>
-            </>
+            </div>
           ) : (
-            <>
+            <div className="flex flex-wrap items-center gap-2 min-w-0">
               <button
                 onClick={() => CheckUpdates()}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-400 hover:text-white rounded-lg hover:bg-gray-800"
-              ><RefreshCw size={14} /> 检查更新</button>
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm text-gray-400 hover:text-white rounded-lg hover:bg-gray-800 whitespace-nowrap"
+              ><RefreshCw size={14} /> 更新</button>
               <button
                 onClick={toggleSelectMode}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-400 hover:text-white rounded-lg hover:bg-gray-800"
-              ><CheckSquare size={14} /> 批量删除</button>
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm text-gray-400 hover:text-white rounded-lg hover:bg-gray-800 whitespace-nowrap"
+              ><CheckSquare size={14} /> 批删</button>
               <button
                 onClick={handleImportButton}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-400 hover:text-white rounded-lg hover:bg-gray-800"
-              ><FolderOpen size={14} /> 手动导入</button>
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm text-gray-400 hover:text-white rounded-lg hover:bg-gray-800 whitespace-nowrap"
+              ><FolderOpen size={14} /> 导入</button>
               <button
                 onClick={() => setShowGitHub(true)}
-                className="flex items-center gap-1.5 px-4 py-1.5 text-sm bg-indigo-600 hover:bg-indigo-500 rounded-lg"
-              ><Github size={14} /> 从远程仓库安装</button>
-            </>
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-indigo-600 hover:bg-indigo-500 rounded-lg whitespace-nowrap"
+              ><Github size={14} /> 远程安装</button>
+            </div>
           )}
         </div>
 
@@ -218,6 +231,12 @@ export default function Dashboard() {
                 onDelete={async () => { await DeleteSkill(sk.ID); load() }}
                 onUpdate={async () => { await UpdateSkill(sk.ID); load() }}
                 onMoveCategory={async cat => { await MoveSkillCategory(sk.ID, cat); load() }}
+                dragging={draggingSkillID === sk.ID}
+                dropTargetActive={draggingSkillID === sk.ID && categoryDragActive}
+                onDragStateChange={(dragging) => {
+                  setDraggingSkillID(dragging ? sk.ID : null)
+                  if (!dragging) setCategoryDragActive(false)
+                }}
                 selectMode={selectMode}
                 selected={selectedIDs.has(sk.ID)}
                 onToggleSelect={() => toggleSelectID(sk.ID)}

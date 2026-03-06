@@ -98,20 +98,27 @@ func (a *AliyunProvider) List(_ context.Context, bucket, remotePath string) ([]R
 	if err != nil {
 		return nil, err
 	}
-	result, err := b.ListObjects(oss.Prefix(remotePath))
-	if err != nil {
-		return nil, err
-	}
 	var files []RemoteFile
-	for _, obj := range result.Objects {
-		rel := strings.TrimPrefix(obj.Key, remotePath)
-		if ShouldSkipBackupPath(rel) {
-			continue
+	marker := ""
+	for {
+		result, err := b.ListObjects(oss.Prefix(remotePath), oss.Marker(marker))
+		if err != nil {
+			return nil, err
 		}
-		files = append(files, RemoteFile{
-			Path: rel,
-			Size: obj.Size,
-		})
+		for _, obj := range result.Objects {
+			rel := strings.TrimPrefix(obj.Key, remotePath)
+			if ShouldSkipBackupPath(rel) {
+				continue
+			}
+			files = append(files, RemoteFile{
+				Path: rel,
+				Size: obj.Size,
+			})
+		}
+		if !result.IsTruncated {
+			break
+		}
+		marker = result.NextMarker
 	}
 	return files, nil
 }
