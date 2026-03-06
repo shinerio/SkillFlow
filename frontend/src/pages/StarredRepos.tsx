@@ -401,7 +401,7 @@ function RepoGrid({ repos, onEnter, onUpdate, onRemove }: {
           <div className="flex justify-between items-start mb-2">
             <span className="font-medium text-sm truncate flex-1 mr-2">{r.name}</span>
             <div className="flex gap-1 shrink-0" onClick={e => e.stopPropagation()}>
-              <button onClick={() => OpenURL(r.url)}
+              <button onClick={() => OpenURL(r.source ? `https://${r.source}` : r.url)}
                 className="p-1 text-gray-400 hover:text-indigo-400 rounded" title="在浏览器中打开">
                 <ExternalLink size={12} />
               </button>

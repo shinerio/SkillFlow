@@ -189,6 +189,7 @@ func CloneOrUpdate(ctx context.Context, repoURL, dir, proxyURL string) error {
 func GetSubPathSHA(ctx context.Context, repoDir, subPath string) (string, error) {
 	cmd := exec.CommandContext(ctx, "git", "log", "-n", "1", "--format=%H", "--", subPath)
 	cmd.Dir = repoDir
+	hideConsole(cmd)
 	out, err := cmd.Output()
 	if err != nil {
 		return "", err
@@ -199,6 +200,7 @@ func GetSubPathSHA(ctx context.Context, repoDir, subPath string) (string, error)
 func runGit(ctx context.Context, dir, proxyURL string, args ...string) error {
 	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Dir = dir
+	hideConsole(cmd)
 	if proxyURL != "" {
 		cmd.Env = append(os.Environ(),
 			"HTTP_PROXY="+proxyURL,
