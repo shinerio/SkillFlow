@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
-import { GetEnabledTools, ListSkills, ListCategories, PushToTools, PushToToolsForce } from '../../wailsjs/go/main/App'
+import { GetEnabledTools, ListSkills, ListCategories, PushToTools, PushToToolsForce, CheckMissingPushDirs } from '../../wailsjs/go/main/App'
 import ConflictDialog from '../components/ConflictDialog'
 import SyncSkillCard from '../components/SyncSkillCard'
-import { ArrowUpFromLine, CheckSquare, Square } from 'lucide-react'
+import { ArrowUpFromLine, CheckSquare, Square, FolderPlus, X } from 'lucide-react'
 import { ToolIcon } from '../config/toolIcons'
 
 type Scope = 'all' | 'category' | 'manual'
@@ -18,6 +18,8 @@ export default function SyncPush() {
   const [conflicts, setConflicts] = useState<string[]>([])
   const [pushing, setPushing] = useState(false)
   const [done, setDone] = useState(false)
+  const [missingDirs, setMissingDirs] = useState<{name: string, dir: string}[]>([])
+  const [pendingPush, setPendingPush] = useState(false)
 
   useEffect(() => {
     Promise.all([GetEnabledTools(), ListSkills(), ListCategories()]).then(([t, s, c]) => {
@@ -37,7 +39,7 @@ export default function SyncPush() {
     ? skills.filter(s => s.Category === selectedCategory)
     : skills
 
-  const push = async () => {
+  const doPush = async () => {
     setPushing(true)
     setDone(false)
     const ids = getSkillIDs()
@@ -49,6 +51,23 @@ export default function SyncPush() {
       setDone(true)
     }
     setPushing(false)
+  }
+
+  const push = async () => {
+    const toolNames = [...selectedTools]
+    const missing = await CheckMissingPushDirs(toolNames)
+    if (missing && missing.length > 0) {
+      setMissingDirs(missing as {name: string, dir: string}[])
+      setPendingPush(true)
+    } else {
+      await doPush()
+    }
+  }
+
+  const confirmMkdirAndPush = async () => {
+    setMissingDirs([])
+    setPendingPush(false)
+    await doPush()
   }
 
   const toggleTool = (name: string) => {
@@ -212,6 +231,34 @@ export default function SyncPush() {
           onSkip={(name) => setConflicts(prev => prev.filter(c => c !== name))}
           onDone={() => setDone(true)}
         />
+      )}
+
+      {pendingPush && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-2xl p-6 w-[460px] border border-gray-700">
+            <div className="flex justify-between items-center mb-1">
+              <h3 className="font-semibold flex items-center gap-2"><FolderPlus size={16} /> 目录不存在</h3>
+              <button onClick={() => { setMissingDirs([]); setPendingPush(false) }}><X size={16} className="text-gray-400" /></button>
+            </div>
+            <p className="text-xs text-gray-500 mb-3">以下推送目录尚未创建，是否自动创建后继续推送？</p>
+            <ul className="space-y-1.5 mb-4 max-h-40 overflow-y-auto">
+              {missingDirs.map(d => (
+                <li key={d.name} className="text-sm bg-gray-900 rounded-lg px-3 py-2">
+                  <span className="text-gray-300 font-medium">{d.name}</span>
+                  <span className="text-gray-500 text-xs block truncate" title={d.dir}>{d.dir}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="flex gap-3">
+              <button onClick={confirmMkdirAndPush}
+                className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm">
+                创建并推送
+              </button>
+              <button onClick={() => { setMissingDirs([]); setPendingPush(false) }}
+                className="flex-1 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm">取消</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

@@ -14,6 +14,8 @@ export function AddStarredRepoWithCredentials(arg1:string,arg2:string,arg3:strin
 
 export function BackupNow():Promise<void>;
 
+export function CheckMissingPushDirs(arg1:Array<string>):Promise<Array<Record<string, string>>>;
+
 export function CheckUpdates():Promise<void>;
 
 export function CreateCategory(arg1:string):Promise<void>;

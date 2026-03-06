@@ -438,6 +438,24 @@ func (a *App) ScanToolSkills(toolName string) ([]*skill.Skill, error) {
 	return nil, nil
 }
 
+// CheckMissingPushDirs returns tool names and paths whose push directory does not yet exist.
+// Each element is map{"name": toolName, "dir": pushDir}.
+func (a *App) CheckMissingPushDirs(toolNames []string) ([]map[string]string, error) {
+	cfg, _ := a.config.Load()
+	var missing []map[string]string
+	for _, toolName := range toolNames {
+		for _, t := range cfg.Tools {
+			if t.Name != toolName || t.PushDir == "" {
+				continue
+			}
+			if _, err := os.Stat(t.PushDir); os.IsNotExist(err) {
+				missing = append(missing, map[string]string{"name": t.Name, "dir": t.PushDir})
+			}
+		}
+	}
+	return missing, nil
+}
+
 // PushToTools pushes selected skills to target tools.
 // Returns list of conflict descriptions that were skipped.
 func (a *App) PushToTools(skillIDs []string, toolNames []string) ([]string, error) {

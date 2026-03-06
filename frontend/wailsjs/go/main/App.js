@@ -18,6 +18,10 @@ export function BackupNow() {
   return window['go']['main']['App']['BackupNow']();
 }
 
+export function CheckMissingPushDirs(arg1) {
+  return window['go']['main']['App']['CheckMissingPushDirs'](arg1);
+}
+
 export function CheckUpdates() {
   return window['go']['main']['App']['CheckUpdates']();
 }

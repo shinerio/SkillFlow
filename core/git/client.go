@@ -69,7 +69,12 @@ func CanonicalRepoURL(repoURL string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return "https://" + ref.Host + "/" + ref.Path, nil
+	// Strip port — SSH ports (e.g. 22) are not valid for HTTPS; use default 443.
+	host := ref.Host
+	if i := strings.LastIndex(host, ":"); i >= 0 {
+		host = host[:i]
+	}
+	return "https://" + host + "/" + ref.Path, nil
 }
 
 func SameRepo(repoA, repoB string) bool {

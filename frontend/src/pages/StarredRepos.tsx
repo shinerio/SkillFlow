@@ -5,12 +5,12 @@ import {
   UpdateStarredRepo, UpdateAllStarredRepos,
   ListAllStarSkills, ListRepoStarSkills,
   ImportStarSkills, ListCategories, OpenURL,
-  GetEnabledTools, PushStarSkillsToTools, PushStarSkillsToToolsForce,
+  GetEnabledTools, PushStarSkillsToTools, PushStarSkillsToToolsForce, CheckMissingPushDirs,
 } from '../../wailsjs/go/main/App'
 import { EventsOn } from '../../wailsjs/runtime/runtime'
 import {
   Star, RefreshCw, Plus, Trash2, LayoutGrid, Folder,
-  ChevronLeft, CheckSquare, Download, AlertCircle, X, ExternalLink, ArrowUpToLine, Lock, KeyRound,
+  ChevronLeft, CheckSquare, Download, AlertCircle, X, ExternalLink, ArrowUpToLine, Lock, KeyRound, FolderPlus,
 } from 'lucide-react'
 import SyncSkillCard from '../components/SyncSkillCard'
 
@@ -40,6 +40,8 @@ export default function StarredRepos() {
   const [pushingToTools, setPushingToTools] = useState(false)
   const [pushConflicts, setPushConflicts] = useState<string[]>([])
   const [showPushConflictDialog, setShowPushConflictDialog] = useState(false)
+  const [missingDirs, setMissingDirs] = useState<{name: string, dir: string}[]>([])
+  const [showMkdirDialog, setShowMkdirDialog] = useState(false)
   // Auth dialogs
   const [showHttpAuthDialog, setShowHttpAuthDialog] = useState(false)
   const [showSshErrorDialog, setShowSshErrorDialog] = useState(false)
@@ -172,7 +174,7 @@ export default function StarredRepos() {
     } finally { setImporting(false) }
   }
 
-  const handlePushToTools = async () => {
+  const doPushToTools = async () => {
     setPushingToTools(true)
     try {
       const paths = [...selectedPaths]
@@ -191,6 +193,23 @@ export default function StarredRepos() {
     } finally {
       setPushingToTools(false)
     }
+  }
+
+  const handlePushToTools = async () => {
+    const toolNames = [...selectedTools]
+    const missing = await CheckMissingPushDirs(toolNames)
+    if (missing && missing.length > 0) {
+      setMissingDirs(missing as {name: string, dir: string}[])
+      setShowMkdirDialog(true)
+    } else {
+      await doPushToTools()
+    }
+  }
+
+  const confirmMkdirAndPush = async () => {
+    setShowMkdirDialog(false)
+    setMissingDirs([])
+    await doPushToTools()
   }
 
   const handlePushToToolsForce = async () => {
@@ -338,6 +357,35 @@ export default function StarredRepos() {
                 {importing ? '导入中...' : `导入 ${selectedPaths.size} 个`}
               </button>
               <button onClick={() => setShowImportDialog(false)}
+                className="flex-1 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm">取消</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mkdir confirmation dialog */}
+      {showMkdirDialog && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-2xl p-6 w-[460px] border border-gray-700">
+            <div className="flex justify-between items-center mb-1">
+              <h3 className="font-semibold flex items-center gap-2"><FolderPlus size={16} /> 目录不存在</h3>
+              <button onClick={() => { setShowMkdirDialog(false); setMissingDirs([]) }}><X size={16} className="text-gray-400" /></button>
+            </div>
+            <p className="text-xs text-gray-500 mb-3">以下推送目录尚未创建，是否自动创建后继续推送？</p>
+            <ul className="space-y-1.5 mb-4 max-h-40 overflow-y-auto">
+              {missingDirs.map(d => (
+                <li key={d.name} className="text-sm bg-gray-900 rounded-lg px-3 py-2">
+                  <span className="text-gray-300 font-medium">{d.name}</span>
+                  <span className="text-gray-500 text-xs block truncate" title={d.dir}>{d.dir}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="flex gap-3">
+              <button onClick={confirmMkdirAndPush}
+                className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm">
+                创建并推送
+              </button>
+              <button onClick={() => { setShowMkdirDialog(false); setMissingDirs([]) }}
                 className="flex-1 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm">取消</button>
             </div>
           </div>
