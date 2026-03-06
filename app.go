@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -32,6 +33,11 @@ type App struct {
 	config      *config.Service
 	starStorage *coregit.StarStorage
 	cacheDir    string
+
+	// Git sync state
+	gitConflictMu      sync.Mutex
+	gitConflictPending bool
+	stopAutoSync       chan struct{}
 }
 
 func NewApp() *App {
@@ -51,6 +57,8 @@ func (a *App) startup(ctx context.Context) {
 	go forwardEvents(ctx, a.hub)
 	go a.checkUpdatesOnStartup()
 	go a.updateStarredReposOnStartup()
+	go a.gitPullOnStartup()
+	a.startAutoSyncTimer(cfg.Cloud.SyncIntervalMinutes)
 }
 
 // proxyHTTPClient builds an *http.Client configured according to the saved proxy settings.
@@ -107,6 +115,111 @@ func (a *App) autoBackup() {
 	} else {
 		a.hub.Publish(notify.Event{Type: notify.EventBackupCompleted})
 	}
+}
+
+// gitPullOnStartup pulls from the remote git repo at startup when the git provider is enabled.
+func (a *App) gitPullOnStartup() {
+	cfg, err := a.config.Load()
+	if err != nil || !cfg.Cloud.Enabled || cfg.Cloud.Provider != backup.GitProviderName {
+		return
+	}
+	p, ok := registry.GetCloudProvider(backup.GitProviderName)
+	if !ok {
+		return
+	}
+	if err := p.Init(cfg.Cloud.Credentials); err != nil {
+		return
+	}
+	gitP := p.(*backup.GitProvider)
+	a.hub.Publish(notify.Event{Type: notify.EventGitSyncStarted})
+	if err := gitP.Restore(a.ctx, "", "", cfg.SkillsStorageDir); err != nil {
+		var conflictErr *backup.GitConflictError
+		if errors.As(err, &conflictErr) {
+			a.gitConflictMu.Lock()
+			a.gitConflictPending = true
+			a.gitConflictMu.Unlock()
+			a.hub.Publish(notify.Event{
+				Type:    notify.EventGitConflict,
+				Payload: notify.GitConflictPayload{Message: conflictErr.Output},
+			})
+		} else {
+			a.hub.Publish(notify.Event{Type: notify.EventGitSyncFailed, Payload: err.Error()})
+		}
+		return
+	}
+	a.hub.Publish(notify.Event{Type: notify.EventGitSyncCompleted})
+	// Reload storage so newly pulled skills are visible
+	if cfg2, err := a.config.Load(); err == nil {
+		a.storage = skill.NewStorage(cfg2.SkillsStorageDir)
+	}
+}
+
+// startAutoSyncTimer starts (or restarts) a periodic auto-backup ticker.
+// intervalMinutes <= 0 disables the timer.
+func (a *App) startAutoSyncTimer(intervalMinutes int) {
+	if a.stopAutoSync != nil {
+		close(a.stopAutoSync)
+		a.stopAutoSync = nil
+	}
+	if intervalMinutes <= 0 {
+		return
+	}
+	stop := make(chan struct{})
+	a.stopAutoSync = stop
+	go func() {
+		ticker := time.NewTicker(time.Duration(intervalMinutes) * time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				a.autoBackup()
+			case <-stop:
+				return
+			}
+		}
+	}()
+}
+
+// GetGitConflictPending returns true when a git conflict from startup pull is waiting to be resolved.
+func (a *App) GetGitConflictPending() bool {
+	a.gitConflictMu.Lock()
+	defer a.gitConflictMu.Unlock()
+	return a.gitConflictPending
+}
+
+// ResolveGitConflict resolves a pending git merge conflict.
+// useLocal=true  → keep local changes, force-push to remote.
+// useLocal=false → discard local changes, reset to remote state.
+func (a *App) ResolveGitConflict(useLocal bool) error {
+	cfg, err := a.config.Load()
+	if err != nil {
+		return err
+	}
+	p, ok := registry.GetCloudProvider(backup.GitProviderName)
+	if !ok {
+		return fmt.Errorf("git provider 未注册")
+	}
+	if err := p.Init(cfg.Cloud.Credentials); err != nil {
+		return err
+	}
+	gitP := p.(*backup.GitProvider)
+	if useLocal {
+		err = gitP.ResolveConflictUseLocal(cfg.SkillsStorageDir)
+	} else {
+		err = gitP.ResolveConflictUseRemote(cfg.SkillsStorageDir)
+	}
+	if err != nil {
+		return err
+	}
+	a.gitConflictMu.Lock()
+	a.gitConflictPending = false
+	a.gitConflictMu.Unlock()
+	// Reload storage so the dashboard reflects the resolved state
+	if cfg2, err2 := a.config.Load(); err2 == nil {
+		a.storage = skill.NewStorage(cfg2.SkillsStorageDir)
+	}
+	a.hub.Publish(notify.Event{Type: notify.EventGitSyncCompleted})
+	return nil
 }
 
 func (a *App) gitProxyURL() string {
@@ -644,7 +757,11 @@ func (a *App) GetConfig() (config.AppConfig, error) {
 }
 
 func (a *App) SaveConfig(cfg config.AppConfig) error {
-	return a.config.Save(cfg)
+	if err := a.config.Save(cfg); err != nil {
+		return err
+	}
+	a.startAutoSyncTimer(cfg.Cloud.SyncIntervalMinutes)
+	return nil
 }
 
 func (a *App) AddCustomTool(name, pushDir string) error {

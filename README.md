@@ -12,7 +12,7 @@ A cross-platform desktop app for managing LLM SKILLS (prompt libraries / slash c
 | **GitHub Install** | Clone any repo, browse skill candidates, select and install with one click; auto-pulls on subsequent scans |
 | **Cross-tool Sync** | Push (all / by category / manual selection) or pull skills to/from Claude Code, OpenCode, Codex, Gemini CLI, OpenClaw, or any custom tool; conflict handling per skill |
 | **Starred Repos** | Watch Git repos and browse/import their skills without adding them to your library first; folder or flat view; bulk push directly to tools |
-| **Cloud Backup** | Mirror your library to Aliyun OSS, Tencent COS, or Huawei OBS; auto-backup after any mutation |
+| **Cloud Backup** | Mirror your library to Aliyun OSS, Tencent COS, Huawei OBS, or any Git repo; auto-backup after mutations; periodic sync timer; conflict resolution dialog (local vs remote) |
 | **Update Checker** | Detects new commits for GitHub-sourced skills; one-click update |
 | **Settings** | Per-tool enable/disable, push & scan paths (text input + folder picker), custom tools, cloud credentials, proxy configuration |
 

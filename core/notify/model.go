@@ -12,6 +12,11 @@ const (
 	EventSkillConflict   EventType = "skill.conflict"
 	EventStarSyncProgress EventType = "star.sync.progress" // one repo finished syncing
 	EventStarSyncDone     EventType = "star.sync.done"      // all repos finished
+
+	EventGitSyncStarted   EventType = "git.sync.started"
+	EventGitSyncCompleted EventType = "git.sync.completed"
+	EventGitSyncFailed    EventType = "git.sync.failed"
+	EventGitConflict      EventType = "git.conflict" // local ↔ remote conflict requires user decision
 )
 
 type Event struct {
@@ -41,4 +46,8 @@ type StarSyncProgressPayload struct {
 	RepoURL   string `json:"repoUrl"`
 	RepoName  string `json:"repoName"`
 	SyncError string `json:"syncError,omitempty"`
+}
+
+type GitConflictPayload struct {
+	Message string `json:"message"`
 }

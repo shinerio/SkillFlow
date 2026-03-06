@@ -50,6 +50,14 @@ export function GetEnabledTools() {
   return window['go']['main']['App']['GetEnabledTools']();
 }
 
+export function GetGitConflictPending() {
+  return window['go']['main']['App']['GetGitConflictPending']();
+}
+
+export function ResolveGitConflict(arg1) {
+  return window['go']['main']['App']['ResolveGitConflict'](arg1);
+}
+
 export function GetSkillMeta(arg1) {
   return window['go']['main']['App']['GetSkillMeta'](arg1);
 }
