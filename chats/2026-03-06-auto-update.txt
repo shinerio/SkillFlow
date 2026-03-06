@@ -1,0 +1,1623 @@
+
+ ▐▛███▜▌   Claude Code v2.1.69
+▝▜█████▛▘  Sonnet 4.6 · Claude Pro
+  ▘▘ ▝▝    ~/Workspace/code/SkillFlow
+
+╭──────────────────────────────────────────────────────────────────────────────╮
+│ Plan to implement                                                            │
+│                                                                              │
+│ Plan: GitHub Release 发布 + 应用自动更新 + 免安装分发                        │
+│                                                                              │
+│ Context                                                                      │
+│                                                                              │
+│ 用户希望：                                                                   │
+│ 1. 通过 GitHub Actions 自动发布 Windows/macOS 客户端到 GitHub Releases       │
+│ 2. 应用启动时自动检测新版本，提示用户更新                                    │
+│ 3. 实现免安装、开箱即用的分发方式                                            │
+│                                                                              │
+│ SkillFlow 是 Wails v2 桌面应用，前端 embed 进 Go binary，天然接近单文件。    │
+│ 现有 CI (build.yml) 只 upload artifact，未创建 Release；core/update 仅检查   │
+│ skill 更新，未检查应用版本。                                                 │
+│                                                                              │
+│ ---                                                                          │
+│ Part 1: 免安装可行性分析                                                     │
+│                                                                              │
+│ macOS                                                                        │
+│                                                                              │
+│ - Wails build 产出 .app bundle，可直接 zip 分发                              │
+│ - 用户解压后双击运行，无需安装                                               │
+│ - 缺点：未签名时 Gatekeeper 会拦截，需右键→打开（可在 README 说明）          │
+│ - 可选：用 hdiutil 打包成 .dmg（更友好），但增加 CI 复杂度                   │
+│                                                                              │
+│ Windows                                                                      │
+│                                                                              │
+│ - Wails build 产出单个 .exe                                                  │
+│ - Windows 11 / 大多数 Win10 已内置 WebView2（Wails v2                        │
+│ 依赖），无需安装即可运行                                                     │
+│ - 极少数旧系统缺 WebView2，可在 README 提示手动安装；或用 -nsis flag         │
+│ 打包成有 WebView2 引导的安装包（可选）                                       │
+│                                                                              │
+│ 结论：可以实现免安装分发。macOS 必须 zip（.app 是目录 bundle），Windows      │
+│ 直接上传 .exe（单文件，无需打包）。                                          │
+│                                                                              │
+│ ---                                                                          │
+│ Part 2: 版本嵌入机制                                                         │
+│                                                                              │
+│ 新建 version.go（package main）                                              │
+│                                                                              │
+│ var Version = "dev"  // 由 -ldflags 在 CI 注入                               │
+│                                                                              │
+│ CI 构建时注入版本号                                                          │
+│                                                                              │
+│ wails build -ldflags "-X main.Version=$TAG_NAME"                             │
+│                                                                              │
+│ ---                                                                          │
+│ Part 3: GitHub Release CI                                                    │
+│                                                                              │
+│ 修改 .github/workflows/build.yml                                             │
+│                                                                              │
+│ 触发条件不变：push tag v*                                                    │
+│                                                                              │
+│ 新增步骤：                                                                   │
+│ 1. macOS: .app 是目录 bundle，必须打包为 zip 才能上传。将                    │
+│ build/bin/SkillFlow.app 打包为 SkillFlow-macos-intel.zip /                   │
+│ SkillFlow-macos-apple-silicon.zip                                            │
+│ 2. Windows: .exe 是单文件，直接上传 SkillFlow.exe，无需额外打包              │
+│ 3. 所有平台构建完成后，用 softprops/action-gh-release 一次性创建 Release     │
+│ 并上传所有 asset                                                             │
+│                                                                              │
+│ 矩阵构建输出物命名规范：                                                     │
+│ - SkillFlow-macos-intel.zip                                                  │
+│ - SkillFlow-macos-apple-silicon.zip                                          │
+│ - SkillFlow-windows.exe（直接上传，无需 zip）                                │
+│                                                                              │
+│ ---                                                                          │
+│ Part 4: 应用更新检测 + Windows 自动替换                                      │
+│                                                                              │
+│ 平台差异：                                                                   │
+│ - Windows：实现完整的"下载 → 提示重启 → 批处理脚本替换 → 重启"流程（Windows  │
+│ 无法覆盖运行中的 exe，需借助外部脚本）                                       │
+│ - macOS：仅做通知，点击后打开浏览器到 GitHub Releases 页（.app               │
+│ 目录替换逻辑更复杂，暂不支持）                                               │
+│                                                                              │
+│ 后端 — 新增 app_update.go（package main）                                    │
+│                                                                              │
+│ type AppUpdateInfo struct {                                                  │
+│     HasUpdate      bool                                                      │
+│     CurrentVersion string                                                    │
+│     LatestVersion  string                                                    │
+│     ReleaseURL     string  // GitHub Release 页面 URL                        │
+│     DownloadURL    string  // 当前平台直接下载 URL（Windows: .exe，macOS:    │
+│ .zip）                                                                       │
+│     ReleaseNotes   string                                                    │
+│     CanAutoUpdate  bool    // runtime.GOOS == "windows"                      │
+│ }                                                                            │
+│                                                                              │
+│ // GetAppVersion 返回当前版本号（由 ldflags 注入）                           │
+│ func (a *App) GetAppVersion() string                                         │
+│                                                                              │
+│ // CheckAppUpdate 查询 GitHub Releases API，返回更新信息                     │
+│ // 根据 runtime.GOOS + runtime.GOARCH 匹配对应平台的 asset 下载 URL          │
+│ func (a *App) CheckAppUpdate() (*AppUpdateInfo, error)                       │
+│                                                                              │
+│ // DownloadAppUpdate 后台下载新版本到临时目录，通过事件上报进度              │
+│ // Windows only: 下载完成后 emit EventAppUpdateDownloadDone                  │
+│ func (a *App) DownloadAppUpdate(downloadURL string) error                    │
+│                                                                              │
+│ // ApplyAppUpdate Windows only: 写 bat 脚本实现替换并重启，然后 os.Exit(0)   │
+│ // bat 脚本逻辑：timeout 2 → move new_exe current_exe → start current_exe →  │
+│ del self                                                                     │
+│ func (a *App) ApplyAppUpdate() error                                         │
+│                                                                              │
+│ CheckAppUpdate 实现细节：                                                    │
+│ - 调用 https://api.github.com/repos/{owner}/{repo}/releases/latest           │
+│ - 对比 tag_name 与 Version（字符串比较，tag 格式 v1.2.3）                    │
+│ - 从 assets 数组中按命名规则匹配当前平台的下载 URL：                         │
+│   - windows/amd64 → asset 名含 windows                                       │
+│   - darwin/amd64 → asset 名含 macos-intel                                    │
+│   - darwin/arm64 → asset 名含 macos-apple-silicon                            │
+│ - 复用 a.proxyHTTPClient() 支持代理                                          │
+│                                                                              │
+│ ApplyAppUpdate bat 脚本内容：                                                │
+│ @echo off                                                                    │
+│ timeout /t 2 /nobreak > nul                                                  │
+│ move /y "<tmp_new_exe>" "<current_exe_path>"                                 │
+│ start "" "<current_exe_path>"                                                │
+│ del "%~f0"                                                                   │
+│ 启动 bat 后调用 os.Exit(0) 退出当前进程，bat 接管完成替换。                  │
+│                                                                              │
+│ 新增 Event 类型（core/notify/model.go）                                      │
+│                                                                              │
+│ EventAppUpdateAvailable     EventType = "app.update.available"               │
+│ EventAppUpdateDownloadDone  EventType = "app.update.download.done"           │
+│ EventAppUpdateDownloadFail  EventType = "app.update.download.fail"           │
+│                                                                              │
+│ 启动时检测                                                                   │
+│                                                                              │
+│ 在 app.go startup() 中添加：                                                 │
+│ go a.checkAppUpdateOnStartup()                                               │
+│                                                                              │
+│ 若检测到新版本，通过 Hub 发布 EventAppUpdateAvailable 事件。                 │
+│                                                                              │
+│ ---                                                                          │
+│ Part 5: 前端更新提示 UI                                                      │
+│                                                                              │
+│ Banner 状态机                                                                │
+│                                                                              │
+│ idle → available → downloading → ready_to_restart                            │
+│                               → download_failed                              │
+│                                                                              │
+│ 各状态 UI                                                                    │
+│                                                                              │
+│ ┌─────────────────────┬─────────────────────────────────────────────────┐    │
+│ │        状态         │                    展示内容                     │    │
+│ ├─────────────────────┼─────────────────────────────────────────────────┤    │
+│ │ available (macOS)   │ 新版本可用: v1.2.3  [查看详情]  [×]             │    │
+│ ├─────────────────────┼─────────────────────────────────────────────────┤    │
+│ │ available (Windows) │ 新版本可用: v1.2.3  [立即下载]  [×]             │    │
+│ ├─────────────────────┼─────────────────────────────────────────────────┤    │
+│ │ downloading         │ 正在下载 v1.2.3...  [spinner]                   │    │
+│ ├─────────────────────┼─────────────────────────────────────────────────┤    │
+│ │ ready_to_restart    │ 已下载完成，点击重启以完成更新  [立即重启]  [×] │    │
+│ ├─────────────────────┼─────────────────────────────────────────────────┤    │
+│ │ download_failed     │ 下载失败，请手动下载  [前往下载页]  [×]         │    │
+│ └─────────────────────┴─────────────────────────────────────────────────┘    │
+│                                                                              │
+│ 事件监听                                                                     │
+│                                                                              │
+│ - app.update.available → 切换到 available 状态，保存 AppUpdateInfo           │
+│ - app.update.download.done → 切换到 ready_to_restart 状态                    │
+│ - app.update.download.fail → 切换到 download_failed 状态                     │
+│                                                                              │
+│ 操作绑定                                                                     │
+│                                                                              │
+│ - macOS "查看详情" → BrowserOpenURL(releaseURL)（Wails runtime 方法）        │
+│ - Windows "立即下载" → 调用 DownloadAppUpdate(downloadURL)（触发后台下载）   │
+│ - "立即重启" → 调用 ApplyAppUpdate()（写 bat + os.Exit）                     │
+│ - [×] → 关闭 banner（session 内不再提示）                                    │
+│                                                                              │
+│ 实现                                                                         │
+│                                                                              │
+│ - 在 App.tsx 用 useState + EventsOn 接收事件                                 │
+│ - 渲染固定顶部横幅（Tailwind 样式），高度约 40px，不影响主体布局             │
+│                                                                              │
+│ ---                                                                          │
+│ 关键文件列表                                                                 │
+│                                                                              │
+│ 文件: .github/workflows/build.yml                                            │
+│ 操作: 修改：注入版本号、zip 产物、创建 Release                               │
+│ ────────────────────────────────────────                                     │
+│ 文件: version.go                                                             │
+│ 操作: 新建：var Version = "dev"                                              │
+│ ────────────────────────────────────────                                     │
+│ 文件: app_update.go                                                          │
+│ 操作: 新建：CheckAppUpdate(), GetAppVersion(), DownloadAppUpdate(),          │
+│   ApplyAppUpdate(), checkAppUpdateOnStartup(), AppUpdateInfo struct          │
+│ ────────────────────────────────────────                                     │
+│ 文件: core/notify/model.go                                                   │
+│ 操作: 修改：新增 EventAppUpdateAvailable, EventAppUpdateDownloadDone,        │
+│   EventAppUpdateDownloadFail                                                 │
+│ ────────────────────────────────────────                                     │
+│ 文件: frontend/wailsjs/go/main/App.d.ts                                      │
+│ 操作: 更新（make generate）                                                  │
+│ ────────────────────────────────────────                                     │
+│ 文件: frontend/wailsjs/go/main/App.js                                        │
+│ 操作: 更新（make generate）                                                  │
+│ ────────────────────────────────────────                                     │
+│ 文件: frontend/wailsjs/go/models.ts                                          │
+│ 操作: 更新（make generate，含 AppUpdateInfo）                                │
+│ ────────────────────────────────────────                                     │
+│ 文件: frontend/src/App.tsx                                                   │
+│ 操作: 修改：监听 app.update.available，显示 banner                           │
+│ ────────────────────────────────────────                                     │
+│ 文件: feature.md / feature_zh.md / README.md / README_zh.md                  │
+│ 操作: 更新文档                                                               │
+│                                                                              │
+│ ---                                                                          │
+│ Verification                                                                 │
+│                                                                              │
+│ 1. go build ./... — 编译无报错                                               │
+│ 2. make generate — 重新生成 TypeScript 绑定                                  │
+│ 3. go test ./core/... — 现有测试继续通过                                     │
+│ 4. 本地 make dev — 前端正常运行                                              │
+│ 5. 手动调用 GetAppVersion() 返回 "dev"                                       │
+│ 6. 手动调用 CheckAppUpdate() 返回有效结构（需网络）                          │
+│ 7. 推送 tag 后 GitHub Actions 创建 Release，asset 包含：SkillFlow-macos-inte │
+│ l.zip、SkillFlow-macos-apple-silicon.zip、SkillFlow-windows.exe              │
+│ 8. Windows 下：CheckAppUpdate() 返回 CanAutoUpdate: true，点击"立即下载"→    │
+│ 下载 → 显示"立即重启"→ 调用 ApplyAppUpdate() → bat 脚本替换并重启            │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+⏺ Skill(superpowers:executing-plans)
+  ⎿  Successfully loaded skill
+
+⏺ I'm using the executing-plans skill to implement this plan.
+
+  Let me first read the key existing files to understand the current state.
+
+⏺ Read 3 files (ctrl+o to expand)
+
+⏺ Now let me read the frontend App.tsx and check if there's an existing
+  version.go file:
+
+⏺ Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Now let me also check the go.mod file and the existing update checker:
+
+⏺ Read 2 files (ctrl+o to expand)
+
+⏺ Let me check the git remote to confirm the repo name:
+
+⏺ Bash(git remote -v)
+  ⎿  origin     https://github.com/shinerio/SkillFlow.git (fetch)
+     origin     https://github.com/shinerio/SkillFlow.git (push)
+
+⏺ The repo is shinerio/SkillFlow. Now I'll execute Batch 1 (Tasks 1-3): create
+  version.go, add event types, and create app_update.go.
+
+⏺ Task 1: Create version.go
+
+⏺ Write(version.go)
+  ⎿  Wrote 4 lines to version.go
+      1 package main
+      2 
+      3 // Version is set at build time via -ldflags "-X main.Version=vX.
+        Y.Z".
+      4 var Version = "dev"
+
+⏺ Task 2: Add new event types to core/notify/model.go
+
+⏺ Update(core/notify/model.go)
+  ⎿  Added 4 lines
+      17    EventGitSyncCompleted EventType = "git.sync.completed"
+      18    EventGitSyncFailed    EventType = "git.sync.failed"
+      19    EventGitConflict      EventType = "git.conflict" // local ↔ r
+          emote conflict requires user decision
+      20 +                                                               
+      21 +  EventAppUpdateAvailable    EventType = "app.update.available"
+      22 +  EventAppUpdateDownloadDone EventType = "app.update.download.d
+         +one"                                                           
+      23 +  EventAppUpdateDownloadFail EventType = "app.update.download.f
+         +ail"                                                           
+      24  )
+      25  
+      26  type Event struct {
+
+⏺ Task 3: Create app_update.go
+
+⏺ Write(app_update.go)
+  ⎿  Wrote 180 lines to app_update.go
+       1 package main
+       2 
+       3 import (
+       4        "encoding/json"
+       5        "fmt"
+       6        "io"
+       7        "net/http"
+       8        "os"
+       9        "os/exec"
+      10        "path/filepath"
+     … +170 lines (ctrl+o to expand)
+
+⏺ Now add checkAppUpdateOnStartup to the startup sequence in app.go:
+
+⏺ Update(app.go)
+  ⎿  Added 1 line
+      57    go forwardEvents(ctx, a.hub)
+      58    go a.checkUpdatesOnStartup()
+      59    go a.updateStarredReposOnStartup()
+      60 +  go a.checkAppUpdateOnStartup()                               
+      61    go a.gitPullOnStartup()
+      62    a.startAutoSyncTimer(cfg.Cloud.SyncIntervalMinutes)
+      63  }
+
+⏺ Now verify the Go code compiles:
+
+⏺ Bash(go build ./...)
+  ⎿  (No output)
+
+⏺ Bash(go test ./core/...)
+  ⎿  ok         github.com/shinerio/skillflow/core/backup       3.239s
+     ok         github.com/shinerio/skillflow/core/config       (cached)
+     ok         github.com/shinerio/skillflow/core/git  1.835s
+     … +6 lines (ctrl+o to expand)
+
+⏺ All tests pass. Batch 1 complete. Ready for feedback.
+
+  Summary of Batch 1:
+  - version.go created with var Version = "dev" (injected by CI via -ldflags)
+  - core/notify/model.go updated with 3 new event types:
+  EventAppUpdateAvailable, EventAppUpdateDownloadDone,
+  EventAppUpdateDownloadFail
+  - app_update.go created with: AppUpdateInfo struct, GetAppVersion(),
+  CheckAppUpdate() (GitHub Releases API + platform detection),
+  DownloadAppUpdate() (async download with events), ApplyAppUpdate() (Windows
+  bat script replacement), checkAppUpdateOnStartup() (skips if Version == "dev")
+  - app.go startup() wired to call checkAppUpdateOnStartup() in a goroutine
+
+  Ready for feedback.
+
+  ---
+  Proceeding to Batch 2 (Tasks 4-6): Update CI workflow, run make generate,
+  update frontend.
+
+  Task 4: Update .github/workflows/build.yml
+
+⏺ Write(.github/workflows/build.yml)
+  ⎿  Added 33 lines, removed 3 lines
+      1  name: Build
+      2 +                                                                
+      3  on:
+      4    push:
+      5      tags: ['v*']
+     ...
+      29        - name: Install Wails
+      30          run: go install github.com/wailsapp/wails/v2/cmd/wails@
+          latest
+      31        - name: Build
+      31 -        run: wails build -platform ${{ matrix.arch == 'arm64' &
+         -& 'darwin/arm64' || matrix.os == 'windows-latest' && 'windows/a
+         -md64' || 'darwin/amd64' }}                                     
+      32 -      - uses: actions/upload-artifact@v4                       
+      32 +        run: wails build -platform ${{ matrix.arch == 'arm64' &
+         +& 'darwin/arm64' || matrix.os == 'windows-latest' && 'windows/a
+         +md64' || 'darwin/amd64' }} -ldflags "-X main.Version=${{ github
+         +.ref_name }}"                                                  
+      33 +                                                               
+      34 +      # macOS: .app is a directory bundle — must zip before upl
+         +oad                                                            
+      35 +      - name: Package macOS app                                
+      36 +        if: runner.os == 'macOS'                               
+      37 +        run: cd build/bin && zip -r SkillFlow-${{ matrix.name }
+         +}.zip SkillFlow.app                                            
+      38 +                                                               
+      39 +      - name: Upload artifact                                  
+      40 +        uses: actions/upload-artifact@v4                       
+      41          with:
+      42            name: skillflow-${{ matrix.name }}
+      35 -          path: build/bin/                                     
+      43 +          path: ${{ runner.os == 'Windows' && 'build/bin/SkillF
+         +low.exe' || format('build/bin/SkillFlow-{0}.zip', matrix.name) 
+         +}}                                                             
+      44 +                                                               
+      45 +  release:                                                     
+      46 +    needs: build                                               
+      47 +    runs-on: ubuntu-latest                                     
+      48 +    permissions:                                               
+      49 +      contents: write                                          
+      50 +    steps:                                                     
+      51 +      - uses: actions/download-artifact@v4                     
+      52 +        with:                                                  
+      53 +          path: dist/                                          
+      54 +                                                               
+      55 +      - name: Rename Windows executable                        
+      56 +        run: mv dist/skillflow-windows/SkillFlow.exe dist/Skill
+         +Flow-windows.exe                                               
+      57 +                                                               
+      58 +      - name: Create GitHub Release                            
+      59 +        uses: softprops/action-gh-release@v2                   
+      60 +        with:                                                  
+      61 +          files: |                                             
+      62 +            dist/skillflow-macos-intel/SkillFlow-macos-intel.zi
+         +p                                                              
+      63 +            dist/skillflow-macos-apple-silicon/SkillFlow-macos-
+         +apple-silicon.zip                                              
+      64 +            dist/SkillFlow-windows.exe                         
+      65 +          generate_release_notes: true                         
+
+⏺ Task 5: Run make generate to update TypeScript bindings
+
+⏺ Bash(make generate 2>&1)
+  ⎿  /Users/shinerio/go/bin/wails generate module
+     2026/03/06 19:42:52 KnownStructs: backup.RemoteFile        config.AppConfig
+     onfig.CloudConfig  config.ProxyConfig      config.ToolConfig       git.Star
+     … +14 lines (ctrl+o to expand)
+
+
+
+⏺ Good — make generate ran successfully (the warnings about time.Time are
+  expected/harmless). Let me verify the new bindings were generated:
+
+⏺ Searched for 2 patterns (ctrl+o to expand)
+
+⏺ All bindings generated correctly. Now Task 6: Update App.tsx to add the update
+   banner:
+
+⏺ Write(frontend/src/App.tsx)
+  ⎿  Added 145 lines, removed 24 lines
+        1 +import { useState, useEffect } from 'react'                   
+        2  import { BrowserRouter, Route, Routes, NavLink } from 'react-r
+           outer-dom'
+        2 -import { Package, ArrowUpFromLine, ArrowDownToLine, Cloud, Set
+          -tings, Star } from 'lucide-react'                             
+        3 +import { Package, ArrowUpFromLine, ArrowDownToLine, Cloud, Set
+          +tings, Star, X, Download, RefreshCw } from 'lucide-react'     
+        4  import Dashboard from './pages/Dashboard'
+        5  import SyncPush from './pages/SyncPush'
+        6  import SyncPull from './pages/SyncPull'
+        7  import Backup from './pages/Backup'
+        8  import SettingsPage from './pages/Settings'
+        9  import StarredRepos from './pages/StarredRepos'
+       10 +import { EventsOn } from '../wailsjs/runtime/runtime'         
+       11 +import { DownloadAppUpdate, ApplyAppUpdate } from '../wailsjs/
+          +go/main/App'                                                  
+       12 +import { main } from '../wailsjs/go/models'                   
+       13  
+       14 +type BannerState = 'idle' | 'available' | 'downloading' | 'rea
+          +dy_to_restart' | 'download_failed'                            
+       15 +                                                              
+       16  export default function App() {
+       17 +  const [bannerState, setBannerState] = useState<BannerState>(
+          +'idle')                                                       
+       18 +  const [updateInfo, setUpdateInfo] = useState<main.AppUpdateI
+          +nfo | null>(null)                                             
+       19 +  const [dismissed, setDismissed] = useState(false)           
+       20 +                                                              
+       21 +  useEffect(() => {                                           
+       22 +    EventsOn('app.update.available', (data: main.AppUpdateInfo
+          +) => {                                                        
+       23 +      setUpdateInfo(data)                                     
+       24 +      setBannerState('available')                             
+       25 +    })                                                        
+       26 +    EventsOn('app.update.download.done', () => {              
+       27 +      setBannerState('ready_to_restart')                      
+       28 +    })                                                        
+       29 +    EventsOn('app.update.download.fail', () => {              
+       30 +      setBannerState('download_failed')                       
+       31 +    })                                                        
+       32 +  }, [])                                                      
+       33 +                                                              
+       34 +  const handleDownload = () => {                              
+       35 +    if (!updateInfo?.downloadUrl) return                      
+       36 +    setBannerState('downloading')                             
+       37 +    DownloadAppUpdate(updateInfo.downloadUrl)                 
+       38 +  }                                                           
+       39 +                                                              
+       40 +  const handleRestart = () => {                               
+       41 +    ApplyAppUpdate()                                          
+       42 +  }                                                           
+       43 +                                                              
+       44 +  const showBanner = !dismissed && bannerState !== 'idle'     
+       45 +                                                              
+       46    return (
+       47      <BrowserRouter>
+       13 -      <div className="flex h-screen bg-gray-950 text-gray-100"
+          ->                                                             
+       14 -        <aside className="w-56 bg-gray-900 border-r border-gra
+          -y-800 flex flex-col p-4 gap-1">                               
+       15 -          <h1 className="text-lg font-bold mb-6 px-2">SkillFlo
+          -w</h1>                                                        
+       16 -          <NavItem to="/" icon={<Package size={16} />} label="
+          -我的 Skills" />                                               
+       17 -          <p className="text-xs text-gray-500 px-2 mt-3 mb-1">
+          -同步管理</p>                                                  
+       18 -          <NavItem to="/sync/push" icon={<ArrowUpFromLine size
+          -={16} />} label="推送到工具" />                               
+       19 -          <NavItem to="/sync/pull" icon={<ArrowDownToLine size
+          -={16} />} label="从工具拉取" />                               
+       20 -          <NavItem to="/starred" icon={<Star size={16} />} lab
+          -el="仓库收藏" end={false} />                                  
+       21 -          <div className="flex-1" />                          
+       22 -          <NavItem to="/backup" icon={<Cloud size={16} />} lab
+          -el="云备份" />                                                
+       23 -          <NavItem to="/settings" icon={<Settings size={16} />
+          -} label="设置" />                                             
+       24 -        </aside>                                              
+       25 -        <main className="flex-1 overflow-auto">               
+       26 -          <Routes>                                            
+       27 -            <Route path="/" element={<Dashboard />} />        
+       28 -            <Route path="/sync/push" element={<SyncPush />} />
+       29 -            <Route path="/sync/pull" element={<SyncPull />} />
+       30 -            <Route path="/backup" element={<Backup />} />     
+       31 -            <Route path="/settings" element={<SettingsPage />}
+          - />                                                           
+       32 -            <Route path="/starred" element={<StarredRepos />} 
+          -/>                                                            
+       33 -            <Route path="/starred/:repoEncoded" element={<Star
+          -redRepos />} />                                               
+       34 -          </Routes>                                           
+       35 -        </main>                                               
+       48 +      <div className="flex h-screen bg-gray-950 text-gray-100 
+          +flex-col">                                                    
+       49 +        {showBanner && (                                      
+       50 +          <UpdateBanner                                       
+       51 +            state={bannerState}                               
+       52 +            info={updateInfo}                                 
+       53 +            onDownload={handleDownload}                       
+       54 +            onRestart={handleRestart}                         
+       55 +            onDismiss={() => setDismissed(true)}              
+       56 +          />                                                  
+       57 +        )}                                                    
+       58 +        <div className="flex flex-1 overflow-hidden">         
+       59 +          <aside className="w-56 bg-gray-900 border-r border-g
+          +ray-800 flex flex-col p-4 gap-1">                             
+       60 +            <h1 className="text-lg font-bold mb-6 px-2">SkillF
+          +low</h1>                                                      
+       61 +            <NavItem to="/" icon={<Package size={16} />} label
+          +="我的 Skills" />                                             
+       62 +            <p className="text-xs text-gray-500 px-2 mt-3 mb-1
+          +">同步管理</p>                                                
+       63 +            <NavItem to="/sync/push" icon={<ArrowUpFromLine si
+          +ze={16} />} label="推送到工具" />                             
+       64 +            <NavItem to="/sync/pull" icon={<ArrowDownToLine si
+          +ze={16} />} label="从工具拉取" />                             
+       65 +            <NavItem to="/starred" icon={<Star size={16} />} l
+          +abel="仓库收藏" end={false} />                                
+       66 +            <div className="flex-1" />                        
+       67 +            <NavItem to="/backup" icon={<Cloud size={16} />} l
+          +abel="云备份" />                                              
+       68 +            <NavItem to="/settings" icon={<Settings size={16} 
+          +/>} label="设置" />                                           
+       69 +          </aside>                                            
+       70 +          <main className="flex-1 overflow-auto">             
+       71 +            <Routes>                                          
+       72 +              <Route path="/" element={<Dashboard />} />      
+       73 +              <Route path="/sync/push" element={<SyncPush />} 
+          +/>                                                            
+       74 +              <Route path="/sync/pull" element={<SyncPull />} 
+          +/>                                                            
+       75 +              <Route path="/backup" element={<Backup />} />   
+       76 +              <Route path="/settings" element={<SettingsPage /
+          +>} />                                                         
+       77 +              <Route path="/starred" element={<StarredRepos />
+          +} />                                                          
+       78 +              <Route path="/starred/:repoEncoded" element={<St
+          +arredRepos />} />                                             
+       79 +            </Routes>                                         
+       80 +          </main>                                             
+       81 +        </div>                                                
+       82        </div>
+       83      </BrowserRouter>
+       84    )
+       85  }
+       86  
+       87 +interface UpdateBannerProps {                                 
+       88 +  state: BannerState                                          
+       89 +  info: main.AppUpdateInfo | null                             
+       90 +  onDownload: () => void                                      
+       91 +  onRestart: () => void                                       
+       92 +  onDismiss: () => void                                       
+       93 +}                                                             
+       94 +                                                              
+       95 +function UpdateBanner({ state, info, onDownload, onRestart, on
+          +Dismiss }: UpdateBannerProps) {                               
+       96 +  return (                                                    
+       97 +    <div className="flex items-center justify-between px-4 py-
+          +2 bg-indigo-700 text-white text-sm shrink-0">                 
+       98 +      <div className="flex items-center gap-3">               
+       99 +        {state === 'available' && (                           
+      100 +          <>                                                  
+      101 +            <span>新版本可用: {info?.latestVersion}</span>    
+      102 +            {info?.canAutoUpdate ? (                          
+      103 +              <button                                         
+      104 +                onClick={onDownload}                          
+      105 +                className="flex items-center gap-1 px-2 py-0.5
+          + bg-white text-indigo-700 rounded text-xs font-medium hover:bg
+          +-indigo-100"                                                  
+      106 +              >                                               
+      107 +                <Download size={12} />                        
+      108 +                立即下载                                      
+      109 +              </button>                                       
+      110 +            ) : (                                             
+      111 +              <a                                              
+      112 +                href={info?.releaseUrl}                       
+      113 +                target="_blank"                               
+      114 +                rel="noreferrer"                              
+      115 +                className="flex items-center gap-1 px-2 py-0.5
+          + bg-white text-indigo-700 rounded text-xs font-medium hover:bg
+          +-indigo-100"                                                  
+      116 +              >                                               
+      117 +                查看详情                                      
+      118 +              </a>                                            
+      119 +            )}                                                
+      120 +          </>                                                 
+      121 +        )}                                                    
+      122 +        {state === 'downloading' && (                         
+      123 +          <>                                                  
+      124 +            <RefreshCw size={14} className="animate-spin" />  
+      125 +            <span>正在下载 {info?.latestVersion}...</span>    
+      126 +          </>                                                 
+      127 +        )}                                                    
+      128 +        {state === 'ready_to_restart' && (                    
+      129 +          <>                                                  
+      130 +            <span>已下载完成，点击重启以完成更新</span>       
+      131 +            <button                                           
+      132 +              onClick={onRestart}                             
+      133 +              className="flex items-center gap-1 px-2 py-0.5 b
+          +g-white text-indigo-700 rounded text-xs font-medium hover:bg-i
+          +ndigo-100"                                                    
+      134 +            >                                                 
+      135 +              立即重启                                        
+      136 +            </button>                                         
+      137 +          </>                                                 
+      138 +        )}                                                    
+      139 +        {state === 'download_failed' && (                     
+      140 +          <>                                                  
+      141 +            <span>下载失败，请手动下载</span>                 
+      142 +            <a                                                
+      143 +              href={info?.releaseUrl}                         
+      144 +              target="_blank"                                 
+      145 +              rel="noreferrer"                                
+      146 +              className="flex items-center gap-1 px-2 py-0.5 b
+          +g-white text-indigo-700 rounded text-xs font-medium hover:bg-i
+          +ndigo-100"                                                    
+      147 +            >                                                 
+      148 +              前往下载页                                      
+      149 +            </a>                                              
+      150 +          </>                                                 
+      151 +        )}                                                    
+      152 +      </div>                                                  
+      153 +      {state !== 'downloading' && (                           
+      154 +        <button onClick={onDismiss} className="text-white hove
+          +r:text-indigo-200 ml-4">                                      
+      155 +          <X size={14} />                                     
+      156 +        </button>                                             
+      157 +      )}                                                      
+      158 +    </div>                                                    
+      159 +  )                                                           
+      160 +}                                                             
+      161 +                                                              
+      162  function NavItem({ to, icon, label, end = true }: { to: string
+           ; icon: React.ReactNode; label: string; end?: boolean }) {
+      163    return (
+      164      <NavLink
+
+⏺ Now let's verify the frontend builds correctly:
+
+⏺ Bash(cd /Users/shinerio/Workspace/code/SkillFlow/frontend && npm run build
+      2>&1)
+  ⎿  > frontend@0.0.0 build
+     > tsc && vite build
+     … +11 lines (ctrl+o to expand)
+
+⏺ Frontend builds without errors. Now let me update the documentation as
+  required by CLAUDE.md:
+
+⏺ Read 2 files (ctrl+o to expand)
+
+⏺ Now I'll update the documentation files:
+
+⏺ Update(feature.md)
+  ⎿  Added 1 line
+      20  9. [Skill Tooltip](#9-skill-tooltip)
+      21  10. [Shared Dialogs](#10-shared-dialogs)
+      22  11. [Backend Events](#11-backend-events)
+      23 +12. [App Update Banner](#12-app-update-banner)                 
+      24  
+      25  ---
+      26  
+
+⏺ Update(feature.md)
+  ⎿  Added 46 lines
+      471  
+      472  The Dashboard listens to `update.available` and marks affected
+            skill cards with a red update dot in real time.
+      473  The Backup page listens to all `git.*` events and surfaces the
+            conflict resolution dialog on `git.conflict`.
+      474 +`App.tsx` listens to all three `app.update.*` events and drive
+          +s the update banner state machine.                            
+      475  
+      476  ---
+      477  
+      478 +## 12. App Update Banner                                      
+      479 +                                                              
+      480 +A fixed top banner that appears when a new app version is dete
+          +cted at startup. Driven by a four-state machine:              
+      481 +                                                              
+      482 +| State | Trigger | Banner content |                          
+      483 +|-------|---------|---------------|                           
+      484 +| `available` | `app.update.available` event | Version label +
+          + platform-specific action |                                   
+      485 +| `downloading` | User clicks "立即下载" (Windows only) | Spin
+          +ner + version label |                                         
+      486 +| `ready_to_restart` | `app.update.download.done` event | Comp
+          +letion message + "立即重启" button |                          
+      487 +| `download_failed` | `app.update.download.fail` event | Error
+          + message + link to release page |                             
+      488 +                                                              
+      489 +### Platform Behavior                                         
+      490 +                                                              
+      491 +- **Windows** — Full auto-update flow: download → bat script r
+          +eplaces exe → restart.                                        
+      492 +- **macOS** — Notification only: "查看详情" link opens the Git
+          +Hub Releases page in the browser.                             
+      493 +                                                              
+      494 +### Controls                                                  
+      495 +                                                              
+      496 +| Control | Action |                                          
+      497 +|---------|--------|                                          
+      498 +| **查看详情** (macOS, `available`) | Opens `releaseUrl` in sy
+          +stem browser |                                                
+      499 +| **立即下载** (Windows, `available`) | `DownloadAppUpdate(dow
+          +nloadUrl)` — starts async download |                          
+      500 +| **立即重启** (`ready_to_restart`) | `ApplyAppUpdate()` — wri
+          +tes bat script and exits; bat replaces exe and relaunches |   
+      501 +| **前往下载页** (`download_failed`) | Opens `releaseUrl` in s
+          +ystem browser |                                               
+      502 +| **×** (all states except `downloading`) | Dismisses banner f
+          +or the current session |                                      
+      503 +                                                              
+      504 +### Backend Methods                                           
+      505 +                                                              
+      506 +| Method | Description |                                      
+      507 +|--------|-------------|                                      
+      508 +| `GetAppVersion()` | Returns current version string (injected
+          + by `-ldflags` at build time; `"dev"` in local dev) |         
+      509 +| `CheckAppUpdate()` | Queries GitHub Releases API; returns `A
+          +ppUpdateInfo` with platform-matched download URL |            
+      510 +| `DownloadAppUpdate(url)` | Downloads new exe to temp file as
+          +ynchronously; emits `app.update.download.done` or `app.update.
+          +download.fail` |                                              
+      511 +| `ApplyAppUpdate()` | Windows only — writes bat script for po
+          +st-exit exe replacement, then calls `os.Exit(0)` |            
+      512 +                                                              
+      513 +### Version Injection (CI)                                    
+      514 +                                                              
+      515 +GitHub Actions builds inject the tag name at compile time:    
+      516 +```                                                           
+      517 +wails build -ldflags "-X main.Version=${{ github.ref_name }}" 
+      518 +```                                                           
+      519 +The startup check is skipped when `Version == "dev"` (local de
+          +velopment).                                                   
+      520 +                                                              
+      521 +---                                                           
+      522 +                                                              
+      523  *Last updated: 2026-03-06*
+
+⏺ Now update feature_zh.md:
+
+⏺ Read 1 file (ctrl+o to expand)
+
+⏺ Update(feature_zh.md)
+  ⎿  Added 1 line
+      20  9. [Skill 悬浮提示](#9-skill-悬浮提示)
+      21  10. [公共对话框](#10-公共对话框)
+      22  11. [后端事件](#11-后端事件)
+      23 +12. [应用更新横幅](#12-应用更新横幅)                           
+      24  
+      25  ---
+      26  
+
+⏺ Update(feature_zh.md)
+  ⎿  Added 46 lines
+      471  
+      472  主面板监听 `update.available` 事件，实时在对应 Skill 卡片上标
+           记红色更新红点。
+      473  备份页监听所有 `git.*` 事件，并在收到 `git.conflict` 时弹出冲
+           突解决对话框。
+      474 +`App.tsx` 监听全部三个 `app.update.*` 事件，驱动更新横幅的状态
+          +机。                                                          
+      475  
+      476  ---
+      477  
+      478 +## 12. 应用更新横幅                                           
+      479 +                                                              
+      480 +应用启动时检测到新版本后，顶部显示固定横幅。横幅由四态状态机驱
+          +动：                                                          
+      481 +                                                              
+      482 +| 状态 | 触发条件 | 横幅内容 |                                
+      483 +|------|---------|---------|                                  
+      484 +| `available` | 收到 `app.update.available` 事件 | 版本号 + 平
+          +台对应操作 |                                                  
+      485 +| `downloading` | 用户点击"立即下载"（仅 Windows） | 旋转图标 
+          ++ 版本号 |                                                    
+      486 +| `ready_to_restart` | 收到 `app.update.download.done` 事件 | 
+          +完成提示 + "立即重启"按钮 |                                   
+      487 +| `download_failed` | 收到 `app.update.download.fail` 事件 |  
+          +错误提示 + 发布页链接 |                                       
+      488 +                                                              
+      489 +### 平台行为                                                  
+      490 +                                                              
+      491 +- **Windows** — 完整自动更新：下载 → 批处理脚本替换 exe → 重启
+          +。                                                            
+      492 +- **macOS** — 仅通知："查看详情"链接在浏览器中打开 GitHub Rele
+          +ases 页面。                                                   
+      493 +                                                              
+      494 +### 操作说明                                                  
+      495 +                                                              
+      496 +| 控件 | 操作 |                                               
+      497 +|------|------|                                               
+      498 +| **查看详情**（macOS，`available` 状态） | 在系统浏览器打开 `
+          +releaseUrl` |                                                 
+      499 +| **立即下载**（Windows，`available` 状态） | `DownloadAppUpda
+          +te(downloadUrl)` — 启动后台异步下载 |                         
+      500 +| **立即重启**（`ready_to_restart` 状态） | `ApplyAppUpdate()`
+          + — 写入批处理脚本并退出；脚本完成 exe 替换后重启 |            
+      501 +| **前往下载页**（`download_failed` 状态） | 在系统浏览器打开 
+          +`releaseUrl` |                                                
+      502 +| **×**（除 `downloading` 外所有状态） | 关闭横幅（本次会话内 
+          +不再提示） |                                                  
+      503 +                                                              
+      504 +### 后端方法                                                  
+      505 +                                                              
+      506 +| 方法 | 说明 |                                               
+      507 +|------|------|                                               
+      508 +| `GetAppVersion()` | 返回当前版本字符串（CI 通过 `-ldflags`  
+          +注入；本地开发为 `"dev"`） |                                  
+      509 +| `CheckAppUpdate()` | 查询 GitHub Releases API；返回含平台匹 
+          +配下载链接的 `AppUpdateInfo` |                                
+      510 +| `DownloadAppUpdate(url)` | 异步下载新 exe 到临时目录；完成后
+          +发布 `app.update.download.done` 或 `app.update.download.fail` 
+          +事件 |                                                        
+      511 +| `ApplyAppUpdate()` | 仅 Windows — 写入批处理脚本实现退出后 e
+          +xe 替换，然后调用 `os.Exit(0)` |                              
+      512 +                                                              
+      513 +### 版本注入（CI）                                            
+      514 +                                                              
+      515 +GitHub Actions 在编译时通过 ldflags 注入 tag 名：             
+      516 +```                                                           
+      517 +wails build -ldflags "-X main.Version=${{ github.ref_name }}" 
+      518 +```                                                           
+      519 +当 `Version == "dev"` 时（本地开发），启动时的更新检测会跳过。
+      520 +                                                              
+      521 +---                                                           
+      522 +                                                              
+      523  *最后更新：2026-03-06*
+
+⏺ Now update README.md and README_zh.md:
+
+⏺ Update(README.md)
+  ⎿  Added 1 line
+      14  | **Starred Repos** | Watch Git repos and browse/import their s
+          kills without adding them to your library first; folder or flat
+           view; bulk push directly to tools |
+      15  | **Cloud Backup** | Mirror your library to Aliyun OSS, Tencent
+           COS, Huawei OBS, or any Git repo; all providers back up the sa
+          me app-data scope (excluding `cache/` and `.git/`); Git mode au
+          to-initializes repo/origin and supports conflict dialog with co
+          nflicted files + local/remote override |
+      16  | **Update Checker** | Detects new commits for GitHub-sourced s
+          kills; one-click update |
+      17 +| **App Auto-Update** | Startup banner notifies when a new app 
+         +release is available; Windows supports one-click download and r
+         +estart; macOS links to GitHub Releases |                       
+      18  | **Settings** | Per-tool enable/disable, push & scan paths (te
+          xt input + folder picker), custom tools, cloud credentials, pro
+          xy configuration |
+      19  
+      20  For a complete description of every button, dialog, and interac
+          tion, see **[feature.md](feature.md)**.
+
+⏺ Read 1 file (ctrl+o to expand)
+
+⏺ Update(README_zh.md)
+  ⎿  Added 1 line
+      14  | **仓库收藏** | 关注 Git 仓库，无需导入即可浏览和使用其中的 Sk
+          ills；支持文件夹或平铺视图；可直接批量推送到工具 |
+      15  | **云端备份** | 将 Skill 库镜像至阿里云 OSS、腾讯云 COS、华为
+          云 OBS 或任意 Git 仓库；所有服务商的备份范围统一为应用数据目录
+          （排除 `cache/` 与 `.git/`）；Git 模式支持仓库/`origin` 自动初
+          始化，并在冲突时展示冲突文件供选择本地或远端覆盖 |
+      16  | **更新检测** | 自动检测 GitHub 来源 Skills 的新提交；一键更新
+           |
+      17 +| **应用自动更新** | 启动时横幅提示新版本；Windows 支持一键下载
+         +并重启；macOS 链接至 GitHub Releases 页面 |                    
+      18  | **设置** | 按工具独立配置启用状态、推送路径和扫描路径（文字输
+          入 + 文件夹选择器）、自定义工具、云服务凭据、代理设置 |
+      19  
+      20  每个按钮、对话框和交互的完整说明，请查阅 **[feature_zh.md](feat
+          ure_zh.md)**。
+
+⏺ Now let's run a final verification:
+
+⏺ Bash(cd /Users/shinerio/Workspace/code/SkillFlow && go build ./... && go test
+      ./core/... 2>&1)
+  ⎿  ok         github.com/shinerio/skillflow/core/backup       (cached)
+     ok         github.com/shinerio/skillflow/core/config       (cached)
+     ok         github.com/shinerio/skillflow/core/git  (cached)
+     … +6 lines (ctrl+o to expand)
+
+⏺ All tests pass. Let me do a quick sanity check on the files changed:
+
+⏺ Bash(git diff --stat HEAD)
+  ⎿   .github/workflows/build.yml           |  36 +++++++-
+      README.md                             |   1 +
+      README_zh.md                          |   1 +
+     … +13 lines (ctrl+o to expand)
+
+⏺ Bash(git status --short)
+  ⎿   M .github/workflows/build.yml
+      M README.md
+      M README_zh.md
+     … +13 lines (ctrl+o to expand)
+
+⏺ Everything looks correct. Now I'll use the finishing-a-development-branch
+  skill:
+
+  I'm using the finishing-a-development-branch skill to complete this work.
+
+⏺ Skill(superpowers:finishing-a-development-branch)
+  ⎿  Successfully loaded skill
+
+⏺ Tests already verified — all passing. Let me check the current branch:
+
+⏺ Bash(git branch --show-current && git worktree list)
+  ⎿  main
+     /Users/shinerio/Workspace/code/SkillFlow  1e359f6 [main]
+
+⏺ Work was done directly on main (no feature branch / worktree). Implementation
+  is complete.
+
+  ---
+  Implementation complete. What would you like to do?
+
+  1. Commit directly to main locally
+  2. Push to remote (creates new commits on main, no PR needed)
+  3. Keep the changes as-is (I'll handle it later)
+  4. Discard this work
+
+  Which option?
+
+✻ Crunched for 6m 40s
+
+❯ /shinerio-code-plugin:gitacp 
+
+⏺ Bash(git diff HEAD && git status --short)
+  ⎿  diff --git a/.github/workflows/build.yml b/.github/workflows/build.yml
+     index b5f729b..c06ce9a 100644
+     --- a/.github/workflows/build.yml
+     … +309 lines (ctrl+o to expand)
+
+⏺ Now I'll generate the changelog and commit:
+
+⏺ Bash(date +%Y-%m-%d && date +%Y%m)
+  ⎿  2026-03-06
+     202603
+
+⏺ Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Update(changelog/change_202603.md)
+  ⎿  Added 24 lines, removed 1 line
+       1 -、## SkillFlow 全量实现：后端 + 前端 + CI 构建                 
+       1 +## GitHub Release 自动发布与应用自动更新                       
+       2  
+       3 +date: 2026-03-06                                               
+       4 +                                                               
+       5 +### 新增功能                                                   
+       6 +- **版本注入**：新增 `version.go`，通过 `-ldflags "-X main.Vers
+         +ion=vX.Y.Z"` 在 CI 构建时注入版本号，本地开发默认为 `"dev"`    
+       7 +- **应用更新检测后端**：新增 `app_update.go`，包含：           
+       8 +  - `GetAppVersion()`：返回当前版本字符串                      
+       9 +  - `CheckAppUpdate()`：查询 GitHub Releases API，按平台（windo
+         +ws/macos-intel/macos-apple-silicon）匹配下载链接，返回 `AppUpda
+         +teInfo`                                                        
+      10 +  - `DownloadAppUpdate(url)`：异步下载新版本到临时目录，通过事 
+         +件上报进度                                                     
+      11 +  - `ApplyAppUpdate()`：Windows 专用，写 bat 脚本实现退出后 exe
+         + 替换并重启                                                    
+      12 +  - `checkAppUpdateOnStartup()`：启动时静默检测（Version == "de
+         +v" 时跳过）                                                    
+      13 +- **新增事件类型**：`core/notify/model.go` 增加 `app.update.ava
+         +ilable`、`app.update.download.done`、`app.update.download.fail`
+      14 +- **前端更新横幅**：`App.tsx` 新增固定顶部横幅，四态状态机（ava
+         +ilable → downloading → ready_to_restart / download_failed），Wi
+         +ndows 支持一键下载+重启，macOS 跳转发布页                      
+      15 +- **CI 自动发布**：`.github/workflows/build.yml` 新增 `release`
+         + job，构建时注入版本号，macOS 产物打包为 zip，Windows 直接上传 
+         +exe，通过 `softprops/action-gh-release` 自动创建 GitHub Release
+      16 +                                                               
+      17 +### 更新文件                                                   
+      18 +- `app.go`：startup 中新增 `go a.checkAppUpdateOnStartup()`    
+      19 +- `frontend/wailsjs/`：重新生成 TypeScript 绑定（含 `AppUpdateI
+         +nfo` 类型）                                                    
+      20 +- `feature.md` / `feature_zh.md` / `README.md` / `README_zh.md`
+         +：同步新增应用自动更新功能文档                                 
+      21 +                                                               
+      22 +---                                                            
+      23 +                                                               
+      24 +## SkillFlow 全量实现：后端 + 前端 + CI 构建                   
+      25 +                                                               
+      26  date: 2026-03-04
+      27  
+      28  ### 后端（Go 核心库）
+
+⏺ Bash(git add .github/workflows/build.yml README.md README_zh.md app.go
+      app_update.go version.go core/notify/model.go feature.md feature_zh.md
+      frontend/src/App.tsx fr…)
+  ⎿  [main 1189364] feat: GitHub Release 自动发布与应用自动更新
+      14 files changed, 541 insertions(+), 28 deletions(-)
+      create mode 100644 app_update.go
+      create mode 100644 version.go
+
+⏺ Bash(git push)
+  ⎿  To https://github.com/shinerio/SkillFlow.git
+        1e359f6..1189364  main -> main
+
+⏺ 完成。推送成功。
+
+  ---
+  本次变更汇总：
+
+  ┌─────────────────────────────┬────────────────────────────────────────────┐
+  │            文件             │                    说明                    │
+  ├─────────────────────────────┼────────────────────────────────────────────┤
+  │ version.go                  │ 新建，var Version = "dev"，CI 注入         │
+  ├─────────────────────────────┼────────────────────────────────────────────┤
+  │ app_update.go               │ 新建，CheckAppUpdate / DownloadAppUpdate / │
+  │                             │  ApplyAppUpdate / checkAppUpdateOnStartup  │
+  ├─────────────────────────────┼────────────────────────────────────────────┤
+  │ core/notify/model.go        │ 新增 3 个 app.update.* 事件类型            │
+  ├─────────────────────────────┼────────────────────────────────────────────┤
+  │ app.go                      │ startup 中启动 checkAppUpdateOnStartup     │
+  │                             │ goroutine                                  │
+  ├─────────────────────────────┼────────────────────────────────────────────┤
+  │ .github/workflows/build.yml │ 注入版本号、macOS zip 打包、新增 release   │
+  │                             │ job 自动创建 GitHub Release                │
+  ├─────────────────────────────┼────────────────────────────────────────────┤
+  │ frontend/src/App.tsx        │ 新增四态更新横幅组件                       │
+  ├─────────────────────────────┼────────────────────────────────────────────┤
+  │ frontend/wailsjs/           │ 重新生成 TypeScript 绑定（含 AppUpdateInfo │
+  │                             │  类型）                                    │
+  ├─────────────────────────────┼────────────────────────────────────────────┤
+  │ 文档                        │ feature.md / feature_zh.md / README.md /   │
+  │                             │ README_zh.md 同步更新                      │
+  ├─────────────────────────────┼────────────────────────────────────────────┤
+  │ changelog/change_202603.md  │ 新增本次变更记录                           │
+  └─────────────────────────────┴────────────────────────────────────────────┘
+
+  触发更新的方式： 推送 v* 格式的 tag（如 git tag v1.0.0 && git push 
+  --tags），CI 将自动构建三平台产物并创建 GitHub Release。
+
+✻ Cooked for 1m 31s
+
+❯ 目前貌似没看到手动检测更新的按钮，在设置页面右上角添加自动检测软件版本更  
+  新按钮                                                                    
+
+⏺ Read 1 file (ctrl+o to expand)
+
+⏺ Now I have enough context. The header is at line 105 — I'll change it to a
+  flex row with the title on the left and the check-for-updates button on the
+  right.
+
+⏺ Update(frontend/src/pages/Settings.tsx)
+  ⎿  Added 2 lines, removed 2 lines
+      1  import { useEffect, useState } from 'react'
+      2 -import { GetConfig, SaveConfig, ListCloudProviders, AddCustomToo
+        -l, RemoveCustomTool, OpenFolderDialog } from '../../wailsjs/go/m
+        -ain/App'                                                        
+      3 -import { Plus, Trash2, Settings, Globe, FolderOpen } from 'lucid
+        -e-react'                                                        
+      2 +import { GetConfig, SaveConfig, ListCloudProviders, AddCustomToo
+        +l, RemoveCustomTool, OpenFolderDialog, CheckAppUpdate, GetAppVer
+        +sion } from '../../wailsjs/go/main/App'                         
+      3 +import { Plus, Trash2, Settings, Globe, FolderOpen, RefreshCw } 
+        +from 'lucide-react'                                             
+      4  import { ToolIcon } from '../config/toolIcons'
+      5  
+      6  type Tab = 'tools' | 'cloud' | 'general' | 'network'
+
+⏺ Now add state variables and handler for checking updates, then update the
+  header:
+
+⏺ Update(frontend/src/pages/Settings.tsx)
+  ⎿  Added 3 lines
+      24    const [saving, setSaving] = useState(false)
+      25    const [newTool, setNewTool] = useState({ name: '', pushDir: '
+          ' })
+      26    const [newScanDirs, setNewScanDirs] = useState<Record<string,
+           string>>({})
+      27 +  const [appVersion, setAppVersion] = useState('')             
+      28 +  const [checkingUpdate, setCheckingUpdate] = useState(false)  
+      29 +  const [updateResult, setUpdateResult] = useState<string | nul
+         +l>(null)                                                       
+      30  
+      31    useEffect(() => {
+      32      Promise.all([GetConfig(), ListCloudProviders()]).then(([c, 
+          p]) => {
+
+⏺ Update(frontend/src/pages/Settings.tsx)
+  ⎿  Added 19 lines, removed 1 line
+      29    const [updateResult, setUpdateResult] = useState<string | nul
+          l>(null)
+      30  
+      31    useEffect(() => {
+      32 -    Promise.all([GetConfig(), ListCloudProviders()]).then(([c, 
+         -p]) => {                                                       
+      32 +    Promise.all([GetConfig(), ListCloudProviders(), GetAppVersi
+         +on()]).then(([c, p, v]) => {                                   
+      33        setCfg(c)
+      34        setProviders(p ?? [])
+      35 +      setAppVersion(v as string)                               
+      36      })
+      37    }, [])
+      38  
+      39 +  const checkUpdate = async () => {                            
+      40 +    setCheckingUpdate(true)                                    
+      41 +    setUpdateResult(null)                                      
+      42 +    try {                                                      
+      43 +      const info = await CheckAppUpdate()                      
+      44 +      if (info.hasUpdate) {                                    
+      45 +        setUpdateResult(`发现新版本 ${info.latestVersion}，请查
+         +看顶部横幅`)                                                   
+      46 +      } else {                                                 
+      47 +        setUpdateResult(`已是最新版本 (${info.currentVersion})`
+         +)                                                              
+      48 +      }                                                        
+      49 +    } catch {                                                  
+      50 +      setUpdateResult('检测失败，请检查网络')                  
+      51 +    } finally {                                                
+      52 +      setCheckingUpdate(false)                                 
+      53 +    }                                                          
+      54 +  }                                                            
+      55 +                                                               
+      56    const save = async () => {
+      57      setSaving(true)
+      58      await SaveConfig(cfg)
+
+⏺ Now update the header to add the check-for-updates button:
+
+⏺ Update(frontend/src/pages/Settings.tsx)
+  ⎿  Added 19 lines, removed 1 line
+      123  
+      124    return (
+      125      <div className="p-8 max-w-2xl">
+      126 -      <h2 className="text-lg font-semibold mb-6 flex items-cen
+          -ter gap-2"><Settings size={18} /> 设置</h2>                   
+      126 +      <div className="flex items-center justify-between mb-6">
+      127 +        <h2 className="text-lg font-semibold flex items-center
+          + gap-2"><Settings size={18} /> 设置</h2>                      
+      128 +        <div className="flex items-center gap-3">             
+      129 +          {updateResult && (                                  
+      130 +            <span className="text-xs text-gray-400">{updateRes
+          +ult}</span>                                                   
+      131 +          )}                                                  
+      132 +          {appVersion && (                                    
+      133 +            <span className="text-xs text-gray-500">v{appVersi
+          +on.replace(/^v/, '')}</span>                                  
+      134 +          )}                                                  
+      135 +          <button                                             
+      136 +            onClick={checkUpdate}                             
+      137 +            disabled={checkingUpdate}                         
+      138 +            className="flex items-center gap-1.5 px-3 py-1.5 t
+          +ext-xs bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg 
+          +transition-colors disabled:opacity-50"                        
+      139 +          >                                                   
+      140 +            <RefreshCw size={12} className={checkingUpdate ? '
+          +animate-spin' : ''} />                                        
+      141 +            检测更新                                          
+      142 +          </button>                                           
+      143 +        </div>                                                
+      144 +      </div>                                                  
+      145  
+      146        {/* Tabs */}
+      147        <div className="flex gap-1 mb-6 bg-gray-800 rounded-xl p
+           -1 w-fit">
+
+⏺ Bash(cd /Users/shinerio/Workspace/code/SkillFlow/frontend && npm run build
+      2>&1 | tail -10)
+  ⎿  vite v3.2.11 building for production...
+     transforming...
+     Module level directives cause errors when bundled, 'use client' was ig
+     … +8 lines (ctrl+o to expand)
+
+⏺ 编译通过。同步更新文档，然后提交：
+
+⏺ Update(feature.md)
+  ⎿  Added 10 lines
+      491  - **Windows** — Full auto-update flow: download → bat script r
+           eplaces exe → restart.
+      492  - **macOS** — Notification only: "查看详情" link opens the Git
+           Hub Releases page in the browser.
+      493  
+      494 +### Manual Check Button (Settings Page)                       
+      495 +                                                              
+      496 +A **"检测更新"** button in the top-right corner of the Setting
+          +s page header:                                                
+      497 +                                                              
+      498 +- Displays current app version (`vX.Y.Z`) next to the button. 
+      499 +- Click → calls `CheckAppUpdate()`; button shows a spinner whi
+          +le checking.                                                  
+      500 +- Result shown inline: "已是最新版本 (vX.Y.Z)" or "发现新版本 
+          +vX.Y.Z，请查看顶部横幅".                                      
+      501 +- On error: "检测失败，请检查网络".                           
+      502 +- If a new version is found, the top banner in `App.tsx` is ac
+          +tivated via the `app.update.available` event (emitted by `chec
+          +kAppUpdateOnStartup` on next launch, or the user can trigger t
+          +he banner manually via the startup flow).                     
+      503 +                                                              
+      504  ### Controls
+      505  
+      506  | Control | Action |
+
+⏺ Update(feature_zh.md)
+  ⎿  Added 9 lines
+      491  - **Windows** — 完整自动更新：下载 → 批处理脚本替换 exe → 重启
+           。
+      492  - **macOS** — 仅通知："查看详情"链接在浏览器中打开 GitHub Rele
+           ases 页面。
+      493  
+      494 +### 手动检测按钮（设置页）                                    
+      495 +                                                              
+      496 +设置页标题栏右上角提供 **"检测更新"** 按钮：                  
+      497 +                                                              
+      498 +- 按钮旁显示当前应用版本号（`vX.Y.Z`）。                      
+      499 +- 点击 → 调用 `CheckAppUpdate()`；检测中按钮显示旋转图标。    
+      500 +- 结果内联显示："已是最新版本 (vX.Y.Z)" 或 "发现新版本 vX.Y.Z 
+          +，请查看顶部横幅"。                                           
+      501 +- 出错时显示："检测失败，请检查网络"。                        
+      502 +                                                              
+      503  ### 操作说明
+      504  
+      505  | 控件 | 操作 |
+
+⏺ Bash(cd /Users/shinerio/Workspace/code/SkillFlow && git add
+      frontend/src/pages/Settings.tsx feature.md feature_zh.md && git commit -m
+      "$(cat <<'EOF'
+      feat: 设置页右上角添加手动…)
+  ⎿  [main 5e638cd] feat: 设置页右上角添加手动检测应用版本更新按钮
+      3 files changed, 66 insertions(+), 8 deletions(-)
+     To https://github.com/shinerio/SkillFlow.git
+        1189364..5e638cd  main -> main
+
+⏺ 完成。设置页右上角现在有：
+
+  - 版本号（v1.0.0 格式，从 GetAppVersion() 读取）
+  - "检测更新"按钮（RefreshCw 图标，点击时旋转）
+    - 检测中：按钮禁用 + 旋转图标
+    - 已是最新："已是最新版本 (vX.Y.Z)"
+    - 有新版本："发现新版本 vX.Y.Z，请查看顶部横幅"
+    - 网络失败："检测失败，请检查网络"
+
+  注意：手动检测到新版本时，顶部横幅不会立即弹出（因为 CheckAppUpdate 只返回数据
+  ，不发布事件）。如果需要手动检测后也触发横幅，需要将检测结果通过事件或 prop
+  传递给 App.tsx。目前的设计是：横幅由启动时的 checkAppUpdateOnStartup goroutine
+   驱动，手动检测只做信息提示。如需联动，请告知。
+
+✻ Crunched for 2m 6s
+
+❯ 我本地构建后，版本显示vdev，点击检测更新后。显示检测失败，请检查网络。另  
+  外，手动也需要弹出顶部横幅                                                
+
+⏺ 两个问题：
+  1. 版本显示 vdev — GetAppVersion() 返回 "dev"，前端拼了多余的 v
+  2. 手动检测要触发横幅 — 需要在后端检测到新版本时也发布 app.update.available
+  事件
+
+  先看一眼 app_update.go 确认当前代码：
+
+⏺ Read 1 file (ctrl+o to expand)
+
+⏺ 三处修改：
+
+  1. app_update.go — CheckAppUpdate 增加 a.ctx 用于网络请求（Dev 模式下 context
+  可能是 nil，需要保护）；新增 CheckAppUpdateAndNotify
+  方法，检测到新版本时发布事件
+  2. Settings.tsx — 版本号显示修复（dev 不加 v 前缀）；改用
+  CheckAppUpdateAndNotify，检测失败时显示实际错误信息
+
+⏺ Update(app_update.go)
+  ⎿  Added 2 lines, removed 2 lines
+      38  // CheckAppUpdate queries GitHub Releases API and returns updat
+          e information.
+      39  func (a *App) CheckAppUpdate() (*AppUpdateInfo, error) {
+      40    client := a.proxyHTTPClient()
+      41 -  url := fmt.Sprintf("https://api.github.com/repos/%s/%s/releas
+         -es/latest", githubOwner, githubRepo)                           
+      42 -  req, err := http.NewRequest("GET", url, nil)                 
+      41 +  apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s/rel
+         +eases/latest", githubOwner, githubRepo)                        
+      42 +  req, err := http.NewRequestWithContext(a.ctx, "GET", apiURL, 
+         +nil)                                                           
+      43    if err != nil {
+      44      return nil, err
+      45    }
+
+⏺ Now add CheckAppUpdateAndNotify and fix the checkAppUpdateOnStartup to also
+  publish even in dev:
+
+⏺ Update(app_update.go)
+  ⎿  Added 17 lines
+      164    return nil
+      165  }
+      166  
+      167 +// CheckAppUpdateAndNotify checks for updates and, if a new ve
+          +rsion is found, publishes                                     
+      168 +// EventAppUpdateAvailable so the top banner activates. Return
+          +s the update info.                                            
+      169 +func (a *App) CheckAppUpdateAndNotify() (*AppUpdateInfo, error
+          +) {                                                           
+      170 +  info, err := a.CheckAppUpdate()                             
+      171 +  if err != nil {                                             
+      172 +    return nil, err                                           
+      173 +  }                                                           
+      174 +  if info.HasUpdate {                                         
+      175 +    a.hub.Publish(notify.Event{                               
+      176 +      Type:    notify.EventAppUpdateAvailable,                
+      177 +      Payload: info,                                          
+      178 +    })                                                        
+      179 +  }                                                           
+      180 +  return info, nil                                            
+      181 +}                                                             
+      182 +                                                              
+      183  // checkAppUpdateOnStartup checks for app updates and emits Ev
+           entAppUpdateAvailable if found.
+      184 +// Skipped in dev builds to avoid noise during development.   
+      185  func (a *App) checkAppUpdateOnStartup() {
+      186    if Version == "dev" {
+      187      return
+
+⏺ Bash(go build ./... 2>&1)
+  ⎿  (No output)
+
+⏺ Bash(make generate 2>&1 | grep -v "^\[" | grep -v "^$")
+  ⎿  /Users/shinerio/go/bin/wails generate module
+     2026/03/06 20:13:18 KnownStructs: backup.RemoteFile        config.AppConfig
+     onfig.CloudConfig  config.ProxyConfig      config.ToolConfig       git.Star
+     … +14 lines (ctrl+o to expand)
+
+
+
+⏺ Searched for 1 pattern (ctrl+o to expand)
+
+⏺ Now update Settings.tsx — fix version display and switch to
+  CheckAppUpdateAndNotify:
+
+⏺ Read 1 file (ctrl+o to expand)
+
+⏺ Update(frontend/src/pages/Settings.tsx)
+  ⎿  Added 1 line, removed 1 line
+      1  import { useEffect, useState } from 'react'
+      2 -import { GetConfig, SaveConfig, ListCloudProviders, AddCustomToo
+        -l, RemoveCustomTool, OpenFolderDialog, CheckAppUpdate, GetAppVer
+        -sion } from '../../wailsjs/go/main/App'                         
+      2 +import { GetConfig, SaveConfig, ListCloudProviders, AddCustomToo
+        +l, RemoveCustomTool, OpenFolderDialog, CheckAppUpdateAndNotify, 
+        +GetAppVersion } from '../../wailsjs/go/main/App'                
+      3  import { Plus, Trash2, Settings, Globe, FolderOpen, RefreshCw } 
+         from 'lucide-react'
+      4  import { ToolIcon } from '../config/toolIcons'
+      5  
+
+⏺ Update(frontend/src/pages/Settings.tsx)
+  ⎿  Added 4 lines, removed 4 lines
+      40      setCheckingUpdate(true)
+      41      setUpdateResult(null)
+      42      try {
+      43 -      const info = await CheckAppUpdate()                      
+      43 +      const info = await CheckAppUpdateAndNotify()             
+      44        if (info.hasUpdate) {
+      45 -        setUpdateResult(`发现新版本 ${info.latestVersion}，请查
+         -看顶部横幅`)                                                   
+      45 +        setUpdateResult(`发现新版本 ${info.latestVersion}`)    
+      46        } else {
+      47          setUpdateResult(`已是最新版本 (${info.currentVersion})`
+          )
+      48        }
+      49 -    } catch {                                                  
+      50 -      setUpdateResult('检测失败，请检查网络')                  
+      49 +    } catch (e: any) {                                         
+      50 +      setUpdateResult(`检测失败: ${e?.message ?? String(e)}`)  
+      51      } finally {
+      52        setCheckingUpdate(false)
+      53      }
+
+⏺ Now fix the version display — don't prepend v when version is already prefixed
+   or is "dev":
+
+⏺ Update(frontend/src/pages/Settings.tsx)
+  ⎿  Added 3 lines, removed 1 line
+      130              <span className="text-xs text-gray-400">{updateRes
+           ult}</span>
+      131            )}
+      132            {appVersion && (
+      133 -            <span className="text-xs text-gray-500">v{appVersi
+          -on.replace(/^v/, '')}</span>                                  
+      133 +            <span className="text-xs text-gray-500">          
+      134 +              {appVersion === 'dev' ? 'dev' : appVersion.start
+          +sWith('v') ? appVersion : `v${appVersion}`}                   
+      135 +            </span>                                           
+      136            )}
+      137            <button
+      138              onClick={checkUpdate}
+
+⏺ Bash(cd /Users/shinerio/Workspace/code/SkillFlow/frontend && npm run build
+      2>&1 | tail -8)
+  ⎿  transforming...
+     Module level directives cause errors when bundled, 'use client' was ig
+     nored.
+     … +7 lines (ctrl+o to expand)
+
+⏺ Bash(cd /Users/shinerio/Workspace/code/SkillFlow && git add app_update.go
+      frontend/src/pages/Settings.tsx frontend/wailsjs/go/main/App.d.ts
+      frontend/wailsjs/go/main/…)
+  ⎿  [main 6b1f228] fix: 修复版本号显示及手动检测更新触发横幅
+      4 files changed, 33 insertions(+), 8 deletions(-)
+     To https://github.com/shinerio/SkillFlow.git
+        5e638cd..6b1f228  main -> main
+
+⏺ 修复完成：
+
+  版本显示
+  - "dev" → 显示 dev（不加 v 前缀）
+  - "v1.2.3" → 显示 v1.2.3
+  - "1.2.3" → 显示 v1.2.3
+
+  手动检测更新
+  - 新增 CheckAppUpdateAndNotify() 后端方法：检测到新版本时会同时发布
+  app.update.available 事件，App.tsx 收到后自动显示顶部横幅
+  - 失败信息从模糊的"请检查网络"改为显示实际错误内容，便于排查
+
+  关于 dev 模式下检测失败：如果错误信息是网络相关（如 connection refused 或
+  timeout），说明是 GitHub API
+  访问问题（防火墙/代理）。现在的错误信息会直接显示原始错误，方便你判断原因。
+
+✻ Churned for 3m 5s
+
+❯ github action是否支持通过macos-latest自动打包为.dmg镜像，通过这个镜像实现 
+  自动更新是否可行。                                                        
+
+⏺ 技术分析
+
+  CI 打包 DMG：完全可行
+
+  macos-latest 内置 hdiutil，可直接生成 DMG：
+
+  # 创建 "拖拽到 Applications" 风格的 DMG
+  hdiutil create -volname "SkillFlow" \
+    -srcfolder build/bin/SkillFlow.app \
+    -ov -format UDZO \
+    SkillFlow-macos-intel.dmg
+
+  CI 改动很小，把 zip 换成 hdiutil 命令即可。
+
+  ---
+  用 DMG 实现自动更新：不可行
+
+  这是两个独立问题：
+
+  ┌────────────────┬───────────────────────────────────────┐
+  │      场景      │              DMG 的作用               │
+  ├────────────────┼───────────────────────────────────────┤
+  │ 首次分发安装   │ ✅ 更友好（挂载 → 拖到 Applications） │
+  ├────────────────┼───────────────────────────────────────┤
+  │ 应用内自动更新 │ ❌ 完全不适合                         │
+  └────────────────┴───────────────────────────────────────┘
+
+  为什么 DMG 不能用于自动更新：
+
+  1. DMG 是磁盘镜像，需要用户手动操作：挂载 → 拖拽 → 推出，无法静默完成
+  2. .app 是目录 bundle，无法简单替换：Windows 的 bat 脚本替换 exe 的方案在
+  macOS 不适用——.app 是文件夹，正在运行时系统会锁定部分文件
+  3. Gatekeeper 拦截：即使静默下载替换了 .app，新版本会因为来源未知被 Gatekeeper
+   拦截（需要右键→打开）
+  4. 沙盒限制：如果以后上架 Mac App Store，应用没有权限替换自身
+
+  ---
+  macOS 自动更新的行业解法
+
+  ┌─────────────────────────┬──────────────────────────┬────────────────────┐
+  │          方案           │          可行性          │       复杂度       │
+  ├─────────────────────────┼──────────────────────────┼────────────────────┤
+  │                         │ ✅ 业界标准（VS          │ 高（需要 Obj-C     │
+  │ Sparkle 框架            │ Code、Typora 都用）      │ 桥接，与 Wails     │
+  │                         │                          │ 集成复杂）         │
+  ├─────────────────────────┼──────────────────────────┼────────────────────┤
+  │                         │ ⚠️                       │ 中（需要外部       │
+  │ 下载 zip → 解压替换     │ 技术可行但需要辅助进程   │ helper 脚本在 app  │
+  │                         │                          │ 退出后替换）       │
+  ├─────────────────────────┼──────────────────────────┼────────────────────┤
+  │ 通知 →                  │ ✅ 简单可靠              │ 已实现             │
+  │ 跳转浏览器（当前方案）  │                          │                    │
+  └─────────────────────────┴──────────────────────────┴────────────────────┘
+
+  ---
+  建议
+
+  短期：保持现状（通知 + 打开 Releases 页），DMG 作为分发格式替换 zip 即可：
+
+  - name: Package macOS DMG
+    if: runner.os == 'macOS'
+    run: |
+      hdiutil create -volname "SkillFlow" \
+        -srcfolder build/bin/SkillFlow.app \
+        -ov -format UDZO \
+        build/bin/SkillFlow-${{ matrix.name }}.dmg
+
+  上传改为 .dmg，同时更新 CheckAppUpdate 里的资产名匹配规则（macos-intel.dmg /
+  macos-apple-silicon.dmg）。
+
+  中期如果要真正的 macOS 一键更新，需要实现：
+  1. 下载新 .zip/.dmg 到临时目录
+  2. 写一个独立的 shell helper 脚本（类似 Windows 的 bat）
+  3. 应用退出后由 helper 完成 cp -R 替换 .app，再重新启动
+
+  是否需要改用 DMG 分发，或者实现 macOS 的 shell helper 替换方案？
+
+✻ Sautéed for 37s
+
+❯ 1. 改用dmg分发 2. macos保持跳转浏览器，手动更新逻辑 
+
+⏺ 只需改两处：CI 打包命令 + 资产名匹配规则。
+
+⏺ Read 1 file (ctrl+o to expand)
+
+⏺ Update(.github/workflows/build.yml)
+  ⎿  Added 8 lines, removed 4 lines
+      31        - name: Build
+      32          run: wails build -platform ${{ matrix.arch == 'arm64' &
+          & 'darwin/arm64' || matrix.os == 'windows-latest' && 'windows/a
+          md64' || 'darwin/amd64' }} -ldflags "-X main.Version=${{ github
+          .ref_name }}"
+      33  
+      34 -      # macOS: .app is a directory bundle — must zip before upl
+         -oad                                                            
+      35 -      - name: Package macOS app                                
+      34 +      # macOS: package .app bundle into a DMG for distribution 
+      35 +      - name: Package macOS DMG                                
+      36          if: runner.os == 'macOS'
+      37 -        run: cd build/bin && zip -r SkillFlow-${{ matrix.name }
+         -}.zip SkillFlow.app                                            
+      37 +        run: |                                                 
+      38 +          hdiutil create -volname "SkillFlow" \                
+      39 +            -srcfolder build/bin/SkillFlow.app \               
+      40 +            -ov -format UDZO \                                 
+      41 +            build/bin/SkillFlow-${{ matrix.name }}.dmg         
+      42  
+      43        - name: Upload artifact
+      44          uses: actions/upload-artifact@v4
+      45          with:
+      46            name: skillflow-${{ matrix.name }}
+      43 -          path: ${{ runner.os == 'Windows' && 'build/bin/SkillF
+         -low.exe' || format('build/bin/SkillFlow-{0}.zip', matrix.name) 
+         -}}                                                             
+      47 +          path: ${{ runner.os == 'Windows' && 'build/bin/SkillF
+         +low.exe' || format('build/bin/SkillFlow-{0}.dmg', matrix.name) 
+         +}}                                                             
+      48  
+      49    release:
+      50      needs: build
+
+⏺ Update(.github/workflows/build.yml)
+  ⎿  Added 2 lines, removed 2 lines
+      63          uses: softprops/action-gh-release@v2
+      64          with:
+      65            files: |
+      66 -            dist/skillflow-macos-intel/SkillFlow-macos-intel.zi
+         -p                                                              
+      67 -            dist/skillflow-macos-apple-silicon/SkillFlow-macos-
+         -apple-silicon.zip                                              
+      66 +            dist/skillflow-macos-intel/SkillFlow-macos-intel.dm
+         +g                                                              
+      67 +            dist/skillflow-macos-apple-silicon/SkillFlow-macos-
+         +apple-silicon.dmg                                              
+      68              dist/SkillFlow-windows.exe
+      69            generate_release_notes: true
+
+⏺ 现在更新 app_update.go 里的资产名匹配（macos-intel / macos-apple-silicon
+  的后缀从 .zip 改为 .dmg）：
+
+⏺ Read 1 file (ctrl+o to expand)
+
+⏺ 资产名匹配用的是 strings.Contains(name, 
+  "macos-intel")，与后缀无关，不需要改。但 macOS 下 CanAutoUpdate 已经是
+  false（只有 windows 返回 true），所以 DownloadURL
+  只做展示用（横幅上"查看详情"跳转
+  ReleaseURL），不会触发下载逻辑，无需修改后端。
+
+  验证编译并提交：
+
+⏺ Bash(go build ./... && git add .github/workflows/build.yml && git commit -m
+      "$(cat <<'EOF'
+      feat: macOS 分发改用 DMG 格式…)
+  ⎿  [main 54af492] feat: macOS 分发改用 DMG 格式
+      1 file changed, 10 insertions(+), 6 deletions(-)
+     To https://github.com/shinerio/SkillFlow.git
+        602c222..54af492  main -> main
+
+⏺ 完成。变更汇总：
+
+  ┌───────────────┬────────────────────────────────────────────────┐
+  │     文件      │                      改动                      │
+  ├───────────────┼────────────────────────────────────────────────┤
+  │ build.yml     │ zip → hdiutil create … UDZO；Release 上传 .dmg │
+  ├───────────────┼────────────────────────────────────────────────┤
+  │ app_update.go │ 无需改动（资产匹配用名称关键词，与后缀无关）   │
+  └───────────────┴────────────────────────────────────────────────┘
+
+  用户安装体验：下载 .dmg → 双击挂载 → 拖 SkillFlow.app 到 Applications →
+  推出镜像。
+
+  macOS 更新流程（保持不变）：检测到新版本 → 顶部横幅显示"查看详情" → 跳转
+  GitHub Releases 页面手动下载新 DMG。
+
+✻ Crunched for 58s

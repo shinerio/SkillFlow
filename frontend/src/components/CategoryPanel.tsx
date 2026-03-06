@@ -11,6 +11,8 @@ interface Props {
   onRefresh: () => void
 }
 
+const defaultCategoryName = 'Default'
+
 export default function CategoryPanel({ categories, selected, onSelect, onDrop, onRefresh }: Props) {
   const [menu, setMenu] = useState<{ x: number; y: number; cat: string } | null>(null)
   const [renaming, setRenaming] = useState<string | null>(null)
@@ -55,7 +57,11 @@ export default function CategoryPanel({ categories, selected, onSelect, onDrop, 
               onClick={() => onSelect(cat)}
               onDragOver={e => e.preventDefault()}
               onDrop={e => handleDrop(e, cat)}
-              onContextMenu={e => { e.preventDefault(); setMenu({ x: e.clientX, y: e.clientY, cat }) }}
+              onContextMenu={e => {
+                e.preventDefault()
+                if (cat === defaultCategoryName) return
+                setMenu({ x: e.clientX, y: e.clientY, cat })
+              }}
               className={`px-3 py-2 rounded-lg text-sm cursor-pointer transition-colors ${selected === cat ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:bg-gray-800'}`}
             >{cat}</div>
       ))}

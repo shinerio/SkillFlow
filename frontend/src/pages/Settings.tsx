@@ -344,8 +344,10 @@ export default function SettingsPage() {
           </div>
           <div>
             <p className="text-sm text-gray-400 mb-2">从工具拉取时的默认分类</p>
-            <input value={cfg.defaultCategory ?? ''} onChange={e => setCfg((p: any) => ({ ...p, defaultCategory: e.target.value }))}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500" />
+            <div className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200">
+              Default
+            </div>
+            <p className="mt-1.5 text-xs text-gray-500">固定系统分类，用于未分类导入兜底，不可重命名或删除。</p>
           </div>
         </div>
       )}

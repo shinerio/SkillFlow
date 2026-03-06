@@ -40,6 +40,16 @@ type App struct {
 	stopAutoSync       chan struct{}
 }
 
+const defaultCategoryName = "Default"
+
+func normalizeCategoryName(name string) string {
+	trimmed := strings.TrimSpace(name)
+	if trimmed == "" || strings.EqualFold(trimmed, defaultCategoryName) {
+		return defaultCategoryName
+	}
+	return trimmed
+}
+
 func NewApp() *App {
 	return &App{hub: notify.NewHub()}
 }
@@ -296,14 +306,9 @@ func (a *App) ListSkills() ([]*skill.Skill, error) {
 	if err != nil {
 		return nil, err
 	}
-	cfg, _ := a.config.Load()
-	defaultCat := cfg.DefaultCategory
-	if defaultCat == "" {
-		defaultCat = "Default"
-	}
 	for _, sk := range skills {
 		if sk.Category == "" {
-			sk.Category = defaultCat
+			sk.Category = defaultCategoryName
 		}
 	}
 	return skills, nil
@@ -314,22 +319,17 @@ func (a *App) ListCategories() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	cfg, _ := a.config.Load()
-	defaultCat := cfg.DefaultCategory
-	if defaultCat == "" {
-		defaultCat = "Default"
-	}
-	// 检查 defaultCat 是否已在列表中
+	// 检查默认分类是否已在列表中
 	hasDefault := false
 	for _, c := range cats {
-		if c == defaultCat {
+		if normalizeCategoryName(c) == defaultCategoryName {
 			hasDefault = true
 			break
 		}
 	}
 	if !hasDefault {
-		// 将 defaultCat 加到列表最前面
-		cats = append([]string{defaultCat}, cats...)
+		// 将默认分类加到列表最前面
+		cats = append([]string{defaultCategoryName}, cats...)
 	}
 	return cats, nil
 }
@@ -339,22 +339,28 @@ func (a *App) CreateCategory(name string) error {
 }
 
 func (a *App) RenameCategory(oldName, newName string) error {
-	return a.storage.RenameCategory(oldName, newName)
+	if normalizeCategoryName(oldName) == defaultCategoryName {
+		return fmt.Errorf("默认分类不可重命名")
+	}
+	if normalizeCategoryName(newName) == defaultCategoryName {
+		return fmt.Errorf("不能重命名为默认分类")
+	}
+	return a.storage.RenameCategory(strings.TrimSpace(oldName), strings.TrimSpace(newName))
 }
 
 func (a *App) DeleteCategory(name string) error {
-	cfg, _ := a.config.Load()
-	defaultCat := cfg.DefaultCategory
-	if defaultCat == "" {
-		defaultCat = "Default"
+	name = strings.TrimSpace(name)
+	if normalizeCategoryName(name) == defaultCategoryName {
+		return fmt.Errorf("默认分类不可删除")
 	}
+	cfg, _ := a.config.Load()
 	skills, err := a.storage.ListAll()
 	if err != nil {
 		return err
 	}
 	for _, sk := range skills {
 		if sk.Category == name {
-			if err := a.storage.MoveCategory(sk.ID, defaultCat); err != nil {
+			if err := a.storage.MoveCategory(sk.ID, defaultCategoryName); err != nil {
 				return err
 			}
 		}
@@ -363,13 +369,7 @@ func (a *App) DeleteCategory(name string) error {
 }
 
 func (a *App) MoveSkillCategory(skillID, category string) error {
-	if category == "" {
-		cfg, _ := a.config.Load()
-		category = cfg.DefaultCategory
-		if category == "" {
-			category = "Default"
-		}
-	}
+	category = normalizeCategoryName(category)
 	return a.storage.MoveCategory(skillID, category)
 }
 
@@ -534,13 +534,7 @@ func (a *App) ScanGitHub(repoURL string) ([]install.SkillCandidate, error) {
 
 // InstallFromGitHub imports selected skills from a scanned remote git repo into storage.
 func (a *App) InstallFromGitHub(repoURL string, candidates []install.SkillCandidate, category string) error {
-	if category == "" {
-		cfg, _ := a.config.Load()
-		category = cfg.DefaultCategory
-		if category == "" {
-			category = "Default"
-		}
-	}
+	category = normalizeCategoryName(category)
 	dataDir := config.AppDataDir()
 	cacheDir, err := coregit.CacheDir(dataDir, repoURL)
 	if err != nil {
@@ -565,13 +559,7 @@ func (a *App) InstallFromGitHub(repoURL string, candidates []install.SkillCandid
 }
 
 func (a *App) ImportLocal(dir, category string) (*skill.Skill, error) {
-	if category == "" {
-		cfg, _ := a.config.Load()
-		category = cfg.DefaultCategory
-		if category == "" {
-			category = "Default"
-		}
-	}
+	category = normalizeCategoryName(category)
 	sk, err := a.storage.Import(dir, category, skill.SourceManual, "", "")
 	if err != nil {
 		return nil, err
@@ -696,13 +684,7 @@ func (a *App) PushToToolsForce(skillIDs []string, toolNames []string) error {
 
 // PullFromTool imports selected skills from a tool into SkillFlow storage.
 func (a *App) PullFromTool(toolName string, skillNames []string, category string) ([]string, error) {
-	if category == "" {
-		cfg, _ := a.config.Load()
-		category = cfg.DefaultCategory
-		if category == "" {
-			category = "Default"
-		}
-	}
+	category = normalizeCategoryName(category)
 	cfg, _ := a.config.Load()
 	nameSet := map[string]bool{}
 	for _, n := range skillNames {
@@ -733,13 +715,7 @@ func (a *App) PullFromTool(toolName string, skillNames []string, category string
 
 // PullFromToolForce imports selected skills, overwriting existing ones.
 func (a *App) PullFromToolForce(toolName string, skillNames []string, category string) error {
-	if category == "" {
-		cfg, _ := a.config.Load()
-		category = cfg.DefaultCategory
-		if category == "" {
-			category = "Default"
-		}
-	}
+	category = normalizeCategoryName(category)
 	cfg, _ := a.config.Load()
 	nameSet := map[string]bool{}
 	for _, n := range skillNames {
@@ -809,10 +785,16 @@ func getAdapter(t config.ToolConfig) toolsync.ToolAdapter {
 // --- Config ---
 
 func (a *App) GetConfig() (config.AppConfig, error) {
-	return a.config.Load()
+	cfg, err := a.config.Load()
+	if err != nil {
+		return cfg, err
+	}
+	cfg.DefaultCategory = defaultCategoryName
+	return cfg, nil
 }
 
 func (a *App) SaveConfig(cfg config.AppConfig) error {
+	cfg.DefaultCategory = defaultCategoryName
 	if err := a.config.Save(cfg); err != nil {
 		return err
 	}
@@ -1259,13 +1241,7 @@ func (a *App) UpdateAllStarredRepos() error {
 }
 
 func (a *App) ImportStarSkills(skillPaths []string, repoURL, category string) error {
-	if category == "" {
-		cfg, _ := a.config.Load()
-		category = cfg.DefaultCategory
-		if category == "" {
-			category = "Default"
-		}
-	}
+	category = normalizeCategoryName(category)
 	repos, _ := a.starStorage.Load()
 	var repoLocalDir string
 	canonicalRepoURL := repoURL

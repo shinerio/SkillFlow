@@ -70,8 +70,8 @@ Central library for managing your skill collection.
 - **"All" button** — shows every skill regardless of category.
 - **Drag-and-drop target** — dragging a skill card onto a category moves it there.
 - **Right-click context menu** on each category:
-  - **Rename** — shows inline text input; confirm with Enter, cancel with Escape; calls `RenameCategory()`.
-  - **Delete** — calls `DeleteCategory()`; skills are moved to the default category.
+  - **Rename** — shows inline text input; confirm with Enter, cancel with Escape; calls `RenameCategory()`. (Not available for `Default`.)
+  - **Delete** — calls `DeleteCategory()`; skills are moved to the default category. (Not available for `Default`.)
 - **New Category** (Plus icon at bottom) — shows inline text input; confirm with Enter or blur, cancel with Escape; calls `CreateCategory()`.
 
 ### Skill Grid
@@ -144,7 +144,7 @@ Imports skills from external tool directories into your library.
 
 ### Bottom Bar
 
-- **Target Category dropdown** — pick which category to import into (defaults to the configured default category; fresh installs use `Default`).
+- **Target Category dropdown** — pick which category to import into (empty selection falls back to fixed category `Default`).
 - **"Start Pull (n)"** button — calls `PullFromTool()`.
 - **"Pull complete ✓"** — green success message.
 - Conflicts handled by the same [Conflict Dialog](#101-conflict-dialog).
@@ -340,7 +340,7 @@ For each built-in or custom tool:
 | Control | Description |
 |---------|-------------|
 | **Skills storage directory** | Root path where all skills are stored on disk; manual text entry + folder-picker button |
-| **Default category** | Category assigned when pulling from tools without specifying one (initial value: `Default`) |
+| **Default category** | Fixed system fallback category `Default` (read-only), used when pulling/importing without specifying a category |
 
 ### Network Tab
 
