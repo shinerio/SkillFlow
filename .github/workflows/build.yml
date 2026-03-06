@@ -52,30 +52,17 @@ jobs:
             -fsargs "-c c=64,a=16,b=16" \
             -format UDRW -size 300m "$TMP_DMG"
 
-          # Mount and configure Finder window layout via AppleScript
-          MOUNT_POINT="$(hdiutil attach -readwrite -noverify "$TMP_DMG" | grep '/Volumes/' | awk '{print $NF}')"
+          # Mount the writable DMG
+          MOUNT_POINT="$(hdiutil attach -readwrite -noverify -noautoopen "$TMP_DMG" | grep '/Volumes/' | awk '{print $NF}')"
           sleep 2
-          osascript \
-            -e 'tell application "Finder"' \
-            -e '  tell disk "SkillFlow"' \
-            -e '    open' \
-            -e '    set current view of container window to icon view' \
-            -e '    set toolbar visible of container window to false' \
-            -e '    set statusbar visible of container window to false' \
-            -e '    set bounds of container window to {200, 150, 760, 470}' \
-            -e '    set theViewOptions to icon view options of container window' \
-            -e '    set arrangement of theViewOptions to not arranged' \
-            -e '    set icon size of theViewOptions to 120' \
-            -e '    set position of item "SkillFlow.app" of container window to {150, 150}' \
-            -e '    set position of item "Applications" of container window to {410, 150}' \
-            -e '    close' \
-            -e '    open' \
-            -e '    update without registering applications' \
-            -e '    delay 2' \
-            -e '  end tell' \
-            -e 'end tell'
           sync
-          hdiutil detach "$MOUNT_POINT"
+
+          # Detach with retry and force fallback
+          for i in 1 2 3; do
+            hdiutil detach "$MOUNT_POINT" && break
+            echo "Detach attempt $i failed, retrying in 5s..."
+            sleep 5
+          done || hdiutil detach -force "$MOUNT_POINT"
 
           # Convert to compressed read-only DMG
           hdiutil convert "$TMP_DMG" -format UDZO -imagekey zlib-level=9 -o "$FINAL_DMG"
