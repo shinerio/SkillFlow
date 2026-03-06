@@ -31,16 +31,20 @@ jobs:
       - name: Build
         run: wails build -platform ${{ matrix.arch == 'arm64' && 'darwin/arm64' || matrix.os == 'windows-latest' && 'windows/amd64' || 'darwin/amd64' }} -ldflags "-X main.Version=${{ github.ref_name }}"
 
-      # macOS: .app is a directory bundle — must zip before upload
-      - name: Package macOS app
+      # macOS: package .app bundle into a DMG for distribution
+      - name: Package macOS DMG
         if: runner.os == 'macOS'
-        run: cd build/bin && zip -r SkillFlow-${{ matrix.name }}.zip SkillFlow.app
+        run: |
+          hdiutil create -volname "SkillFlow" \
+            -srcfolder build/bin/SkillFlow.app \
+            -ov -format UDZO \
+            build/bin/SkillFlow-${{ matrix.name }}.dmg
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: skillflow-${{ matrix.name }}
-          path: ${{ runner.os == 'Windows' && 'build/bin/SkillFlow.exe' || format('build/bin/SkillFlow-{0}.zip', matrix.name) }}
+          path: ${{ runner.os == 'Windows' && 'build/bin/SkillFlow.exe' || format('build/bin/SkillFlow-{0}.dmg', matrix.name) }}
 
   release:
     needs: build
@@ -59,7 +63,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            dist/skillflow-macos-intel/SkillFlow-macos-intel.zip
-            dist/skillflow-macos-apple-silicon/SkillFlow-macos-apple-silicon.zip
+            dist/skillflow-macos-intel/SkillFlow-macos-intel.dmg
+            dist/skillflow-macos-apple-silicon/SkillFlow-macos-apple-silicon.dmg
             dist/SkillFlow-windows.exe
           generate_release_notes: true
