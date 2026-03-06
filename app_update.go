@@ -37,19 +37,23 @@ func (a *App) GetAppVersion() string {
 
 // CheckAppUpdate queries GitHub Releases API and returns update information.
 func (a *App) CheckAppUpdate() (*AppUpdateInfo, error) {
+	a.logDebugf("check app update started")
 	client := a.proxyHTTPClient()
 	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/latest", githubOwner, githubRepo)
 	req, err := http.NewRequestWithContext(a.ctx, "GET", apiURL, nil)
 	if err != nil {
+		a.logErrorf("check app update failed: %v", err)
 		return nil, err
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
 	resp, err := client.Do(req)
 	if err != nil {
+		a.logErrorf("check app update failed: %v", err)
 		return nil, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
+		a.logErrorf("check app update failed: github status %d", resp.StatusCode)
 		return nil, fmt.Errorf("GitHub API returned %d", resp.StatusCode)
 	}
 
@@ -63,6 +67,7 @@ func (a *App) CheckAppUpdate() (*AppUpdateInfo, error) {
 		} `json:"assets"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
+		a.logErrorf("check app update failed: %v", err)
 		return nil, err
 	}
 
@@ -88,7 +93,7 @@ func (a *App) CheckAppUpdate() (*AppUpdateInfo, error) {
 		}
 	}
 
-	return &AppUpdateInfo{
+	info := &AppUpdateInfo{
 		HasUpdate:      hasUpdate,
 		CurrentVersion: current,
 		LatestVersion:  latest,
@@ -96,12 +101,15 @@ func (a *App) CheckAppUpdate() (*AppUpdateInfo, error) {
 		DownloadURL:    downloadURL,
 		ReleaseNotes:   release.Body,
 		CanAutoUpdate:  goruntime.GOOS == "windows",
-	}, nil
+	}
+	a.logDebugf("check app update completed (hasUpdate=%v latest=%s)", info.HasUpdate, info.LatestVersion)
+	return info, nil
 }
 
 // DownloadAppUpdate downloads the new version to a temp file and emits progress events.
 // Windows only: emits EventAppUpdateDownloadDone on success or EventAppUpdateDownloadFail on error.
 func (a *App) DownloadAppUpdate(downloadURL string) error {
+	a.logInfof("download app update requested")
 	go func() {
 		tmpDir := os.TempDir()
 		tmpPath := filepath.Join(tmpDir, "skillflow_update.exe")
@@ -109,6 +117,7 @@ func (a *App) DownloadAppUpdate(downloadURL string) error {
 		client := a.proxyHTTPClient()
 		resp, err := client.Get(downloadURL)
 		if err != nil {
+			a.logErrorf("download app update failed: %v", err)
 			a.hub.Publish(notify.Event{Type: notify.EventAppUpdateDownloadFail, Payload: err.Error()})
 			return
 		}
@@ -116,15 +125,18 @@ func (a *App) DownloadAppUpdate(downloadURL string) error {
 
 		f, err := os.Create(tmpPath)
 		if err != nil {
+			a.logErrorf("download app update failed: %v", err)
 			a.hub.Publish(notify.Event{Type: notify.EventAppUpdateDownloadFail, Payload: err.Error()})
 			return
 		}
 		defer f.Close()
 
 		if _, err := io.Copy(f, resp.Body); err != nil {
+			a.logErrorf("download app update failed: %v", err)
 			a.hub.Publish(notify.Event{Type: notify.EventAppUpdateDownloadFail, Payload: err.Error()})
 			return
 		}
+		a.logInfof("download app update completed: %s", tmpPath)
 		a.hub.Publish(notify.Event{Type: notify.EventAppUpdateDownloadDone, Payload: tmpPath})
 	}()
 	return nil
@@ -134,14 +146,17 @@ func (a *App) DownloadAppUpdate(downloadURL string) error {
 // Windows only.
 func (a *App) ApplyAppUpdate() error {
 	if goruntime.GOOS != "windows" {
+		a.logErrorf("apply app update failed: unsupported os")
 		return fmt.Errorf("auto-update is only supported on Windows")
 	}
 	exe, err := os.Executable()
 	if err != nil {
+		a.logErrorf("apply app update failed: %v", err)
 		return err
 	}
 	exe, err = filepath.Abs(exe)
 	if err != nil {
+		a.logErrorf("apply app update failed: %v", err)
 		return err
 	}
 	tmpNew := filepath.Join(os.TempDir(), "skillflow_update.exe")
@@ -153,13 +168,16 @@ start "" "%s"
 del "%%~f0"
 `, tmpNew, exe, exe)
 	if err := os.WriteFile(batPath, []byte(batContent), 0644); err != nil {
+		a.logErrorf("apply app update failed: %v", err)
 		return err
 	}
 	cmd := exec.Command("cmd", "/C", batPath)
 	cmd.SysProcAttr = nil
 	if err := cmd.Start(); err != nil {
+		a.logErrorf("apply app update failed: %v", err)
 		return err
 	}
+	a.logInfof("apply app update started, exiting app")
 	os.Exit(0)
 	return nil
 }

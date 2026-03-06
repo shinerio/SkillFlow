@@ -74,6 +74,10 @@ export function GetGitConflictPending() {
   return window['go']['main']['App']['GetGitConflictPending']();
 }
 
+export function GetLogDir() {
+  return window['go']['main']['App']['GetLogDir']();
+}
+
 export function GetSkillMeta(arg1) {
   return window['go']['main']['App']['GetSkillMeta'](arg1);
 }
@@ -132,6 +136,10 @@ export function MoveSkillCategory(arg1, arg2) {
 
 export function OpenFolderDialog() {
   return window['go']['main']['App']['OpenFolderDialog']();
+}
+
+export function OpenLogDir() {
+  return window['go']['main']['App']['OpenLogDir']();
 }
 
 export function OpenPath(arg1) {

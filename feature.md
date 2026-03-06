@@ -39,6 +39,9 @@ A fixed left sidebar (w-56) provides navigation throughout the app.
 
 - Active route: highlighted with indigo background.
 - Inactive routes: gray text with hover highlight.
+- Window close button behavior: clicking the top-left close button hides the main window and keeps the app running in background.
+- macOS tray behavior: app remains in the menu-bar status area (`SF` item); use native single-click to open a menu with `Show Window`, `Hide Window`, and `Quit SkillFlow`.
+- Windows tray behavior: app remains in the system notification area; click the tray icon to open a menu with `Show SkillFlow` and `Exit`.
 
 ---
 
@@ -341,6 +344,13 @@ For each built-in or custom tool:
 |---------|-------------|
 | **Skills storage directory** | Root path where all skills are stored on disk; manual text entry + folder-picker button |
 | **Default category** | Fixed system fallback category `Default` (read-only), used when pulling/importing without specifying a category |
+| **Log level buttons** | Toggle runtime log level between `debug`, `info`, and `error` (default: `error`); takes effect after saving settings |
+| **Open log directory** | One-click open the local log folder in system file manager |
+
+Log files are stored under the app log directory, with rolling limits:
+- At most **2 files** are kept: `skillflow.log` and `skillflow.log.1`.
+- Each file is capped at **1MB**.
+- When `skillflow.log` reaches the limit, it rotates and overwrites the older backup file.
 
 ### Network Tab
 

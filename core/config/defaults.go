@@ -78,6 +78,7 @@ func DefaultConfig(dataDir string) AppConfig {
 	return AppConfig{
 		SkillsStorageDir: filepath.Join(dataDir, "skills"),
 		DefaultCategory:  "Default",
+		LogLevel:         DefaultLogLevel,
 		Tools:            tools,
 		Cloud:            CloudConfig{RemotePath: "skillflow/"},
 	}

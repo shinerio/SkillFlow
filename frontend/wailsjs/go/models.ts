@@ -80,6 +80,7 @@ export namespace config {
 	export class AppConfig {
 	    skillsStorageDir: string;
 	    defaultCategory: string;
+	    logLevel: string;
 	    tools: ToolConfig[];
 	    cloud: CloudConfig;
 	    proxy: ProxyConfig;
@@ -92,6 +93,7 @@ export namespace config {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.skillsStorageDir = source["skillsStorageDir"];
 	        this.defaultCategory = source["defaultCategory"];
+	        this.logLevel = source["logLevel"];
 	        this.tools = this.convertValues(source["tools"], ToolConfig);
 	        this.cloud = this.convertValues(source["cloud"], CloudConfig);
 	        this.proxy = this.convertValues(source["proxy"], ProxyConfig);

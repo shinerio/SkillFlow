@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/shinerio/skillflow/core/applog"
 	"github.com/shinerio/skillflow/core/backup"
 	"github.com/shinerio/skillflow/core/config"
 	coregit "github.com/shinerio/skillflow/core/git"
@@ -29,6 +30,7 @@ import (
 type App struct {
 	ctx         context.Context
 	hub         *notify.Hub
+	sysLog      *applog.Logger
 	storage     *skill.Storage
 	config      *config.Service
 	starStorage *coregit.StarStorage
@@ -58,7 +60,13 @@ func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	dataDir := config.AppDataDir()
 	a.config = config.NewService(dataDir)
-	cfg, _ := a.config.Load()
+	cfg, err := a.config.Load()
+	if err != nil {
+		runtime.LogErrorf(ctx, "load config failed: %v", err)
+		cfg = config.DefaultConfig(dataDir)
+	}
+	a.initLogger(cfg.LogLevel)
+	a.logInfof("application startup, version=%s, dataDir=%s", Version, dataDir)
 	a.storage = skill.NewStorage(cfg.SkillsStorageDir)
 	a.cacheDir = filepath.Join(dataDir, "cache")
 	a.starStorage = coregit.NewStarStorage(filepath.Join(dataDir, "star_repos.json"))
@@ -70,6 +78,9 @@ func (a *App) startup(ctx context.Context) {
 	go a.checkAppUpdateOnStartup()
 	go a.gitPullOnStartup()
 	a.startAutoSyncTimer(cfg.Cloud.SyncIntervalMinutes)
+	if err := setupTray(a); err != nil {
+		runtime.LogWarningf(ctx, "tray init failed: %v", err)
+	}
 }
 
 // proxyHTTPClient builds an *http.Client configured according to the saved proxy settings.
@@ -98,18 +109,40 @@ func (a *App) proxyHTTPClient() *http.Client {
 
 func (a *App) domReady(_ context.Context)         {}
 func (a *App) beforeClose(_ context.Context) bool { return false }
-func (a *App) shutdown(_ context.Context)         {}
+func (a *App) shutdown(_ context.Context) {
+	a.logInfof("application shutdown")
+	teardownTray()
+}
+
+func (a *App) showMainWindow() {
+	runtime.Show(a.ctx)
+	runtime.WindowShow(a.ctx)
+	runtime.WindowUnminimise(a.ctx)
+}
+
+func (a *App) hideMainWindow() {
+	runtime.WindowHide(a.ctx)
+}
+
+func (a *App) quitApp() {
+	runtime.Quit(a.ctx)
+}
 
 // autoBackup triggers cloud backup after any mutating operation if cloud is enabled.
 func (a *App) autoBackup() {
+	a.logDebugf("auto backup triggered")
 	_ = a.runBackup()
 }
 
 func (a *App) runBackup() error {
 	cfg, err := a.config.Load()
 	if err != nil || !cfg.Cloud.Enabled || cfg.Cloud.Provider == "" {
+		if err != nil {
+			a.logErrorf("backup aborted: load config failed: %v", err)
+		}
 		return err
 	}
+	a.logInfof("backup started (provider=%s)", cfg.Cloud.Provider)
 	provider, ok := registry.GetCloudProvider(cfg.Cloud.Provider)
 	if !ok {
 		return fmt.Errorf("provider not found: %s", cfg.Cloud.Provider)
@@ -131,6 +164,7 @@ func (a *App) runBackup() error {
 			})
 		})
 	if err != nil {
+		a.logErrorf("backup failed: %v", err)
 		var conflictErr *backup.GitConflictError
 		if isGit && errors.As(err, &conflictErr) {
 			a.publishGitConflict(conflictErr)
@@ -141,6 +175,7 @@ func (a *App) runBackup() error {
 		a.hub.Publish(notify.Event{Type: notify.EventBackupFailed, Payload: err.Error()})
 		return err
 	} else {
+		a.logInfof("backup completed")
 		if isGit {
 			a.clearGitConflictPending()
 			a.hub.Publish(notify.Event{Type: notify.EventGitSyncCompleted})
@@ -184,6 +219,7 @@ func (a *App) gitPullOnStartup() {
 	if err != nil || !cfg.Cloud.Enabled || cfg.Cloud.Provider != backup.GitProviderName {
 		return
 	}
+	a.logInfof("startup git pull started")
 	p, ok := registry.GetCloudProvider(backup.GitProviderName)
 	if !ok {
 		return
@@ -195,6 +231,7 @@ func (a *App) gitPullOnStartup() {
 	backupDir := a.backupRootDir(cfg)
 	a.hub.Publish(notify.Event{Type: notify.EventGitSyncStarted})
 	if err := gitP.Restore(a.ctx, "", "", backupDir); err != nil {
+		a.logErrorf("startup git pull failed: %v", err)
 		var conflictErr *backup.GitConflictError
 		if errors.As(err, &conflictErr) {
 			a.publishGitConflict(conflictErr)
@@ -204,6 +241,7 @@ func (a *App) gitPullOnStartup() {
 		}
 		return
 	}
+	a.logInfof("startup git pull completed")
 	a.clearGitConflictPending()
 	a.hub.Publish(notify.Event{Type: notify.EventGitSyncCompleted})
 	a.reloadStateFromDisk()
@@ -790,21 +828,28 @@ func (a *App) GetConfig() (config.AppConfig, error) {
 		return cfg, err
 	}
 	cfg.DefaultCategory = defaultCategoryName
+	cfg.LogLevel = config.NormalizeLogLevel(cfg.LogLevel)
 	return cfg, nil
 }
 
 func (a *App) SaveConfig(cfg config.AppConfig) error {
 	cfg.DefaultCategory = defaultCategoryName
+	cfg.LogLevel = config.NormalizeLogLevel(cfg.LogLevel)
 	if err := a.config.Save(cfg); err != nil {
+		a.logErrorf("save config failed: %v", err)
 		return err
 	}
+	a.setLoggerLevel(cfg.LogLevel)
+	a.logInfof("config saved (logLevel=%s)", cfg.LogLevel)
 	a.startAutoSyncTimer(cfg.Cloud.SyncIntervalMinutes)
 	return nil
 }
 
 func (a *App) AddCustomTool(name, pushDir string) error {
+	a.logInfof("add custom tool requested: name=%s", name)
 	cfg, err := a.config.Load()
 	if err != nil {
+		a.logErrorf("add custom tool failed: %v", err)
 		return err
 	}
 	cfg.Tools = append(cfg.Tools, config.ToolConfig{
@@ -814,12 +859,19 @@ func (a *App) AddCustomTool(name, pushDir string) error {
 		Enabled:  true,
 		Custom:   true,
 	})
-	return a.config.Save(cfg)
+	if err := a.config.Save(cfg); err != nil {
+		a.logErrorf("add custom tool failed: %v", err)
+		return err
+	}
+	a.logInfof("add custom tool done: name=%s", name)
+	return nil
 }
 
 func (a *App) RemoveCustomTool(name string) error {
+	a.logInfof("remove custom tool requested: name=%s", name)
 	cfg, err := a.config.Load()
 	if err != nil {
+		a.logErrorf("remove custom tool failed: %v", err)
 		return err
 	}
 	var filtered []config.ToolConfig
@@ -829,12 +881,18 @@ func (a *App) RemoveCustomTool(name string) error {
 		}
 	}
 	cfg.Tools = filtered
-	return a.config.Save(cfg)
+	if err := a.config.Save(cfg); err != nil {
+		a.logErrorf("remove custom tool failed: %v", err)
+		return err
+	}
+	a.logInfof("remove custom tool done: name=%s", name)
+	return nil
 }
 
 // --- Backup ---
 
 func (a *App) BackupNow() error {
+	a.logInfof("manual backup requested")
 	return a.runBackup()
 }
 
@@ -854,8 +912,10 @@ func (a *App) ListCloudFiles() ([]backup.RemoteFile, error) {
 }
 
 func (a *App) RestoreFromCloud() error {
+	a.logInfof("restore from cloud requested")
 	cfg, err := a.config.Load()
 	if err != nil {
+		a.logErrorf("restore from cloud failed: %v", err)
 		return err
 	}
 	provider, ok := registry.GetCloudProvider(cfg.Cloud.Provider)
@@ -871,6 +931,7 @@ func (a *App) RestoreFromCloud() error {
 		a.hub.Publish(notify.Event{Type: notify.EventGitSyncStarted})
 	}
 	if err := provider.Restore(a.ctx, cfg.Cloud.BucketName, cfg.Cloud.RemotePath, restoreDir); err != nil {
+		a.logErrorf("restore from cloud failed: %v", err)
 		var conflictErr *backup.GitConflictError
 		if isGit && errors.As(err, &conflictErr) {
 			a.publishGitConflict(conflictErr)
@@ -880,6 +941,7 @@ func (a *App) RestoreFromCloud() error {
 		}
 		return err
 	}
+	a.logInfof("restore from cloud completed")
 	a.reloadStateFromDisk()
 	if isGit {
 		a.clearGitConflictPending()
@@ -903,8 +965,10 @@ func (a *App) ListCloudProviders() []map[string]any {
 // --- Updates ---
 
 func (a *App) CheckUpdates() error {
+	a.logDebugf("check skill updates started")
 	skills, err := a.storage.ListAll()
 	if err != nil {
+		a.logErrorf("check skill updates failed: %v", err)
 		return err
 	}
 	checker := update.NewChecker("", a.proxyHTTPClient())
@@ -927,13 +991,16 @@ func (a *App) CheckUpdates() error {
 			})
 		}
 	}
+	a.logDebugf("check skill updates completed")
 	return nil
 }
 
 // UpdateSkill re-downloads a GitHub skill and updates local files and SHA.
 func (a *App) UpdateSkill(skillID string) error {
+	a.logInfof("update skill requested: id=%s", skillID)
 	sk, err := a.storage.Get(skillID)
 	if err != nil {
+		a.logErrorf("update skill failed: %v", err)
 		return err
 	}
 	inst := install.NewGitHubInstaller("", a.proxyHTTPClient())
@@ -942,15 +1009,18 @@ func (a *App) UpdateSkill(skillID string) error {
 
 	c := install.SkillCandidate{Name: sk.Name, Path: sk.SourceSubPath}
 	if err := inst.DownloadTo(a.ctx, install.InstallSource{Type: "github", URI: sk.SourceURL}, c, tmpDir); err != nil {
+		a.logErrorf("update skill download failed: %v", err)
 		return err
 	}
 	if err := a.storage.OverwriteFromDir(skillID, tmpDir); err != nil {
+		a.logErrorf("update skill overwrite failed: %v", err)
 		return err
 	}
 	sk.SourceSHA = sk.LatestSHA
 	sk.LatestSHA = ""
 	_ = a.storage.UpdateMeta(sk)
 	go a.autoBackup()
+	a.logInfof("update skill completed: id=%s name=%s", skillID, sk.Name)
 	return nil
 }
 
@@ -971,6 +1041,7 @@ func (a *App) OpenFolderDialog() (string, error) {
 
 // OpenPath opens the given filesystem path in the OS default file manager.
 func (a *App) OpenPath(path string) error {
+	a.logDebugf("open path requested: %s", path)
 	var cmd *exec.Cmd
 	switch goruntime.GOOS {
 	case "darwin":
@@ -980,7 +1051,21 @@ func (a *App) OpenPath(path string) error {
 	default:
 		cmd = exec.Command("xdg-open", path)
 	}
-	return cmd.Start()
+	if err := cmd.Start(); err != nil {
+		a.logErrorf("open path failed: %v", err)
+		return err
+	}
+	return nil
+}
+
+// GetLogDir returns the app log directory path.
+func (a *App) GetLogDir() string {
+	return a.logDir()
+}
+
+// OpenLogDir opens the app log directory in the OS file manager.
+func (a *App) OpenLogDir() error {
+	return a.OpenPath(a.logDir())
 }
 
 // Greet is kept for Wails template compatibility.
@@ -991,11 +1076,14 @@ func (a *App) Greet(name string) string {
 // --- Starred Repos ---
 
 func (a *App) AddStarredRepo(repoURL string) (*coregit.StarredRepo, error) {
+	a.logInfof("add starred repo requested: %s", repoURL)
 	if err := coregit.CheckGitInstalled(); err != nil {
+		a.logErrorf("add starred repo failed: %v", err)
 		return nil, err
 	}
 	repos, err := a.starStorage.Load()
 	if err != nil {
+		a.logErrorf("add starred repo failed: %v", err)
 		return nil, err
 	}
 	for i, r := range repos {
@@ -1011,15 +1099,18 @@ func (a *App) AddStarredRepo(repoURL string) (*coregit.StarredRepo, error) {
 	}
 	name, err := coregit.ParseRepoName(repoURL)
 	if err != nil {
+		a.logErrorf("add starred repo failed: %v", err)
 		return nil, err
 	}
 	dataDir := filepath.Dir(a.cacheDir)
 	localDir, err := coregit.CacheDir(dataDir, repoURL)
 	if err != nil {
+		a.logErrorf("add starred repo failed: %v", err)
 		return nil, err
 	}
 	source, err := coregit.RepoSource(repoURL)
 	if err != nil {
+		a.logErrorf("add starred repo failed: %v", err)
 		return nil, err
 	}
 	repo := coregit.StarredRepo{URL: repoURL, Name: name, Source: source, LocalDir: localDir}
@@ -1037,19 +1128,24 @@ func (a *App) AddStarredRepo(repoURL string) (*coregit.StarredRepo, error) {
 	}
 	repos = append(repos, repo)
 	if err := a.starStorage.Save(repos); err != nil {
+		a.logErrorf("add starred repo failed: %v", err)
 		return nil, err
 	}
+	a.logInfof("add starred repo completed: %s", repoURL)
 	return &repos[len(repos)-1], nil
 }
 
 // AddStarredRepoWithCredentials clones a repo using the provided HTTP username/password,
 // removing any previously failed entry for the same URL first.
 func (a *App) AddStarredRepoWithCredentials(repoURL, username, password string) (*coregit.StarredRepo, error) {
+	a.logInfof("add starred repo with credentials requested: %s", repoURL)
 	if err := coregit.CheckGitInstalled(); err != nil {
+		a.logErrorf("add starred repo with credentials failed: %v", err)
 		return nil, err
 	}
 	repos, err := a.starStorage.Load()
 	if err != nil {
+		a.logErrorf("add starred repo with credentials failed: %v", err)
 		return nil, err
 	}
 	// Remove any existing (possibly failed) entry for this URL.
@@ -1061,32 +1157,40 @@ func (a *App) AddStarredRepoWithCredentials(repoURL, username, password string) 
 	}
 	name, err := coregit.ParseRepoName(repoURL)
 	if err != nil {
+		a.logErrorf("add starred repo with credentials failed: %v", err)
 		return nil, err
 	}
 	dataDir := filepath.Dir(a.cacheDir)
 	localDir, err := coregit.CacheDir(dataDir, repoURL)
 	if err != nil {
+		a.logErrorf("add starred repo with credentials failed: %v", err)
 		return nil, err
 	}
 	source, err := coregit.RepoSource(repoURL)
 	if err != nil {
+		a.logErrorf("add starred repo with credentials failed: %v", err)
 		return nil, err
 	}
 	repo := coregit.StarredRepo{URL: repoURL, Name: name, Source: source, LocalDir: localDir}
 	if cloneErr := coregit.CloneOrUpdateWithCreds(a.ctx, repoURL, localDir, a.gitProxyURL(), username, password); cloneErr != nil {
+		a.logErrorf("add starred repo with credentials failed: %v", cloneErr)
 		return nil, cloneErr
 	}
 	repo.LastSync = time.Now()
 	filtered = append(filtered, repo)
 	if err := a.starStorage.Save(filtered); err != nil {
+		a.logErrorf("add starred repo with credentials failed: %v", err)
 		return nil, err
 	}
+	a.logInfof("add starred repo with credentials completed: %s", repoURL)
 	return &filtered[len(filtered)-1], nil
 }
 
 func (a *App) RemoveStarredRepo(repoURL string) error {
+	a.logInfof("remove starred repo requested: %s", repoURL)
 	repos, err := a.starStorage.Load()
 	if err != nil {
+		a.logErrorf("remove starred repo failed: %v", err)
 		return err
 	}
 	filtered := make([]coregit.StarredRepo, 0, len(repos))
@@ -1095,7 +1199,12 @@ func (a *App) RemoveStarredRepo(repoURL string) error {
 			filtered = append(filtered, r)
 		}
 	}
-	return a.starStorage.Save(filtered)
+	if err := a.starStorage.Save(filtered); err != nil {
+		a.logErrorf("remove starred repo failed: %v", err)
+		return err
+	}
+	a.logInfof("remove starred repo completed: %s", repoURL)
+	return nil
 }
 
 func (a *App) ListStarredRepos() ([]coregit.StarredRepo, error) {
@@ -1202,8 +1311,10 @@ func (a *App) UpdateStarredRepo(repoURL string) error {
 }
 
 func (a *App) UpdateAllStarredRepos() error {
+	a.logInfof("update all starred repos requested")
 	repos, err := a.starStorage.Load()
 	if err != nil {
+		a.logErrorf("update all starred repos failed: %v", err)
 		return err
 	}
 	if len(repos) == 0 {
@@ -1237,7 +1348,12 @@ func (a *App) UpdateAllStarredRepos() error {
 	}
 	wg.Wait()
 	a.hub.Publish(notify.Event{Type: notify.EventStarSyncDone})
-	return a.starStorage.Save(repos)
+	if err := a.starStorage.Save(repos); err != nil {
+		a.logErrorf("update all starred repos failed: %v", err)
+		return err
+	}
+	a.logInfof("update all starred repos completed")
+	return nil
 }
 
 func (a *App) ImportStarSkills(skillPaths []string, repoURL, category string) error {

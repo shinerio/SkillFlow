@@ -1,5 +1,7 @@
 package config
 
+import "strings"
+
 type ToolConfig struct {
 	Name     string   `json:"name"`
 	ScanDirs []string `json:"scanDirs"`
@@ -35,7 +37,26 @@ type ProxyConfig struct {
 type AppConfig struct {
 	SkillsStorageDir string       `json:"skillsStorageDir"`
 	DefaultCategory  string       `json:"defaultCategory"`
+	LogLevel         string       `json:"logLevel"` // "debug" | "info" | "error"
 	Tools            []ToolConfig `json:"tools"`
 	Cloud            CloudConfig  `json:"cloud"`
 	Proxy            ProxyConfig  `json:"proxy"`
+}
+
+const (
+	LogLevelDebug   = "debug"
+	LogLevelInfo    = "info"
+	LogLevelError   = "error"
+	DefaultLogLevel = LogLevelError
+)
+
+func NormalizeLogLevel(level string) string {
+	switch strings.ToLower(strings.TrimSpace(level)) {
+	case LogLevelDebug:
+		return LogLevelDebug
+	case LogLevelError:
+		return LogLevelError
+	default:
+		return DefaultLogLevel
+	}
 }

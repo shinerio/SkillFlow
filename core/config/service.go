@@ -31,13 +31,18 @@ func (s *Service) Load() (AppConfig, error) {
 		return AppConfig{}, err
 	}
 	var cfg AppConfig
-	return cfg, json.Unmarshal(data, &cfg)
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return AppConfig{}, err
+	}
+	cfg.LogLevel = NormalizeLogLevel(cfg.LogLevel)
+	return cfg, nil
 }
 
 func (s *Service) Save(cfg AppConfig) error {
 	if err := os.MkdirAll(s.dataDir, 0755); err != nil {
 		return err
 	}
+	cfg.LogLevel = NormalizeLogLevel(cfg.LogLevel)
 	data, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
 		return err

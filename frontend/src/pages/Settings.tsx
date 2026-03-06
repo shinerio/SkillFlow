@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { GetConfig, SaveConfig, ListCloudProviders, AddCustomTool, RemoveCustomTool, OpenFolderDialog, CheckAppUpdateAndNotify, GetAppVersion } from '../../wailsjs/go/main/App'
+import { GetConfig, SaveConfig, ListCloudProviders, AddCustomTool, RemoveCustomTool, OpenFolderDialog, CheckAppUpdateAndNotify, GetAppVersion, GetLogDir, OpenLogDir } from '../../wailsjs/go/main/App'
 import { Plus, Trash2, Settings, Globe, FolderOpen, RefreshCw } from 'lucide-react'
 import { ToolIcon } from '../config/toolIcons'
 
@@ -25,14 +25,16 @@ export default function SettingsPage() {
   const [newTool, setNewTool] = useState({ name: '', pushDir: '' })
   const [newScanDirs, setNewScanDirs] = useState<Record<string, string>>({})
   const [appVersion, setAppVersion] = useState('')
+  const [logDir, setLogDir] = useState('')
   const [checkingUpdate, setCheckingUpdate] = useState(false)
   const [updateResult, setUpdateResult] = useState<string | null>(null)
 
   useEffect(() => {
-    Promise.all([GetConfig(), ListCloudProviders(), GetAppVersion()]).then(([c, p, v]) => {
+    Promise.all([GetConfig(), ListCloudProviders(), GetAppVersion(), GetLogDir()]).then(([c, p, v, logPath]) => {
       setCfg(c)
       setProviders(p ?? [])
       setAppVersion(v as string)
+      setLogDir(logPath as string)
     })
   }, [])
 
@@ -331,6 +333,44 @@ export default function SettingsPage() {
       {/* General tab */}
       {tab === 'general' && (
         <div className="space-y-4">
+          <div>
+            <p className="text-sm text-gray-400 mb-2">日志打印级别</p>
+            <div className="flex gap-2 mb-2">
+              {([
+                ['debug', 'Debug'],
+                ['info', 'Info'],
+                ['error', 'Error'],
+              ] as [string, string][]).map(([level, label]) => (
+                <button
+                  key={level}
+                  onClick={() => setCfg((p: any) => ({ ...p, logLevel: level }))}
+                  className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${
+                    (cfg.logLevel ?? 'error') === level
+                      ? 'bg-indigo-600 border-indigo-500'
+                      : 'bg-gray-800 border-gray-700 hover:border-gray-500'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-gray-500">Debug 记录最详细，Info 记录常规信息，Error 仅记录错误。</p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-400 mb-2">日志目录</p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={async () => {
+                  await OpenLogDir()
+                }}
+                className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm"
+              >
+                打开日志目录
+              </button>
+              <span className="text-xs text-gray-500 font-mono break-all">{logDir}</span>
+            </div>
+            <p className="mt-1.5 text-xs text-gray-500">日志文件最多 2 个，单文件最大 1MB，超限自动滚动覆盖旧日志。</p>
+          </div>
           <div>
             <p className="text-sm text-gray-400 mb-2">本地 Skills 存储目录</p>
             <div className="flex gap-2">

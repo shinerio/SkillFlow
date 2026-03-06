@@ -43,6 +43,8 @@ export function GetEnabledTools():Promise<Array<config.ToolConfig>>;
 
 export function GetGitConflictPending():Promise<boolean>;
 
+export function GetLogDir():Promise<string>;
+
 export function GetSkillMeta(arg1:string):Promise<skill.SkillMeta>;
 
 export function GetSkillMetaByPath(arg1:string):Promise<skill.SkillMeta>;
@@ -72,6 +74,8 @@ export function ListStarredRepos():Promise<Array<git.StarredRepo>>;
 export function MoveSkillCategory(arg1:string,arg2:string):Promise<void>;
 
 export function OpenFolderDialog():Promise<string>;
+
+export function OpenLogDir():Promise<void>;
 
 export function OpenPath(arg1:string):Promise<void>;
 
