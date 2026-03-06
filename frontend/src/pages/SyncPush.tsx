@@ -166,6 +166,7 @@ export default function SyncPush() {
               {manualSkills.map((sk: any) => (
                 <SyncSkillCard
                   key={sk.ID}
+                  id={sk.ID}
                   name={sk.Name}
                   subtitle={sk.Category || undefined}
                   source={sk.Source}

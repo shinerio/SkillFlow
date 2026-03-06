@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	goruntime "runtime"
+	"strings"
 	"sync"
 	"time"
 
@@ -227,6 +228,35 @@ func (a *App) GetSkillMeta(skillID string) (*skill.SkillMeta, error) {
 		return nil, err
 	}
 	return skill.ReadMeta(sk.Path)
+}
+
+// GetSkillMetaByPath reads skill.md frontmatter from a skill directory path (no ID required).
+func (a *App) GetSkillMetaByPath(path string) (*skill.SkillMeta, error) {
+	return skill.ReadMeta(path)
+}
+
+// ReadSkillFileContent returns the full text content of skill.md inside the given skill directory.
+func (a *App) ReadSkillFileContent(path string) (string, error) {
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return "", err
+	}
+	for _, e := range entries {
+		if !e.IsDir() && strings.ToLower(e.Name()) == "skill.md" {
+			data, err := os.ReadFile(filepath.Join(path, e.Name()))
+			if err != nil {
+				return "", err
+			}
+			return string(data), nil
+		}
+	}
+	return "", fmt.Errorf("skill.md not found in %s", path)
+}
+
+// OpenURL opens the given URL in the system default browser.
+func (a *App) OpenURL(url string) error {
+	runtime.BrowserOpenURL(a.ctx, url)
+	return nil
 }
 
 // --- Install ---

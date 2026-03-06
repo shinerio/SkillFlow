@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
-import { Github, FolderOpen, RefreshCw, FolderOpenDot } from 'lucide-react'
+import { Github, FolderOpen, RefreshCw, FolderOpenDot, Copy, Check } from 'lucide-react'
 import ContextMenu from './ContextMenu'
-import { OpenPath } from '../../wailsjs/go/main/App'
+import { OpenPath, ReadSkillFileContent } from '../../wailsjs/go/main/App'
 
 interface Skill { id: string; name: string; category: string; source: 'github' | 'manual'; hasUpdate: boolean; path?: string }
 interface Props {
@@ -23,6 +23,7 @@ export default function SkillCard({
   onHoverStart, onHoverEnd,
 }: Props) {
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
+  const [copied, setCopied] = useState(false)
   const cardRef = useRef<HTMLDivElement>(null)
 
   const handleContextMenu = (e: React.MouseEvent) => {
@@ -47,6 +48,17 @@ export default function SkillCard({
   const handleOpenFolder = (e: React.MouseEvent) => {
     e.stopPropagation()
     if (skill.path) OpenPath(skill.path)
+  }
+
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!skill.path) return
+    try {
+      const content = await ReadSkillFileContent(skill.path)
+      await navigator.clipboard.writeText(content)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch { /* ignore */ }
   }
 
   const menuItems = [
@@ -122,6 +134,11 @@ export default function SkillCard({
             {skill.hasUpdate && (
               <button onClick={e => { e.stopPropagation(); onUpdate?.() }} className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1">
                 <RefreshCw size={12} /> 更新
+              </button>
+            )}
+            {skill.path && (
+              <button onClick={handleCopy} className="text-xs text-gray-400 hover:text-gray-200 flex items-center gap-1">
+                {copied ? <><Check size={12} className="text-green-400" /> 已复制</> : <><Copy size={12} /> 复制</>}
               </button>
             )}
             <button onClick={e => { e.stopPropagation(); onDelete() }} className="text-xs text-red-400 hover:text-red-300 ml-auto">删除</button>

@@ -1,17 +1,16 @@
 import { createPortal } from 'react-dom'
 import { Github, FolderOpen, Tag, Wrench, GitBranch, Calendar, Clock, Hash, ExternalLink } from 'lucide-react'
 
-interface SkillFull {
-  ID: string
+export interface SkillInfo {
   Name: string
-  Category: string
-  Source: string
-  SourceURL: string
-  SourceSubPath: string
-  SourceSHA: string
-  LatestSHA: string
-  InstalledAt: string
-  UpdatedAt: string
+  Category?: string
+  Source?: string
+  SourceURL?: string
+  SourceSubPath?: string
+  SourceSHA?: string
+  LatestSHA?: string
+  InstalledAt?: string
+  UpdatedAt?: string
 }
 
 interface SkillMeta {
@@ -24,12 +23,12 @@ interface SkillMeta {
 }
 
 interface Props {
-  skill: SkillFull
+  skill: SkillInfo
   meta: SkillMeta | null
   anchorRect: DOMRect
 }
 
-function fmt(dateStr: string): string {
+function fmt(dateStr: string | undefined): string {
   if (!dateStr) return '—'
   try {
     return new Date(dateStr).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' })
@@ -76,11 +75,13 @@ export default function SkillTooltip({ skill, meta, anchorRect }: Props) {
           <div className="min-w-0 flex-1">
             <p className="font-semibold text-white leading-snug truncate">{displayName}</p>
             <div className="flex items-center gap-1.5 mt-1">
-              <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
-                isGitHub ? 'bg-blue-900/60 text-blue-300' : 'bg-gray-800 text-gray-400'
-              }`}>
-                {skill.Source}
-              </span>
+              {skill.Source && (
+                <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
+                  isGitHub ? 'bg-blue-900/60 text-blue-300' : 'bg-gray-800 text-gray-400'
+                }`}>
+                  {skill.Source}
+                </span>
+              )}
               {skill.Category && (
                 <span className="text-xs text-gray-500 truncate">{skill.Category}</span>
               )}
@@ -122,32 +123,36 @@ export default function SkillTooltip({ skill, meta, anchorRect }: Props) {
       )}
 
       {/* Skill metadata */}
-      <div className="px-4 py-3 space-y-2">
-        {isGitHub && skill.SourceURL && (
-          <Row icon={<ExternalLink size={12} />} label="仓库">
-            <span className="text-xs text-indigo-400 truncate max-w-[160px]">
-              {skill.SourceURL.replace('https://github.com/', '')}
-              {skill.SourceSubPath ? `/${skill.SourceSubPath}` : ''}
-            </span>
-          </Row>
-        )}
-        {skill.SourceSHA && (
-          <Row icon={<Hash size={12} />} label="版本">
-            <code className="text-xs font-mono text-gray-300">{shortSHA(skill.SourceSHA)}</code>
-            {skill.LatestSHA && skill.LatestSHA !== skill.SourceSHA && (
-              <span className="ml-2 text-xs text-amber-400">可更新 → {shortSHA(skill.LatestSHA)}</span>
-            )}
-          </Row>
-        )}
-        <Row icon={<Calendar size={12} />} label="安装时间">
-          <span className="text-xs text-gray-400">{fmt(skill.InstalledAt)}</span>
-        </Row>
-        {skill.UpdatedAt && skill.UpdatedAt !== skill.InstalledAt && (
-          <Row icon={<Clock size={12} />} label="更新时间">
-            <span className="text-xs text-gray-400">{fmt(skill.UpdatedAt)}</span>
-          </Row>
-        )}
-      </div>
+      {(isGitHub && skill.SourceURL || skill.SourceSHA || skill.InstalledAt) && (
+        <div className="px-4 py-3 space-y-2">
+          {isGitHub && skill.SourceURL && (
+            <Row icon={<ExternalLink size={12} />} label="仓库">
+              <span className="text-xs text-indigo-400 truncate max-w-[160px]">
+                {skill.SourceURL.replace('https://github.com/', '')}
+                {skill.SourceSubPath ? `/${skill.SourceSubPath}` : ''}
+              </span>
+            </Row>
+          )}
+          {skill.SourceSHA && (
+            <Row icon={<Hash size={12} />} label="版本">
+              <code className="text-xs font-mono text-gray-300">{shortSHA(skill.SourceSHA)}</code>
+              {skill.LatestSHA && skill.LatestSHA !== skill.SourceSHA && (
+                <span className="ml-2 text-xs text-amber-400">可更新 → {shortSHA(skill.LatestSHA)}</span>
+              )}
+            </Row>
+          )}
+          {skill.InstalledAt && (
+            <Row icon={<Calendar size={12} />} label="安装时间">
+              <span className="text-xs text-gray-400">{fmt(skill.InstalledAt)}</span>
+            </Row>
+          )}
+          {skill.UpdatedAt && skill.UpdatedAt !== skill.InstalledAt && (
+            <Row icon={<Clock size={12} />} label="更新时间">
+              <span className="text-xs text-gray-400">{fmt(skill.UpdatedAt)}</span>
+            </Row>
+          )}
+        </div>
+      )}
     </div>
   )
 

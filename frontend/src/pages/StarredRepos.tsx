@@ -4,13 +4,14 @@ import {
   ListStarredRepos, AddStarredRepo, RemoveStarredRepo,
   UpdateStarredRepo, UpdateAllStarredRepos,
   ListAllStarSkills, ListRepoStarSkills,
-  ImportStarSkills, ListCategories,
+  ImportStarSkills, ListCategories, OpenURL,
 } from '../../wailsjs/go/main/App'
 import { EventsOn } from '../../wailsjs/runtime/runtime'
 import {
   Star, RefreshCw, Plus, Trash2, LayoutGrid, Folder,
-  ChevronLeft, CheckSquare, Download, AlertCircle, X
+  ChevronLeft, CheckSquare, Download, AlertCircle, X, ExternalLink,
 } from 'lucide-react'
+import SyncSkillCard from '../components/SyncSkillCard'
 
 export default function StarredRepos() {
   const { repoEncoded } = useParams()
@@ -286,6 +287,10 @@ function RepoGrid({ repos, onEnter, onUpdate, onRemove }: {
           <div className="flex justify-between items-start mb-2">
             <span className="font-medium text-sm truncate flex-1 mr-2">{r.name}</span>
             <div className="flex gap-1 shrink-0" onClick={e => e.stopPropagation()}>
+              <button onClick={() => OpenURL(r.url)}
+                className="p-1 text-gray-400 hover:text-indigo-400 rounded" title="在浏览器中打开">
+                <ExternalLink size={12} />
+              </button>
               <button onClick={() => onUpdate(r.url)}
                 className="p-1 text-gray-400 hover:text-white rounded" title="更新">
                 <RefreshCw size={12} />
@@ -331,24 +336,17 @@ function SkillGrid({ skills, selectMode, selectedPaths, onToggle, showRepo = fal
   return (
     <div className="grid grid-cols-3 xl:grid-cols-4 gap-4">
       {skills.map((sk: any) => (
-        <div key={sk.path}
-          onClick={() => selectMode && onToggle(sk.path)}
-          className={`bg-gray-800 rounded-xl p-4 border transition-colors
-            ${selectMode ? 'cursor-pointer hover:border-indigo-400' : 'cursor-default'}
-            ${selectedPaths.has(sk.path) ? 'border-indigo-500 bg-indigo-900/20' : 'border-gray-700'}`}>
-          {selectMode && (
-            <input type="checkbox" checked={selectedPaths.has(sk.path)}
-              onChange={() => onToggle(sk.path)}
-              className="accent-indigo-500 mb-2"
-              onClick={e => e.stopPropagation()} />
-          )}
-          <p className="text-sm font-medium truncate">{sk.name}</p>
-          {showRepo && <p className="text-xs text-gray-500 truncate mt-1">{sk.repoName}</p>}
-          <p className="text-xs text-gray-500 truncate mt-1" title={sk.source || sk.repoUrl}>{sk.source || sk.repoUrl}</p>
-          {sk.imported && (
-            <span className="text-xs bg-blue-900/50 text-blue-300 px-2 py-0.5 rounded mt-1 inline-block">已导入</span>
-          )}
-        </div>
+        <SyncSkillCard
+          key={sk.path}
+          name={sk.name}
+          path={sk.path}
+          source={sk.source || undefined}
+          subtitle={showRepo ? sk.repoName : undefined}
+          imported={sk.imported}
+          showSelection={selectMode}
+          selected={selectedPaths.has(sk.path)}
+          onToggle={() => selectMode && onToggle(sk.path)}
+        />
       ))}
     </div>
   )

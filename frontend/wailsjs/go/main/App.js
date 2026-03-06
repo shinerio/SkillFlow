@@ -46,6 +46,10 @@ export function GetSkillMeta(arg1) {
   return window['go']['main']['App']['GetSkillMeta'](arg1);
 }
 
+export function GetSkillMetaByPath(arg1) {
+  return window['go']['main']['App']['GetSkillMetaByPath'](arg1);
+}
+
 export function Greet(arg1) {
   return window['go']['main']['App']['Greet'](arg1);
 }
@@ -102,6 +106,10 @@ export function OpenPath(arg1) {
   return window['go']['main']['App']['OpenPath'](arg1);
 }
 
+export function OpenURL(arg1) {
+  return window['go']['main']['App']['OpenURL'](arg1);
+}
+
 export function PullFromTool(arg1, arg2, arg3) {
   return window['go']['main']['App']['PullFromTool'](arg1, arg2, arg3);
 }
@@ -116,6 +124,10 @@ export function PushToTools(arg1, arg2) {
 
 export function PushToToolsForce(arg1, arg2) {
   return window['go']['main']['App']['PushToToolsForce'](arg1, arg2);
+}
+
+export function ReadSkillFileContent(arg1) {
+  return window['go']['main']['App']['ReadSkillFileContent'](arg1);
 }
 
 export function RemoveCustomTool(arg1) {

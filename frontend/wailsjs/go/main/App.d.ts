@@ -28,6 +28,8 @@ export function GetEnabledTools():Promise<Array<config.ToolConfig>>;
 
 export function GetSkillMeta(arg1:string):Promise<skill.SkillMeta>;
 
+export function GetSkillMetaByPath(arg1:string):Promise<skill.SkillMeta>;
+
 export function Greet(arg1:string):Promise<string>;
 
 export function ImportLocal(arg1:string,arg2:string):Promise<skill.Skill>;
@@ -56,6 +58,8 @@ export function OpenFolderDialog():Promise<string>;
 
 export function OpenPath(arg1:string):Promise<void>;
 
+export function OpenURL(arg1:string):Promise<void>;
+
 export function PullFromTool(arg1:string,arg2:Array<string>,arg3:string):Promise<Array<string>>;
 
 export function PullFromToolForce(arg1:string,arg2:Array<string>,arg3:string):Promise<void>;
@@ -63,6 +67,8 @@ export function PullFromToolForce(arg1:string,arg2:Array<string>,arg3:string):Pr
 export function PushToTools(arg1:Array<string>,arg2:Array<string>):Promise<Array<string>>;
 
 export function PushToToolsForce(arg1:Array<string>,arg2:Array<string>):Promise<void>;
+
+export function ReadSkillFileContent(arg1:string):Promise<string>;
 
 export function RemoveCustomTool(arg1:string):Promise<void>;
 
