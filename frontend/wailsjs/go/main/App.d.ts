@@ -30,6 +30,10 @@ export function GetConfig():Promise<config.AppConfig>;
 
 export function GetEnabledTools():Promise<Array<config.ToolConfig>>;
 
+export function GetGitConflictPending():Promise<boolean>;
+
+export function ResolveGitConflict(arg1:boolean):Promise<void>;
+
 export function GetSkillMeta(arg1:string):Promise<skill.SkillMeta>;
 
 export function GetSkillMetaByPath(arg1:string):Promise<skill.SkillMeta>;

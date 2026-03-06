@@ -9,4 +9,5 @@ func registerProviders() {
 	registry.RegisterCloudProvider(backup.NewAliyunProvider())
 	registry.RegisterCloudProvider(backup.NewTencentProvider())
 	registry.RegisterCloudProvider(backup.NewHuaweiProvider())
+	registry.RegisterCloudProvider(backup.NewGitProvider())
 }

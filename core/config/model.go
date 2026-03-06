@@ -9,11 +9,12 @@ type ToolConfig struct {
 }
 
 type CloudConfig struct {
-	Provider    string            `json:"provider"`
-	Enabled     bool              `json:"enabled"`
-	BucketName  string            `json:"bucketName"`
-	RemotePath  string            `json:"remotePath"`
-	Credentials map[string]string `json:"credentials"`
+	Provider            string            `json:"provider"`
+	Enabled             bool              `json:"enabled"`
+	BucketName          string            `json:"bucketName"`
+	RemotePath          string            `json:"remotePath"`
+	Credentials         map[string]string `json:"credentials"`
+	SyncIntervalMinutes int               `json:"syncIntervalMinutes"` // 0 = on mutation only
 }
 
 // ProxyMode controls how outbound HTTP requests are routed.

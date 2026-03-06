@@ -245,7 +245,7 @@ When skills already exist in the target tool directory:
 
 ## 6. Cloud Backup
 
-Mirror your skill library to a cloud object storage bucket.
+Mirror your skill library to cloud storage. Two backend types are supported: **Object Storage** (Aliyun OSS, Tencent COS, Huawei OBS) and **Git Repository**.
 
 ### Status
 
@@ -253,19 +253,20 @@ Mirror your skill library to a cloud object storage bucket.
 
 ### Actions
 
-| Button | Action |
-|--------|--------|
-| **Backup Now** (Upload icon) | `BackupNow()` — shows current file being uploaded while in progress |
-| **Restore from Cloud** (Download icon) | `RestoreFromCloud()` — downloads all cloud files to local storage |
-| **Refresh** (RefreshCw) | Reloads the cloud file list |
+| Button | Object Storage label | Git label |
+|--------|---------------------|-----------|
+| **Backup Now** (Upload icon) | 立即备份 | 立即备份 |
+| **Restore / Pull** (Download icon) | 从云端恢复 | 拉取远端 |
+| **Refresh** (RefreshCw) | Reloads the file list | Same |
 
 - Backup Now and Restore are disabled when cloud is not configured.
-- **"Backup complete"** (green) / **"Backup failed…"** (red) status messages.
+- **"Backup complete / Git sync complete"** (green) / **"Backup/sync failed"** (red) status messages.
 
 ### Cloud File List
 
-- Shows up to the most recent files (max-height scrollable).
-- Each entry: file path (monospace) + size in KB.
+- Object storage: file path (monospace) + size in KB.
+- Git: files tracked by `git ls-files`, each showing relative path + size.
+- Scrollable, max-height container.
 
 ### Auto-Backup
 
@@ -279,6 +280,19 @@ Triggered automatically after any of these mutations (when cloud is enabled):
 - Import from starred repo
 
 Progress events surface in the UI via the Wails event system (`backup.started`, `backup.progress`, `backup.completed`, `backup.failed`).
+
+### Git Sync (Git provider only)
+
+When the **git** provider is selected:
+
+- **Startup pull** — on every app launch, SkillFlow runs `git pull` on the skills directory to fetch the latest remote changes.
+- **Auto-push after mutations** — same post-mutation trigger as object storage; runs `git add -A && git commit && git push`.
+- **Periodic auto-sync** — controlled by the "Auto-sync interval" setting (in minutes, 0 = disabled). A background timer fires `autoBackup()` on the configured interval.
+- **Conflict resolution dialog** — if `git pull` or `git push` detects a conflict or diverged history, a modal appears:
+  - **"以本地为准"** (Keep Local) — aborts the merge, force-pushes local state to remote. Calls `ResolveGitConflict(true)`.
+  - **"以远端为准"** (Use Remote) — aborts the merge, resets local to `origin/<branch>`. Calls `ResolveGitConflict(false)`.
+  - Both options reload the skill library and emit `git.sync.completed` on success.
+- If a conflict is detected during startup (before the UI loads), it is stored as a pending flag and surfaced when the Backup page mounts (`GetGitConflictPending()`).
 
 ---
 
@@ -307,10 +321,11 @@ For each built-in or custom tool:
 
 | Control | Description |
 |---------|-------------|
-| **Provider buttons** | Select cloud provider (Aliyun OSS / Tencent COS / Huawei OBS) |
-| **Bucket name** | Object storage bucket name |
-| **Credential fields** | Dynamically rendered from `RequiredCredentials()` — text or password inputs per provider |
-| **Enable auto backup toggle** | Turns on/off automatic post-mutation backups |
+| **Provider buttons** | Select cloud provider: Aliyun OSS / Tencent COS / Huawei OBS / **git** |
+| **Bucket name** | Object storage bucket name (hidden when git provider is selected) |
+| **Credential fields** | Dynamically rendered from `RequiredCredentials()` — text or password inputs per provider. Git fields: repo URL, branch, username, access token |
+| **Auto-sync interval** | Number input (minutes); 0 = sync only after mutations; positive value starts a background periodic timer |
+| **Enable auto backup toggle** | Turns on/off automatic post-mutation backups and the periodic timer |
 
 ### General Tab
 
@@ -441,8 +456,13 @@ Events emitted from the Go backend to the frontend via Wails runtime:
 | `update.available` | New commit found for a skill | `{ skillID, skillName, currentSHA, latestSHA }` |
 | `star.sync.progress` | One repo synced | `{ repoURL, repoName, syncError }` |
 | `star.sync.done` | All repos synced | — |
+| `git.sync.started` | Git pull/push begins | — |
+| `git.sync.completed` | Git sync succeeded | — |
+| `git.sync.failed` | Git sync error | — |
+| `git.conflict` | Git merge conflict detected | `{ message: string }` |
 
 The Dashboard listens to `update.available` and marks affected skill cards with a red update dot in real time.
+The Backup page listens to all `git.*` events and surfaces the conflict resolution dialog on `git.conflict`.
 
 ---
 

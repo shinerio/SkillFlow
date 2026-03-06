@@ -243,11 +243,14 @@ export default function SettingsPage() {
 
           {selectedProvider && (
             <>
-              <div>
-                <p className="text-sm text-gray-400 mb-2">存储桶</p>
-                <input value={cfg.cloud?.bucketName ?? ''} onChange={e => setCfg((p: any) => ({ ...p, cloud: { ...p.cloud, bucketName: e.target.value } }))}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500" />
-              </div>
+              {/* Bucket / remote-path fields are not applicable for the git provider */}
+              {cfg.cloud?.provider !== 'git' && (
+                <div>
+                  <p className="text-sm text-gray-400 mb-2">存储桶</p>
+                  <input value={cfg.cloud?.bucketName ?? ''} onChange={e => setCfg((p: any) => ({ ...p, cloud: { ...p.cloud, bucketName: e.target.value } }))}
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500" />
+                </div>
+              )}
               {selectedProvider.fields.map((f: any) => (
                 <div key={f.key}>
                   <p className="text-sm text-gray-400 mb-2">{f.label}</p>
@@ -262,6 +265,16 @@ export default function SettingsPage() {
                   />
                 </div>
               ))}
+              <div>
+                <p className="text-sm text-gray-400 mb-2">定时自动同步间隔（分钟，0 表示仅在变更后同步）</p>
+                <input
+                  type="number"
+                  min={0}
+                  value={cfg.cloud?.syncIntervalMinutes ?? 0}
+                  onChange={e => setCfg((p: any) => ({ ...p, cloud: { ...p.cloud, syncIntervalMinutes: parseInt(e.target.value) || 0 } }))}
+                  className="w-32 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500"
+                />
+              </div>
               <label className="flex items-center gap-3 cursor-pointer">
                 <Toggle
                   enabled={!!cfg.cloud?.enabled}
