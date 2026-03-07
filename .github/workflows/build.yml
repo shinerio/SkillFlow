@@ -29,11 +29,13 @@ jobs:
       - name: Install Wails
         run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
       - name: Build
+        working-directory: cmd/skillflow
         run: wails build -platform ${{ matrix.arch == 'arm64' && 'darwin/arm64' || matrix.os == 'windows-latest' && 'windows/amd64' || 'darwin/amd64' }} -ldflags "-X main.Version=${{ github.ref_name }}"
 
       # macOS: package .app bundle into a drag-to-install DMG
       - name: Package macOS DMG
         if: runner.os == 'macOS'
+        working-directory: cmd/skillflow
         run: |
           # Copy our multi-resolution icns into the built app bundle
           cp build/darwin/iconfile.icns build/bin/SkillFlow.app/Contents/Resources/iconfile.icns
@@ -72,7 +74,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: skillflow-${{ matrix.name }}
-          path: ${{ runner.os == 'Windows' && 'build/bin/SkillFlow.exe' || format('build/bin/SkillFlow-{0}.dmg', matrix.name) }}
+          path: ${{ runner.os == 'Windows' && 'cmd/skillflow/build/bin/SkillFlow.exe' || format('cmd/skillflow/build/bin/SkillFlow-{0}.dmg', matrix.name) }}
 
   release:
     needs: build
