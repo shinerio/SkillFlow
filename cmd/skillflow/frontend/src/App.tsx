@@ -9,6 +9,7 @@ import Backup from './pages/Backup'
 import SettingsPage from './pages/Settings'
 import StarredRepos from './pages/StarredRepos'
 import ToolSkills from './pages/ToolSkills'
+import wordmarkIcon from './assets/branding/skillflow-wordmark-icon.png'
 import { EventsOn } from '../wailsjs/runtime/runtime'
 import { DownloadAppUpdate, ApplyAppUpdate, GetGitConflictPending, ResolveGitConflict, OpenURL, SetSkippedUpdateVersion } from '../wailsjs/go/main/App'
 import { main } from '../wailsjs/go/models'
@@ -213,9 +214,15 @@ function AppContent() {
           />
           <div className="flex items-center justify-between mb-6 px-2">
             <h1
-              className="text-[17px] font-semibold tracking-[0.08em]"
+              className="inline-flex items-center gap-2 text-[17px] font-semibold tracking-[0.08em]"
               style={{ color: 'var(--brand-color)', textShadow: 'var(--brand-shadow)' }}
             >
+              <img
+                src={wordmarkIcon}
+                alt="SkillFlow"
+                className="h-[1.22em] w-auto shrink-0 select-none"
+                draggable={false}
+              />
               SkillFlow
             </h1>
             <div className="flex items-center gap-1">

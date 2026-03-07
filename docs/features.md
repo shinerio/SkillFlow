@@ -41,6 +41,7 @@ A fixed left sidebar (w-56) provides navigation throughout the app.
 
 - Active route: highlighted with a subtle theme-tinted surface, soft border, and restrained elevation shadow.
 - Inactive routes: gray text with hover highlight.
+- Top-left of sidebar: the `SkillFlow` wordmark shows the app icon immediately to the left; the icon is slightly taller than the text for clarity and preserves its aspect ratio.
 - Top-right of sidebar: **Languages** shortcut button; toggles immediately between **Chinese** and **English**, and persists the preference to `localStorage`.
 - Next to it: **Palette** theme shortcut button; cycles immediately through **Dark → Young → Light**.
 - Bottom-left **Feedback** button: opens the GitHub "new issue" page in the default browser.
