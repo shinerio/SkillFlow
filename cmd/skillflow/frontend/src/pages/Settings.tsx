@@ -1,11 +1,157 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { GetConfig, SaveConfig, ListCloudProviders, AddCustomTool, RemoveCustomTool, OpenFolderDialog, CheckAppUpdateAndNotify, GetAppVersion, GetLogDir, OpenLogDir } from '../../wailsjs/go/main/App'
-import { Plus, Trash2, Settings, Globe, FolderOpen, RefreshCw, Sun, Moon } from 'lucide-react'
+import { Plus, Trash2, Settings, Globe, FolderOpen, RefreshCw, Sun, Moon, Sparkles, Check } from 'lucide-react'
 import { ToolIcon } from '../config/toolIcons'
 import { useThemeContext } from '../contexts/ThemeContext'
+import { type Theme } from '../hooks/useTheme'
+import { useLanguage } from '../contexts/LanguageContext'
 
 type Tab = 'tools' | 'cloud' | 'general' | 'network'
 type ProxyMode = 'none' | 'system' | 'manual'
+
+type ThemePreviewPalette = {
+  shell: string
+  sidebar: string
+  sidebarSelection: string
+  search: string
+  panel: string
+  accent: string
+  accentGlow: string
+  text: string
+  textMuted: string
+  divider: string
+}
+
+type ThemeOption = {
+  id: Theme
+  label: string
+  tone: string
+  description: string
+  icon: ReactNode
+  preview: ThemePreviewPalette
+}
+
+function ThemeOptionCard({ option, active, onSelect }: { option: ThemeOption; active: boolean; onSelect: (theme: Theme) => void }) {
+  return (
+    <button
+      onClick={() => onSelect(option.id)}
+      className="group relative overflow-hidden rounded-2xl p-3 text-left transition-all duration-300"
+      style={{
+        background: active ? 'var(--bg-elevated)' : 'var(--bg-surface)',
+        border: active ? '1px solid var(--border-accent)' : '1px solid var(--border-base)',
+        boxShadow: active ? 'var(--shadow-card), var(--glow-accent-sm)' : 'var(--shadow-card)',
+        transform: active ? 'translateY(-1px)' : 'none',
+      }}
+    >
+      <div
+        className="relative mb-3 h-28 overflow-hidden rounded-[18px]"
+        style={{
+          background: option.preview.shell,
+          border: `1px solid ${option.preview.divider}`,
+        }}
+      >
+        <div
+          className="absolute inset-y-0 left-0"
+          style={{
+            width: '34%',
+            background: option.preview.sidebar,
+            borderRight: `1px solid ${option.preview.divider}`,
+          }}
+        />
+        <div
+          className="absolute left-3 top-3 h-6 rounded-xl"
+          style={{
+            width: 'calc(34% - 24px)',
+            background: option.preview.sidebarSelection,
+            boxShadow: `0 10px 22px ${option.preview.accentGlow}`,
+          }}
+        />
+        <div
+          className="absolute right-4 top-4 h-4 rounded-full"
+          style={{
+            left: '40%',
+            background: option.preview.search,
+          }}
+        />
+        <div
+          className="absolute right-10 top-11 h-9 rounded-2xl"
+          style={{
+            left: '40%',
+            background: option.preview.panel,
+            boxShadow: `0 14px 28px ${option.preview.accentGlow}`,
+          }}
+        />
+        <div
+          className="absolute top-[53px] h-2 rounded-full"
+          style={{
+            left: '44%',
+            width: '4rem',
+            background: option.preview.text,
+            opacity: 0.78,
+          }}
+        />
+        <div
+          className="absolute top-[66px] h-2 rounded-full"
+          style={{
+            left: '44%',
+            width: '2.75rem',
+            background: option.preview.textMuted,
+            opacity: 0.55,
+          }}
+        />
+        <div
+          className="absolute bottom-4 right-4 h-9 w-9 rounded-2xl"
+          style={{
+            background: option.preview.accent,
+            boxShadow: `0 12px 26px ${option.preview.accentGlow}`,
+          }}
+        />
+        <div
+          className="absolute bottom-6 h-2 rounded-full"
+          style={{
+            left: '52%',
+            width: '3rem',
+            background: option.preview.textMuted,
+            opacity: 0.4,
+          }}
+        />
+      </div>
+
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
+              style={{
+                background: active ? 'var(--accent-glow)' : 'var(--bg-overlay)',
+                color: active ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                border: '1px solid var(--border-base)',
+              }}
+            >
+              {option.icon}
+            </span>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{option.label}</p>
+              <p className="text-[11px] uppercase tracking-[0.18em]" style={{ color: 'var(--text-muted)' }}>{option.tone}</p>
+            </div>
+          </div>
+          <p className="mt-3 text-xs leading-5" style={{ color: 'var(--text-secondary)' }}>{option.description}</p>
+        </div>
+
+        <span
+          className="mt-0.5 flex h-6 w-6 items-center justify-center rounded-full"
+          style={{
+            background: active ? 'var(--accent-primary)' : 'transparent',
+            color: active ? '#ffffff' : 'var(--text-disabled)',
+            border: active ? 'none' : '1px solid var(--border-base)',
+          }}
+        >
+          {active ? <Check size={14} /> : <div className="h-2.5 w-2.5 rounded-full" style={{ background: 'var(--bg-overlay)' }} />}
+        </span>
+      </div>
+    </button>
+  )
+}
 
 function Toggle({ enabled, onToggle }: { enabled: boolean; onToggle: () => void }) {
   return (
@@ -27,7 +173,8 @@ function Toggle({ enabled, onToggle }: { enabled: boolean; onToggle: () => void 
 }
 
 export default function SettingsPage() {
-  const { theme, toggleTheme } = useThemeContext()
+  const { theme, setTheme } = useThemeContext()
+  const { t, lang, setLang } = useLanguage()
   const [tab, setTab] = useState<Tab>('tools')
   const [cfg, setCfg] = useState<any>(null)
   const [providers, setProviders] = useState<any[]>([])
@@ -38,6 +185,66 @@ export default function SettingsPage() {
   const [logDir, setLogDir] = useState('')
   const [checkingUpdate, setCheckingUpdate] = useState(false)
   const [updateResult, setUpdateResult] = useState<string | null>(null)
+
+  const themeOptions: ThemeOption[] = [
+    {
+      id: 'dark',
+      label: 'Dark',
+      tone: 'Ink Slate',
+      description: t('settings.themeDark'),
+      icon: <Moon size={15} />,
+      preview: {
+        shell: 'radial-gradient(circle at top right, rgba(154,168,193,0.12), transparent 28%), linear-gradient(180deg, #13171d 0%, #0f1318 100%)',
+        sidebar: 'rgba(20, 24, 31, 0.94)',
+        sidebarSelection: 'rgba(167, 183, 207, 0.12)',
+        search: 'rgba(255,255,255,0.06)',
+        panel: 'rgba(29, 35, 44, 0.94)',
+        accent: '#a7b7cf',
+        accentGlow: 'rgba(116, 132, 159, 0.22)',
+        text: '#edf1f7',
+        textMuted: '#7e8a9c',
+        divider: 'rgba(255,255,255,0.07)',
+      },
+    },
+    {
+      id: 'young',
+      label: 'Young',
+      tone: 'Breeze Paper',
+      description: t('settings.themeYoung'),
+      icon: <Sparkles size={15} />,
+      preview: {
+        shell: 'radial-gradient(circle at top right, rgba(147,197,253,0.18), transparent 28%), radial-gradient(circle at bottom left, rgba(251,191,36,0.08), transparent 30%), linear-gradient(180deg, #f7fbff 0%, #eef5fd 52%, #fffdf8 100%)',
+        sidebar: 'rgba(236, 243, 251, 0.97)',
+        sidebarSelection: 'rgba(93, 143, 214, 0.14)',
+        search: 'rgba(104, 135, 178, 0.14)',
+        panel: 'rgba(255, 255, 255, 0.99)',
+        accent: '#5d8fd6',
+        accentGlow: 'rgba(93, 143, 214, 0.18)',
+        text: '#28415d',
+        textMuted: '#8195aa',
+        divider: 'rgba(96, 126, 171, 0.14)',
+      },
+    },
+    {
+      id: 'light',
+      label: 'Light',
+      tone: 'Messor Calm',
+      description: t('settings.themeLight'),
+      icon: <Sun size={15} />,
+      preview: {
+        shell: 'linear-gradient(180deg, #f7f8fb 0%, #eef1f6 100%)',
+        sidebar: 'rgba(237, 239, 243, 0.96)',
+        sidebarSelection: 'rgba(177, 193, 217, 0.34)',
+        search: 'rgba(55, 65, 81, 0.08)',
+        panel: 'rgba(255, 255, 255, 0.98)',
+        accent: '#2d6df6',
+        accentGlow: 'rgba(45, 109, 246, 0.20)',
+        text: '#1f2937',
+        textMuted: '#97a2b3',
+        divider: 'rgba(15, 23, 42, 0.08)',
+      },
+    },
+  ]
 
   useEffect(() => {
     Promise.all([GetConfig(), ListCloudProviders(), GetAppVersion(), GetLogDir()]).then(([c, p, v, logPath]) => {
@@ -54,12 +261,12 @@ export default function SettingsPage() {
     try {
       const info = await CheckAppUpdateAndNotify()
       if (info.hasUpdate) {
-        setUpdateResult(`发现新版本 ${info.latestVersion}`)
+        setUpdateResult(t('settings.updateFound', { version: info.latestVersion }))
       } else {
-        setUpdateResult(`已是最新版本 (${info.currentVersion})`)
+        setUpdateResult(t('settings.updateLatest', { version: info.currentVersion }))
       }
     } catch (e: any) {
-      setUpdateResult(`检测失败: ${e?.message ?? String(e)}`)
+      setUpdateResult(t('settings.updateFailed', { msg: e?.message ?? String(e) }))
     } finally {
       setCheckingUpdate(false)
     }
@@ -131,13 +338,13 @@ export default function SettingsPage() {
   const selectedProvider = providers.find((p: any) => p.name === cfg?.cloud?.provider)
   const proxyMode: ProxyMode = (cfg?.proxy?.Mode as ProxyMode) || 'none'
 
-  if (!cfg) return <div className="p-8" style={{ color: 'var(--text-muted)' }}>加载中...</div>
+  if (!cfg) return <div className="p-8" style={{ color: 'var(--text-muted)' }}>{t('common.loading')}</div>
 
   return (
     <div className="p-8 max-w-2xl">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-lg font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-          <Settings size={18} /> 设置
+          <Settings size={18} /> {t('settings.title')}
         </h2>
         <div className="flex items-center gap-3">
           {updateResult && (
@@ -155,7 +362,7 @@ export default function SettingsPage() {
             style={{ background: 'var(--bg-elevated)', color: 'var(--text-secondary)', border: '1px solid var(--border-base)' }}
           >
             <RefreshCw size={12} className={checkingUpdate ? 'animate-spin' : ''} />
-            检测更新
+            {checkingUpdate ? t('settings.checkingUpdate') : t('settings.checkUpdate')}
           </button>
         </div>
       </div>
@@ -165,56 +372,64 @@ export default function SettingsPage() {
         className="flex gap-1 mb-6 rounded-xl p-1 w-fit"
         style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-base)' }}
       >
-        {([['tools', '工具路径'], ['cloud', '云存储'], ['general', '通用'], ['network', '网络']] as [Tab, string][]).map(([v, label]) => (
-          <button
-            key={v}
-            onClick={() => setTab(v)}
-            className="px-4 py-1.5 rounded-lg text-sm transition-all duration-200"
-            style={tab === v ? {
-              background: 'var(--bg-overlay)',
-              color: 'var(--text-primary)',
-              boxShadow: 'var(--glow-accent-sm)',
-              border: '1px solid var(--border-accent)',
-            } : {
-              color: 'var(--text-muted)',
-              border: '1px solid transparent',
-            }}
-          >{label}</button>
-        ))}
+        {(['tools', 'cloud', 'general', 'network'] as Tab[]).map(tabKey => {
+          const labels: Record<Tab, string> = {
+            tools: t('settings.tabTools'),
+            cloud: t('settings.tabCloud'),
+            general: t('settings.tabGeneral'),
+            network: t('settings.tabNetwork'),
+          }
+          return (
+            <button
+              key={tabKey}
+              onClick={() => setTab(tabKey)}
+              className="px-4 py-1.5 rounded-lg text-sm transition-all duration-200"
+              style={tab === tabKey ? {
+                background: 'var(--bg-overlay)',
+                color: 'var(--text-primary)',
+                boxShadow: 'var(--glow-accent-sm)',
+                border: '1px solid var(--border-accent)',
+              } : {
+                color: 'var(--text-muted)',
+                border: '1px solid transparent',
+              }}
+            >{labels[tabKey]}</button>
+          )
+        })}
       </div>
 
       {/* Tools tab */}
       {tab === 'tools' && (
         <div className="space-y-4">
-          {(cfg.tools ?? []).map((t: any) => (
+          {(cfg.tools ?? []).map((tool: any) => (
             <div
-              key={t.name}
+              key={tool.name}
               className="rounded-xl p-4"
               style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-base)' }}
             >
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2.5">
-                  <ToolIcon name={t.name} size={28} />
-                  <span className="font-medium text-sm" style={{ color: 'var(--text-primary)' }}>{t.name}</span>
+                  <ToolIcon name={tool.name} size={28} />
+                  <span className="font-medium text-sm" style={{ color: 'var(--text-primary)' }}>{tool.name}</span>
                 </div>
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>启用</span>
-                  <Toggle enabled={t.enabled} onToggle={() => updateTool(t.name, 'enabled', !t.enabled)} />
+                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{t('settings.toolEnabled')}</span>
+                  <Toggle enabled={tool.enabled} onToggle={() => updateTool(tool.name, 'enabled', !tool.enabled)} />
                 </label>
               </div>
 
               <div className="mb-3">
-                <p className="text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>推送路径（仅 1 个）</p>
+                <p className="text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>{t('settings.pushPath')}</p>
                 <div className="flex gap-2">
                   <input
-                    value={t.pushDir ?? ''}
-                    onChange={e => updateTool(t.name, 'pushDir', e.target.value)}
+                    value={tool.pushDir ?? ''}
+                    onChange={e => updateTool(tool.name, 'pushDir', e.target.value)}
                     className="input-base flex-1 font-mono"
                   />
                   <button
-                    onClick={() => pickDir(dir => updateTool(t.name, 'pushDir', dir), t.pushDir ?? '')}
+                    onClick={() => pickDir(dir => updateTool(tool.name, 'pushDir', dir), tool.pushDir ?? '')}
                     className="btn-secondary px-2.5 rounded-lg"
-                    title="选择目录"
+                    title={t('settings.selectDir')}
                   >
                     <FolderOpen size={14} />
                   </button>
@@ -222,26 +437,26 @@ export default function SettingsPage() {
               </div>
 
               <div>
-                <p className="text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>扫描路径（可多个）</p>
+                <p className="text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>{t('settings.scanPaths')}</p>
                 <div className="space-y-2">
-                  {(t.scanDirs ?? []).map((dir: string, idx: number) => (
-                    <div key={`${t.name}-scan-${idx}`} className="flex gap-2">
+                  {(tool.scanDirs ?? []).map((dir: string, idx: number) => (
+                    <div key={`${tool.name}-scan-${idx}`} className="flex gap-2">
                       <input
                         value={dir}
-                        onChange={e => updateScanDir(t.name, idx, e.target.value)}
+                        onChange={e => updateScanDir(tool.name, idx, e.target.value)}
                         className="input-base flex-1 font-mono"
                       />
                       <button
-                        onClick={() => pickDir(d => updateScanDir(t.name, idx, d), dir ?? '')}
+                        onClick={() => pickDir(d => updateScanDir(tool.name, idx, d), dir ?? '')}
                         className="btn-secondary px-2.5 rounded-lg"
-                        title="选择目录"
+                        title={t('settings.selectDir')}
                       >
                         <FolderOpen size={14} />
                       </button>
                       <button
-                        onClick={() => removeScanDir(t.name, idx)}
+                        onClick={() => removeScanDir(tool.name, idx)}
                         className="btn-secondary px-2.5 rounded-lg"
-                        title="删除扫描路径"
+                        title={t('settings.deleteScanPath')}
                       >
                         <Trash2 size={14} />
                       </button>
@@ -250,34 +465,34 @@ export default function SettingsPage() {
                 </div>
                 <div className="mt-2 flex gap-2">
                   <input
-                    value={newScanDirs[t.name] ?? ''}
-                    onChange={e => setNewScanDirs(prev => ({ ...prev, [t.name]: e.target.value }))}
+                    value={newScanDirs[tool.name] ?? ''}
+                    onChange={e => setNewScanDirs(prev => ({ ...prev, [tool.name]: e.target.value }))}
                     placeholder="/path/to/scan"
                     className="input-base flex-1 font-mono"
                   />
                   <button
-                    onClick={() => pickDir(d => setNewScanDirs(prev => ({ ...prev, [t.name]: d })), newScanDirs[t.name] ?? '')}
+                    onClick={() => pickDir(d => setNewScanDirs(prev => ({ ...prev, [tool.name]: d })), newScanDirs[tool.name] ?? '')}
                     className="btn-secondary px-2.5 rounded-lg"
-                    title="选择目录"
+                    title={t('settings.selectDir')}
                   >
                     <FolderOpen size={14} />
                   </button>
                   <button
-                    onClick={() => addScanDir(t.name)}
+                    onClick={() => addScanDir(tool.name)}
                     className="btn-secondary px-3 py-1.5 rounded-lg text-sm flex items-center gap-1"
                   >
-                    <Plus size={14} /> 添加
+                    <Plus size={14} /> {t('settings.addPath')}
                   </button>
                 </div>
               </div>
 
-              {t.custom && (
+              {tool.custom && (
                 <button
-                  onClick={async () => { await RemoveCustomTool(t.name); const c = await GetConfig(); setCfg(c) }}
+                  onClick={async () => { await RemoveCustomTool(tool.name); const c = await GetConfig(); setCfg(c) }}
                   className="mt-2 text-xs flex items-center gap-1 transition-colors"
                   style={{ color: 'var(--color-error)' }}
                 >
-                  <Trash2 size={12} /> 删除
+                  <Trash2 size={12} /> {t('settings.deleteTool')}
                 </button>
               )}
             </div>
@@ -288,12 +503,12 @@ export default function SettingsPage() {
             className="rounded-xl p-4"
             style={{ border: '1px dashed var(--border-surface)', background: 'var(--bg-surface)' }}
           >
-            <p className="text-sm mb-3" style={{ color: 'var(--text-muted)' }}>添加自定义工具</p>
+            <p className="text-sm mb-3" style={{ color: 'var(--text-muted)' }}>{t('settings.addCustomTool')}</p>
             <div className="flex gap-2 mb-2">
               <input
                 value={newTool.name}
                 onChange={e => setNewTool(p => ({ ...p, name: e.target.value }))}
-                placeholder="工具名称"
+                placeholder={t('settings.toolName')}
                 className="input-base flex-1"
               />
             </div>
@@ -307,7 +522,7 @@ export default function SettingsPage() {
               <button
                 onClick={() => pickDir(d => setNewTool(p => ({ ...p, pushDir: d })), newTool.pushDir)}
                 className="btn-secondary px-2.5 rounded-lg"
-                title="选择目录"
+                title={t('settings.selectDir')}
               >
                 <FolderOpen size={14} />
               </button>
@@ -321,7 +536,7 @@ export default function SettingsPage() {
                 }}
                 className="btn-primary px-3 py-1.5 rounded-lg text-sm flex items-center gap-1"
               >
-                <Plus size={14} /> 添加
+                <Plus size={14} /> {t('settings.addPath')}
               </button>
             </div>
           </div>
@@ -332,7 +547,7 @@ export default function SettingsPage() {
       {tab === 'cloud' && (
         <div className="space-y-4">
           <div>
-            <p className="text-sm mb-2" style={{ color: 'var(--text-muted)' }}>云厂商</p>
+            <p className="text-sm mb-2" style={{ color: 'var(--text-muted)' }}>{t('settings.cloudProvider')}</p>
             <div className="flex gap-2">
               {providers.map((p: any) => (
                 <button
@@ -360,7 +575,7 @@ export default function SettingsPage() {
             <>
               {cfg.cloud?.provider !== 'git' && (
                 <div>
-                  <p className="text-sm mb-2" style={{ color: 'var(--text-muted)' }}>存储桶</p>
+                  <p className="text-sm mb-2" style={{ color: 'var(--text-muted)' }}>{t('settings.bucket')}</p>
                   <input
                     value={cfg.cloud?.bucketName ?? ''}
                     onChange={e => setCfg((p: any) => ({ ...p, cloud: { ...p.cloud, bucketName: e.target.value } }))}
@@ -383,7 +598,7 @@ export default function SettingsPage() {
                 </div>
               ))}
               <div>
-                <p className="text-sm mb-2" style={{ color: 'var(--text-muted)' }}>定时自动同步间隔（分钟，0 表示仅在变更后同步）</p>
+                <p className="text-sm mb-2" style={{ color: 'var(--text-muted)' }}>{t('settings.syncInterval')}</p>
                 <input
                   type="number"
                   min={0}
@@ -397,7 +612,7 @@ export default function SettingsPage() {
                   enabled={!!cfg.cloud?.enabled}
                   onToggle={() => setCfg((p: any) => ({ ...p, cloud: { ...p.cloud, enabled: !p.cloud?.enabled } }))}
                 />
-                <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>启用自动云备份</span>
+                <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{t('settings.enableAutoBackup')}</span>
               </label>
             </>
           )}
@@ -407,16 +622,16 @@ export default function SettingsPage() {
       {/* General tab */}
       {tab === 'general' && (
         <div className="space-y-4">
-          {/* Theme */}
+          {/* Language */}
           <div>
-            <p className="text-sm mb-2" style={{ color: 'var(--text-muted)' }}>外观主题</p>
+            <p className="text-sm mb-2" style={{ color: 'var(--text-muted)' }}>{t('settings.language')}</p>
             <div className="flex gap-2">
-              {([['dark', '深色', <Moon size={14} />], ['light', '浅色', <Sun size={14} />]] as [string, string, React.ReactNode][]).map(([t, label, icon]) => (
+              {(['zh', 'en'] as const).map(l => (
                 <button
-                  key={t}
-                  onClick={() => theme !== t && toggleTheme()}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-all duration-200"
-                  style={theme === t ? {
+                  key={l}
+                  onClick={() => setLang(l)}
+                  className="px-4 py-1.5 rounded-lg text-sm transition-all duration-200"
+                  style={lang === l ? {
                     background: 'var(--accent-glow)',
                     color: 'var(--accent-primary)',
                     border: '1px solid var(--border-accent)',
@@ -427,14 +642,32 @@ export default function SettingsPage() {
                     border: '1px solid var(--border-base)',
                   }}
                 >
-                  {icon} {label}
+                  {l === 'zh' ? '中文' : 'English'}
                 </button>
               ))}
             </div>
           </div>
 
+          {/* Theme */}
           <div>
-            <p className="text-sm mb-2" style={{ color: 'var(--text-muted)' }}>日志打印级别</p>
+            <p className="text-sm mb-2" style={{ color: 'var(--text-muted)' }}>{t('settings.theme')}</p>
+            <div className="grid gap-3 md:grid-cols-3">
+              {themeOptions.map((option) => (
+                <ThemeOptionCard
+                  key={option.id}
+                  option={option}
+                  active={theme === option.id}
+                  onSelect={setTheme}
+                />
+              ))}
+            </div>
+            <p className="mt-2 text-xs leading-5" style={{ color: 'var(--text-muted)' }}>
+              {t('settings.themeHint')}
+            </p>
+          </div>
+
+          <div>
+            <p className="text-sm mb-2" style={{ color: 'var(--text-muted)' }}>{t('settings.logLevel')}</p>
             <div className="flex gap-2 mb-2">
               {([
                 ['debug', 'Debug'],
@@ -460,23 +693,23 @@ export default function SettingsPage() {
                 </button>
               ))}
             </div>
-            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Debug 记录最详细，Info 记录常规信息，Error 仅记录错误。</p>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{t('settings.logLevelHint')}</p>
           </div>
           <div>
-            <p className="text-sm mb-2" style={{ color: 'var(--text-muted)' }}>日志目录</p>
+            <p className="text-sm mb-2" style={{ color: 'var(--text-muted)' }}>{t('settings.logDir')}</p>
             <div className="flex items-center gap-2">
               <button
                 onClick={async () => { await OpenLogDir() }}
                 className="btn-secondary px-3 py-1.5 rounded-lg text-sm"
               >
-                打开日志目录
+                {t('settings.openLogDir')}
               </button>
               <span className="text-xs font-mono break-all" style={{ color: 'var(--text-muted)' }}>{logDir}</span>
             </div>
-            <p className="mt-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>日志文件最多 2 个，单文件最大 1MB，超限自动滚动覆盖旧日志。</p>
+            <p className="mt-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>{t('settings.logDirHint')}</p>
           </div>
           <div>
-            <p className="text-sm mb-2" style={{ color: 'var(--text-muted)' }}>本地 Skills 存储目录</p>
+            <p className="text-sm mb-2" style={{ color: 'var(--text-muted)' }}>{t('settings.skillsDir')}</p>
             <div className="flex gap-2">
               <input
                 value={cfg.skillsStorageDir ?? ''}
@@ -486,21 +719,21 @@ export default function SettingsPage() {
               <button
                 onClick={() => pickDir(d => setCfg((p: any) => ({ ...p, skillsStorageDir: d })), cfg.skillsStorageDir ?? '')}
                 className="btn-secondary px-2.5 rounded-lg"
-                title="选择目录"
+                title={t('settings.selectDir')}
               >
                 <FolderOpen size={16} />
               </button>
             </div>
           </div>
           <div>
-            <p className="text-sm mb-2" style={{ color: 'var(--text-muted)' }}>从工具拉取时的默认分类</p>
+            <p className="text-sm mb-2" style={{ color: 'var(--text-muted)' }}>{t('settings.defaultCategory')}</p>
             <div
               className="rounded-lg px-3 py-2 text-sm"
               style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-base)', color: 'var(--text-secondary)' }}
             >
               Default
             </div>
-            <p className="mt-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>固定系统分类，用于未分类导入兜底，不可重命名或删除。</p>
+            <p className="mt-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>{t('settings.defaultCategoryHint')}</p>
           </div>
         </div>
       )}
@@ -510,17 +743,17 @@ export default function SettingsPage() {
         <div className="space-y-6">
           <div>
             <p className="text-sm mb-1 flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
-              <Globe size={14} /> 代理设置
+              <Globe size={14} /> {t('settings.proxy')}
             </p>
             <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>
-              代理用于远程仓库相关操作（扫描仓库、安装 Skill、检查更新）
+              {t('settings.proxyHint')}
             </p>
 
             <div className="space-y-2">
               {([
-                ['none',   '不使用代理',   '直连，不通过任何代理'],
-                ['system', '使用系统代理', '读取 HTTP_PROXY / HTTPS_PROXY 环境变量'],
-                ['manual', '手动配置',     '自定义代理地址'],
+                ['none',   t('settings.proxyNone'),   t('settings.proxyNoneDesc')],
+                ['system', t('settings.proxySystem'), t('settings.proxySystemDesc')],
+                ['manual', t('settings.proxyManual'), t('settings.proxyManualDesc')],
               ] as [ProxyMode, string, string][]).map(([mode, label, desc]) => (
                 <div
                   key={mode}
@@ -556,7 +789,7 @@ export default function SettingsPage() {
 
           {proxyMode === 'manual' && (
             <div>
-              <p className="text-sm mb-2" style={{ color: 'var(--text-muted)' }}>代理地址</p>
+              <p className="text-sm mb-2" style={{ color: 'var(--text-muted)' }}>{t('settings.proxyUrl')}</p>
               <input
                 value={cfg.proxy?.URL ?? ''}
                 onChange={e => setProxyURL(e.target.value)}
@@ -564,19 +797,7 @@ export default function SettingsPage() {
                 className="input-base font-mono"
               />
               <p className="mt-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>
-                支持{' '}
-                <code
-                  className="px-1 rounded"
-                  style={{ background: 'var(--bg-elevated)', color: 'var(--text-secondary)' }}
-                >http://</code>、
-                <code
-                  className="px-1 rounded"
-                  style={{ background: 'var(--bg-elevated)', color: 'var(--text-secondary)' }}
-                >https://</code>、
-                <code
-                  className="px-1 rounded"
-                  style={{ background: 'var(--bg-elevated)', color: 'var(--text-secondary)' }}
-                >socks5://</code>{' '}格式
+                {t('settings.proxyUrlHint')}
               </p>
             </div>
           )}
@@ -588,7 +809,7 @@ export default function SettingsPage() {
         disabled={saving}
         className="btn-primary mt-8 px-6 py-2.5 rounded-lg text-sm"
       >
-        {saving ? '保存中...' : '保存设置'}
+        {saving ? t('common.saving') : t('settings.saveSettings')}
       </button>
     </div>
   )
