@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { BrowserRouter, Route, Routes, NavLink, useLocation } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Package, ArrowUpFromLine, ArrowDownToLine, Cloud, Settings, Star, X, Download, RefreshCw, AlertTriangle, GitMerge, MessageSquareWarning, ExternalLink, Wrench, Sun, Moon } from 'lucide-react'
+import { Package, ArrowUpFromLine, ArrowDownToLine, Cloud, Settings, Star, X, Download, RefreshCw, AlertTriangle, GitMerge, MessageSquareWarning, ExternalLink, Wrench, Palette, Languages } from 'lucide-react'
 import Dashboard from './pages/Dashboard'
 import SyncPush from './pages/SyncPush'
 import SyncPull from './pages/SyncPull'
@@ -13,6 +13,9 @@ import { EventsOn } from '../wailsjs/runtime/runtime'
 import { DownloadAppUpdate, ApplyAppUpdate, GetGitConflictPending, ResolveGitConflict, OpenURL, SetSkippedUpdateVersion } from '../wailsjs/go/main/App'
 import { main } from '../wailsjs/go/models'
 import { ThemeProvider, useThemeContext } from './contexts/ThemeContext'
+import { LanguageProvider, useLanguage } from './contexts/LanguageContext'
+import type { Translations } from './i18n'
+import { THEME_LABELS, getNextTheme } from './hooks/useTheme'
 import AnimatedDialog from './components/ui/AnimatedDialog'
 import { pageVariants } from './lib/motionVariants'
 
@@ -43,7 +46,8 @@ function parseAppUpdatePayload(data: unknown): main.AppUpdateInfo {
 }
 
 function AppContent() {
-  const { theme, toggleTheme } = useThemeContext()
+  const { t, lang, setLang } = useLanguage()
+  const { theme, cycleTheme } = useThemeContext()
   const [dialogState, setDialogState] = useState<UpdateDialogState>('idle')
   const [updateInfo, setUpdateInfo] = useState<main.AppUpdateInfo | null>(null)
 
@@ -51,6 +55,7 @@ function AppContent() {
   const [conflictInfo, setConflictInfo] = useState<GitConflictInfo>({ message: '', files: [] })
   const [resolving, setResolving] = useState(false)
   const [resolveError, setResolveError] = useState('')
+  const nextTheme = getNextTheme(theme)
 
   const handleResolve = async (useLocal: boolean) => {
     setResolving(true)
@@ -59,7 +64,7 @@ function AppContent() {
       await ResolveGitConflict(useLocal)
       setConflictOpen(false)
     } catch (e: any) {
-      setResolveError(String(e?.message ?? e ?? '操作失败，请重试'))
+      setResolveError(String(e?.message ?? e ?? t('common.confirm')))
     } finally {
       setResolving(false)
     }
@@ -112,20 +117,20 @@ function AppContent() {
   return (
     <div
       className="flex h-screen flex-col relative"
-      style={{ backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)' }}
+      style={{ background: 'var(--app-shell)', color: 'var(--text-primary)' }}
     >
       {/* Git conflict dialog */}
       <AnimatedDialog open={conflictOpen} width="w-[420px]" zIndex={50}>
         <div className="flex items-center gap-2 mb-3">
           <AlertTriangle size={18} style={{ color: 'var(--color-warning)' }} />
-          <span className="font-semibold text-base">Git 同步冲突</span>
+          <span className="font-semibold text-base">{t('conflict.title')}</span>
         </div>
         <p className="text-sm mb-2" style={{ color: 'var(--text-secondary)' }}>
-          本地 Skills 与远端仓库存在冲突，请选择以哪一方为准：
+          {t('conflict.desc')}
         </p>
         {conflictInfo.files.length > 0 && (
           <div className="mb-3">
-            <p className="text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>冲突相关文件（{conflictInfo.files.length}）</p>
+            <p className="text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>{t('conflict.filesLabel', { count: conflictInfo.files.length })}</p>
             <div
               className="max-h-28 overflow-y-auto rounded-lg px-2 py-1.5"
               style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-base)' }}
@@ -134,7 +139,7 @@ function AppContent() {
                 <div key={`${f}-${i}`} className="font-mono text-[11px] truncate" style={{ color: 'var(--text-secondary)' }}>{f}</div>
               ))}
               {conflictInfo.files.length > 30 && (
-                <div className="text-[11px]" style={{ color: 'var(--text-muted)' }}>... 还有 {conflictInfo.files.length - 30} 个文件</div>
+                <div className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{t('conflict.moreFiles', { count: conflictInfo.files.length - 30 })}</div>
               )}
             </div>
           </div>
@@ -144,13 +149,13 @@ function AppContent() {
             className="mb-3 rounded-lg px-2 py-1.5"
             style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-base)' }}
           >
-            <p className="text-[11px] mb-1" style={{ color: 'var(--text-muted)' }}>Git 输出</p>
+            <p className="text-[11px] mb-1" style={{ color: 'var(--text-muted)' }}>{t('conflict.output')}</p>
             <pre className="text-[11px] whitespace-pre-wrap break-all max-h-20 overflow-y-auto" style={{ color: 'var(--text-secondary)' }}>{conflictInfo.message}</pre>
           </div>
         )}
         <ul className="text-xs list-disc list-inside mb-6 space-y-1" style={{ color: 'var(--text-muted)' }}>
-          <li><span className="font-medium" style={{ color: 'var(--text-primary)' }}>以本地为准</span> — 保留本地内容，强制推送到远端</li>
-          <li><span className="font-medium" style={{ color: 'var(--text-primary)' }}>以远端为准</span> — 丢弃本地冲突部分，恢复为远端内容</li>
+          <li><span className="font-medium" style={{ color: 'var(--text-primary)' }}>{t('conflict.keepLocal')}</span> — {t('conflict.keepLocalDesc')}</li>
+          <li><span className="font-medium" style={{ color: 'var(--text-primary)' }}>{t('conflict.keepRemote')}</span> — {t('conflict.keepRemoteDesc')}</li>
         </ul>
         {resolveError && (
           <p
@@ -165,7 +170,7 @@ function AppContent() {
             className="btn-secondary flex items-center gap-1.5 px-4 py-2 text-sm rounded-lg"
           >
             {resolving ? <RefreshCw size={13} className="animate-spin" /> : <Download size={13} />}
-            以远端为准
+            {t('conflict.keepRemote')}
           </button>
           <button
             onClick={() => handleResolve(true)}
@@ -173,7 +178,7 @@ function AppContent() {
             className="btn-primary flex items-center gap-1.5 px-4 py-2 text-sm rounded-lg"
           >
             {resolving ? <RefreshCw size={13} className="animate-spin" /> : <GitMerge size={13} />}
-            以本地为准
+            {t('conflict.keepLocal')}
           </button>
         </div>
       </AnimatedDialog>
@@ -188,6 +193,7 @@ function AppContent() {
           onOpenRelease={handleOpenRelease}
           onSkip={handleSkip}
           onClose={() => setDialogState('idle')}
+          t={t}
         />
       </AnimatedDialog>
 
@@ -197,40 +203,50 @@ function AppContent() {
           className="w-56 flex flex-col p-4 gap-1 relative"
           style={{
             background: 'var(--bg-surface)',
-            borderRight: '2px solid var(--sidebar-border)',
+            borderRight: '1px solid var(--sidebar-border)',
           }}
         >
           {/* Top glow divider */}
           <div
             className="absolute top-0 left-0 right-0 h-px"
-            style={{ background: 'linear-gradient(90deg, transparent, var(--accent-primary), transparent)', opacity: 0.4 }}
+            style={{ background: 'linear-gradient(90deg, transparent, var(--shell-divider), transparent)', opacity: 0.9 }}
           />
           <div className="flex items-center justify-between mb-6 px-2">
             <h1
-              className="text-lg font-bold"
-              style={{ color: 'var(--accent-primary)', textShadow: '0 0 12px var(--accent-glow)' }}
+              className="text-[17px] font-semibold tracking-[0.08em]"
+              style={{ color: 'var(--brand-color)', textShadow: 'var(--brand-shadow)' }}
             >
               SkillFlow
             </h1>
-            <button
-              onClick={toggleTheme}
-              className="p-1.5 rounded-lg transition-colors"
-              style={{ color: 'var(--text-muted)' }}
-              title={theme === 'dark' ? '切换到亮色模式' : '切换到暗色模式'}
-            >
-              {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')}
+                className="p-1.5 rounded-lg transition-colors"
+                style={{ color: 'var(--text-muted)' }}
+                title={t('nav.switchLangTitle')}
+              >
+                <Languages size={14} />
+              </button>
+              <button
+                onClick={cycleTheme}
+                className="p-1.5 rounded-lg transition-colors"
+                style={{ color: 'var(--text-muted)' }}
+                title={t('nav.switchThemeTitle', { theme: THEME_LABELS[nextTheme] })}
+              >
+                <Palette size={14} />
+              </button>
+            </div>
           </div>
-          <NavItem to="/" icon={<Package size={16} />} label="我的 Skills" />
-          <NavItem to="/tools" icon={<Wrench size={16} />} label="我的工具" end={false} />
-          <p className="text-xs px-2 mt-3 mb-1" style={{ color: 'var(--text-muted)' }}>同步管理</p>
-          <NavItem to="/sync/push" icon={<ArrowUpFromLine size={16} />} label="推送到工具" />
-          <NavItem to="/sync/pull" icon={<ArrowDownToLine size={16} />} label="从工具拉取" />
-          <NavItem to="/starred" icon={<Star size={16} />} label="仓库收藏" end={false} />
+          <NavItem to="/" icon={<Package size={16} />} label={t('nav.mySkills')} />
+          <NavItem to="/tools" icon={<Wrench size={16} />} label={t('nav.myTools')} end={false} />
+          <p className="text-xs px-2 mt-3 mb-1" style={{ color: 'var(--text-muted)' }}>{t('nav.syncSection')}</p>
+          <NavItem to="/sync/push" icon={<ArrowUpFromLine size={16} />} label={t('nav.pushToTool')} />
+          <NavItem to="/sync/pull" icon={<ArrowDownToLine size={16} />} label={t('nav.pullFromTool')} />
+          <NavItem to="/starred" icon={<Star size={16} />} label={t('nav.starred')} end={false} />
           <div className="flex-1" />
           <div className="flex flex-col gap-1">
-            <NavItem to="/backup" icon={<Cloud size={16} />} label="云备份" />
-            <NavItem to="/settings" icon={<Settings size={16} />} label="设置" />
+            <NavItem to="/backup" icon={<Cloud size={16} />} label={t('nav.backup')} />
+            <NavItem to="/settings" icon={<Settings size={16} />} label={t('nav.settings')} />
             <button
               onClick={() => OpenURL(feedbackIssueURL)}
               className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors"
@@ -245,7 +261,7 @@ function AppContent() {
               }}
             >
               <MessageSquareWarning size={16} />
-              意见反馈
+              {t('nav.feedback')}
             </button>
           </div>
         </aside>
@@ -288,11 +304,13 @@ function AnimatedRoutes() {
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <BrowserRouter>
-        <AppContent />
-      </BrowserRouter>
-    </ThemeProvider>
+    <LanguageProvider>
+      <ThemeProvider>
+        <BrowserRouter>
+          <AppContent />
+        </BrowserRouter>
+      </ThemeProvider>
+    </LanguageProvider>
   )
 }
 
@@ -304,9 +322,10 @@ interface UpdateDialogContentProps {
   onOpenRelease: () => void
   onSkip: () => void
   onClose: () => void
+  t: (key: keyof Translations, vars?: Record<string, string | number>) => string
 }
 
-function UpdateDialogContent({ state, info, onDownload, onRestart, onOpenRelease, onSkip, onClose }: UpdateDialogContentProps) {
+function UpdateDialogContent({ state, info, onDownload, onRestart, onOpenRelease, onSkip, onClose, t }: UpdateDialogContentProps) {
   const isDownloading = state === 'downloading'
 
   return (
@@ -315,7 +334,7 @@ function UpdateDialogContent({ state, info, onDownload, onRestart, onOpenRelease
         <div className="flex items-center gap-2">
           <Download size={18} style={{ color: 'var(--accent-primary)' }} />
           <span className="font-semibold text-base">
-            {state === 'ready_to_restart' ? '更新已就绪' : state === 'download_failed' ? '下载失败' : '发现新版本'}
+            {state === 'ready_to_restart' ? t('update.ready') : state === 'download_failed' ? t('update.failed') : t('update.newVersion')}
           </span>
         </div>
         {!isDownloading && (
@@ -332,17 +351,17 @@ function UpdateDialogContent({ state, info, onDownload, onRestart, onOpenRelease
       {(state === 'available' || state === 'downloading') && (
         <>
           <p className="text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>
-            最新版本：<span className="font-mono font-medium" style={{ color: 'var(--accent-primary)' }}>{info?.latestVersion}</span>
+            {t('update.latestLabel')}<span className="font-mono font-medium" style={{ color: 'var(--accent-primary)' }}>{info?.latestVersion}</span>
           </p>
           <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
-            当前版本：<span className="font-mono">{info?.currentVersion}</span>
+            {t('update.currentLabel')}<span className="font-mono">{info?.currentVersion}</span>
           </p>
           {info?.releaseNotes && (
             <div
               className="mb-4 rounded-lg px-3 py-2 max-h-32 overflow-y-auto"
               style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-base)' }}
             >
-              <p className="text-[11px] mb-1" style={{ color: 'var(--text-muted)' }}>更新说明</p>
+              <p className="text-[11px] mb-1" style={{ color: 'var(--text-muted)' }}>{t('update.notes')}</p>
               <pre className="text-xs whitespace-pre-wrap break-all" style={{ color: 'var(--text-secondary)' }}>{info.releaseNotes}</pre>
             </div>
           )}
@@ -352,19 +371,19 @@ function UpdateDialogContent({ state, info, onDownload, onRestart, onOpenRelease
       {state === 'downloading' && (
         <div className="flex items-center gap-2 mb-4 text-sm" style={{ color: 'var(--text-secondary)' }}>
           <RefreshCw size={14} className="animate-spin" style={{ color: 'var(--accent-primary)' }} />
-          <span>正在下载 {info?.latestVersion}，请稍候...</span>
+          <span>{t('update.downloading', { version: info?.latestVersion ?? '' })}</span>
         </div>
       )}
 
       {state === 'ready_to_restart' && (
         <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
-          新版本已下载完成，点击下方按钮重启应用以完成更新。
+          {t('update.restartDesc')}
         </p>
       )}
 
       {state === 'download_failed' && (
         <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
-          自动下载失败，请前往 Release 页面手动下载最新版本。
+          {t('update.downloadFailDesc')}
         </p>
       )}
 
@@ -376,7 +395,7 @@ function UpdateDialogContent({ state, info, onDownload, onRestart, onOpenRelease
               className="btn-primary flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl text-sm font-medium"
             >
               <Download size={14} />
-              下载并自动重启更新
+              {t('update.download')}
             </button>
           )}
           <button
@@ -384,30 +403,30 @@ function UpdateDialogContent({ state, info, onDownload, onRestart, onOpenRelease
             className="btn-secondary flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl text-sm"
           >
             <ExternalLink size={14} />
-            前往 Release 页面手动下载
+            {t('update.openRelease')}
           </button>
           <button
             onClick={onSkip}
             className="flex items-center justify-center gap-2 w-full px-4 py-2 text-sm transition-colors"
             style={{ color: 'var(--text-muted)' }}
           >
-            跳过此版本（下次启动不再提示）
+            {t('update.skip')}
           </button>
         </div>
       )}
 
       {state === 'downloading' && (
-        <p className="text-xs text-center" style={{ color: 'var(--text-muted)' }}>下载完成后将自动提示重启</p>
+        <p className="text-xs text-center" style={{ color: 'var(--text-muted)' }}>{t('update.downloadHint')}</p>
       )}
 
       {state === 'ready_to_restart' && (
         <div className="flex gap-3 justify-end">
           <button onClick={onClose} className="btn-secondary px-4 py-2 text-sm rounded-xl">
-            稍后重启
+            {t('update.restartLater')}
           </button>
           <button onClick={onRestart} className="btn-primary flex items-center gap-2 px-4 py-2 text-sm rounded-xl">
             <RefreshCw size={13} />
-            立即重启
+            {t('update.restartNow')}
           </button>
         </div>
       )}
@@ -415,11 +434,11 @@ function UpdateDialogContent({ state, info, onDownload, onRestart, onOpenRelease
       {state === 'download_failed' && (
         <div className="flex gap-3 justify-end">
           <button onClick={onClose} className="btn-secondary px-4 py-2 text-sm rounded-xl">
-            关闭
+            {t('common.close')}
           </button>
           <button onClick={onOpenRelease} className="btn-primary flex items-center gap-2 px-4 py-2 text-sm rounded-xl">
             <ExternalLink size={13} />
-            前往下载页
+            {t('update.goDownload')}
           </button>
         </div>
       )}
@@ -438,10 +457,10 @@ function NavItem({ to, icon, label, end = true }: { to: string; icon: React.Reac
         }`
       }
       style={({ isActive }) => isActive ? {
-        backgroundColor: 'var(--accent-glow)',
-        color: 'var(--accent-primary)',
-        border: '1px solid var(--border-accent)',
-        boxShadow: 'var(--glow-accent-sm)',
+        backgroundColor: 'var(--active-surface)',
+        color: 'var(--active-text)',
+        border: '1px solid var(--active-border)',
+        boxShadow: 'var(--active-shadow)',
       } : {
         color: 'var(--text-muted)',
         border: '1px solid transparent',
