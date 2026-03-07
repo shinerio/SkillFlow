@@ -14,6 +14,7 @@ type sharedConfig struct {
 	Tools           []sharedToolConfig `json:"tools"`
 	Cloud           CloudConfig        `json:"cloud"`
 	Proxy           ProxyConfig        `json:"proxy"`
+	SkippedUpdateVersion string        `json:"skippedUpdateVersion,omitempty"`
 }
 
 // sharedToolConfig stores only the platform-agnostic settings for a built-in tool.
@@ -244,6 +245,7 @@ func (s *Service) merge(shared sharedConfig, local localConfig) AppConfig {
 		Tools:            tools,
 		Cloud:            shared.Cloud,
 		Proxy:            shared.Proxy,
+		SkippedUpdateVersion: shared.SkippedUpdateVersion,
 	}
 }
 
@@ -261,6 +263,7 @@ func (s *Service) splitShared(cfg AppConfig) sharedConfig {
 		Tools:           tools,
 		Cloud:           cfg.Cloud,
 		Proxy:           cfg.Proxy,
+		SkippedUpdateVersion: cfg.SkippedUpdateVersion,
 	}
 }
 

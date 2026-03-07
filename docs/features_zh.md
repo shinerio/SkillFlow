@@ -137,6 +137,12 @@
 
 将外部工具目录中的 Skills 导入到你的库中。
 
+### 布局
+
+- 采用与“推送到工具”一致的双栏布局。
+- 左侧边栏列出全部分类，并直接作为导入目标分类选择器。
+- 右侧显示来源工具选择、扫描反馈、可选 Skill 网格和底部执行栏。
+
 ### 来源工具选择
 
 - 与推送页相同的切换按钮；切换工具时重置已扫描列表。
@@ -155,7 +161,6 @@
 
 ### 底部操作栏
 
-- **目标分类下拉菜单** — 选择导入到哪个分类（不选择时回落到固定分类 `Default`）。
 - **"开始拉取（n）"** 按钮 — 调用 `PullFromTool()`。
 - **"拉取完成 ✓"** — 绿色成功提示。
 - 冲突处理同 [冲突对话框](#101-冲突对话框)。
@@ -491,7 +496,7 @@ Go 后端通过 Wails runtime 向前端推送的事件：
 
 主面板监听 `update.available` 事件，实时在对应 Skill 卡片上标记红色更新红点。
 备份页监听所有 `git.*` 事件，并在收到 `git.conflict` 时弹出冲突解决对话框。
-`App.tsx` 监听全部三个 `app.update.*` 事件，驱动更新对话框的状态机。
+`App.tsx` 监听全部三个 `app.update.*` 事件，解析发出的 `AppUpdateInfo` payload，并驱动更新对话框的状态机。
 
 ---
 
@@ -517,10 +522,11 @@ Go 后端通过 Wails runtime 向前端推送的事件：
 - **macOS** — `available` 状态提供两个选项（暂不支持自动下载）：
   1. **前往 Release 页面手动下载** — 在系统浏览器打开 GitHub Releases 页面。
   2. **跳过此版本（下次启动不再提示）** — 与 Windows 行为一致。
+- 两个平台都使用同一份 `AppUpdateInfo` payload 渲染当前版本、最新版本和 Release 页面入口。
 
 ### 跳过版本机制
 
-- 跳过的版本 tag 存储在 `AppConfig.SkippedUpdateVersion`（持久化到 `config.json`）。
+- 跳过的版本 tag 存储在 `AppConfig.SkippedUpdateVersion`，并写入共享的 `config.json`，因此重启应用后仍会生效。
 - 启动检测时，若 `latestVersion == skippedUpdateVersion`，则**不**发布 `app.update.available` 事件，不弹出对话框。
 - 设置页手动点击"检测更新"时，`CheckAppUpdateAndNotify` 始终发布事件，不受跳过版本影响 — 手动检测总是正常弹出对话框。
 - 点击"跳过此版本"时调用 `SetSkippedUpdateVersion(latestVersion)`。
@@ -569,4 +575,4 @@ wails build -ldflags "-X main.Version=${{ github.ref_name }}"
 
 ---
 
-*最后更新：2026-03-06*
+*最后更新：2026-03-07*

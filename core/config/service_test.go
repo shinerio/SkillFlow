@@ -26,12 +26,35 @@ func TestSaveAndLoadConfig(t *testing.T) {
 	svc := config.NewService(dir)
 	cfg := config.DefaultConfig(dir)
 	cfg.DefaultCategory = "MyCategory"
+	cfg.SkippedUpdateVersion = "v1.2.3"
 	err := svc.Save(cfg)
 	require.NoError(t, err)
 
 	loaded, err := svc.Load()
 	require.NoError(t, err)
 	assert.Equal(t, "MyCategory", loaded.DefaultCategory)
+	assert.Equal(t, "v1.2.3", loaded.SkippedUpdateVersion)
+}
+
+func TestSkippedUpdateVersionPersistsInSharedConfig(t *testing.T) {
+	dir := t.TempDir()
+	svc := config.NewService(dir)
+	cfg := config.DefaultConfig(dir)
+	cfg.SkippedUpdateVersion = "v9.9.9"
+
+	require.NoError(t, svc.Save(cfg))
+
+	data, err := os.ReadFile(filepath.Join(dir, "config.json"))
+	require.NoError(t, err)
+	assert.Contains(t, string(data), `"skippedUpdateVersion": "v9.9.9"`)
+
+	localData, err := os.ReadFile(filepath.Join(dir, "config_local.json"))
+	require.NoError(t, err)
+	assert.NotContains(t, string(localData), "skippedUpdateVersion")
+
+	loaded, err := svc.Load()
+	require.NoError(t, err)
+	assert.Equal(t, "v9.9.9", loaded.SkippedUpdateVersion)
 }
 
 func TestSaveAndLoadConfigNormalizesLogLevel(t *testing.T) {

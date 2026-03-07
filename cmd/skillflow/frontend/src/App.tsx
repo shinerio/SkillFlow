@@ -33,6 +33,10 @@ function parseConflictPayload(data: string): GitConflictInfo {
   }
 }
 
+function parseAppUpdatePayload(data: unknown): main.AppUpdateInfo {
+  return main.AppUpdateInfo.createFrom(data)
+}
+
 export default function App() {
   const [dialogState, setDialogState] = useState<UpdateDialogState>('idle')
   const [updateInfo, setUpdateInfo] = useState<main.AppUpdateInfo | null>(null)
@@ -56,8 +60,8 @@ export default function App() {
   }
 
   useEffect(() => {
-    EventsOn('app.update.available', (data: main.AppUpdateInfo) => {
-      setUpdateInfo(data)
+    EventsOn('app.update.available', (data: unknown) => {
+      setUpdateInfo(parseAppUpdatePayload(data))
       setDialogState('available')
     })
     EventsOn('app.update.download.done', () => {
@@ -93,8 +97,9 @@ export default function App() {
   }
 
   const handleOpenRelease = () => {
-    if (updateInfo?.releaseUrl) {
-      OpenURL(updateInfo.releaseUrl)
+    const releaseURL = updateInfo?.releaseUrl || 'https://github.com/shinerio/SkillFlow/releases/latest'
+    if (releaseURL) {
+      OpenURL(releaseURL)
     }
     setDialogState('idle')
   }

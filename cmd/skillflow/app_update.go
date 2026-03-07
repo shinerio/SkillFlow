@@ -40,6 +40,7 @@ func (a *App) CheckAppUpdate() (*AppUpdateInfo, error) {
 	a.logDebugf("check app update started")
 	client := a.proxyHTTPClient()
 	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/latest", githubOwner, githubRepo)
+	releasePageURL := fmt.Sprintf("https://github.com/%s/%s/releases/latest", githubOwner, githubRepo)
 	req, err := http.NewRequestWithContext(a.ctx, "GET", apiURL, nil)
 	if err != nil {
 		a.logErrorf("check app update failed: %v", err)
@@ -73,6 +74,10 @@ func (a *App) CheckAppUpdate() (*AppUpdateInfo, error) {
 
 	current := Version
 	latest := release.TagName
+	releaseURL := strings.TrimSpace(release.HTMLURL)
+	if releaseURL == "" {
+		releaseURL = releasePageURL
+	}
 	hasUpdate := latest != "" && latest != current && latest != "v"+strings.TrimPrefix(current, "v")
 
 	// Match asset for current platform.
@@ -97,7 +102,7 @@ func (a *App) CheckAppUpdate() (*AppUpdateInfo, error) {
 		HasUpdate:      hasUpdate,
 		CurrentVersion: current,
 		LatestVersion:  latest,
-		ReleaseURL:     release.HTMLURL,
+		ReleaseURL:     releaseURL,
 		DownloadURL:    downloadURL,
 		ReleaseNotes:   release.Body,
 		CanAutoUpdate:  goruntime.GOOS == "windows",

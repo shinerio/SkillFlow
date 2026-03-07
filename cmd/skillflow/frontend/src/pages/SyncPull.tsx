@@ -6,12 +6,13 @@ import { ArrowDownToLine, AlertCircle, X, CheckSquare, Square } from 'lucide-rea
 import { ToolIcon } from '../config/toolIcons'
 
 export default function SyncPull() {
+  const defaultCategory = 'Default'
   const [tools, setTools] = useState<any[]>([])
   const [selectedTool, setSelectedTool] = useState('')
   const [scanned, setScanned] = useState<any[]>([])
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [categories, setCategories] = useState<string[]>([])
-  const [targetCategory, setTargetCategory] = useState('')
+  const [targetCategory, setTargetCategory] = useState(defaultCategory)
   const [scanning, setScanning] = useState(false)
   const [pulling, setPulling] = useState(false)
   const [conflicts, setConflicts] = useState<string[]>([])
@@ -72,118 +73,130 @@ export default function SyncPull() {
   const allSelected = scanned.length > 0 && selected.size === scanned.length
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      <div className="p-8 pb-0">
-        <h2 className="text-lg font-semibold mb-6 flex items-center gap-2">
-          <ArrowDownToLine size={18} /> 从工具拉取
-        </h2>
-
-        {/* Tool select */}
-        <section className="mb-4">
-          <p className="text-sm text-gray-400 mb-3">来源工具</p>
-          <div className="flex flex-wrap gap-2">
-            {tools.map(t => (
-              <button
-                key={t.name}
-                onClick={() => {
-                  setSelectedTool(t.name)
-                  setScanned([])
-                  setDone(false)
-                  setScanError('')
-                  setScannedOnce(false)
-                  scan(t.name)
-                }}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm border transition-colors ${
-                  selectedTool === t.name
-                    ? 'bg-indigo-600 border-indigo-500 text-white'
-                    : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-500'
-                }`}
-              >
-                <ToolIcon name={t.name} size={20} />
-                {t.name}
-              </button>
-            ))}
-          </div>
-        </section>
-
-        {scanning && (
-          <p className="mb-4 text-sm text-gray-400">扫描中...</p>
-        )}
-
-        {scanError && (
-          <div className="mb-4 flex items-start gap-2 bg-red-950 border border-red-700 text-red-300 rounded-lg px-4 py-3 text-sm">
-            <AlertCircle size={16} className="mt-0.5 shrink-0 text-red-400" />
-            <span className="flex-1">{scanError}</span>
-            <button onClick={() => setScanError('')} className="shrink-0 text-red-500 hover:text-red-300">
-              <X size={14} />
-            </button>
-          </div>
-        )}
-
-        {!scanError && !scanning && scannedOnce && scanned.length === 0 && (
-          <div className="mb-4 flex items-center gap-2 bg-yellow-950 border border-yellow-700 text-yellow-300 rounded-lg px-4 py-3 text-sm">
-            <AlertCircle size={16} className="shrink-0 text-yellow-400" />
-            <span>未发现任何 Skill，请确认工具目录中包含含有 skill.md 的子目录</span>
-          </div>
-        )}
+    <div className="flex h-full overflow-hidden">
+      <div className="w-48 shrink-0 border-r border-gray-800 p-3 flex flex-col gap-0.5">
+        <div className="px-3 py-1.5 text-xs font-medium tracking-wide text-gray-500 uppercase">
+          导入分类
+        </div>
+        {categories.map(category => (
+          <button
+            key={category}
+            onClick={() => setTargetCategory(category)}
+            className={`px-3 py-2 rounded-lg text-sm text-left transition-colors ${
+              targetCategory === category ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:bg-gray-800'
+            }`}
+          >
+            {category}
+          </button>
+        ))}
       </div>
 
-      {scanned.length > 0 && (
-        <>
-          {/* Toolbar */}
-          <div className="px-8 mb-3 flex items-center gap-4">
-            <p className="text-sm text-gray-400">
-              选择要导入的 Skills
-              <span className="ml-1 text-gray-500">（{selected.size}/{scanned.length}）</span>
-            </p>
-            <button
-              onClick={toggleAll}
-              className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white transition-colors"
-            >
-              {allSelected ? <CheckSquare size={13} /> : <Square size={13} />}
-              {allSelected ? '取消全选' : '全选'}
-            </button>
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-800 flex flex-col gap-4">
+          <div className="flex items-center gap-2 text-lg font-semibold">
+            <ArrowDownToLine size={18} />
+            从工具拉取
           </div>
 
-          {/* Card grid */}
-          <div className="flex-1 overflow-y-auto px-8">
-            <div className="grid grid-cols-3 xl:grid-cols-4 gap-3 pb-4">
-              {scanned.map((sk: any) => (
-                <SyncSkillCard
-                  key={sk.Name}
-                  name={sk.Name}
-                  path={sk.Path}
-                  selected={selected.has(sk.Name)}
-                  onToggle={() => toggle(sk.Name)}
-                />
+          <section>
+            <p className="text-sm text-gray-400 mb-3">来源工具</p>
+            <div className="flex flex-wrap gap-2">
+              {tools.map(t => (
+                <button
+                  key={t.name}
+                  onClick={() => {
+                    setSelectedTool(t.name)
+                    setScanned([])
+                    setDone(false)
+                    setScanError('')
+                    setScannedOnce(false)
+                    scan(t.name)
+                  }}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm border transition-colors ${
+                    selectedTool === t.name
+                      ? 'bg-indigo-600 border-indigo-500 text-white'
+                      : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-500'
+                  }`}
+                >
+                  <ToolIcon name={t.name} size={20} />
+                  {t.name}
+                </button>
               ))}
             </div>
-          </div>
+          </section>
 
-          {/* Bottom action bar */}
-          <div className="px-8 py-4 border-t border-gray-800 flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-400">导入到分类</span>
-              <select
-                value={targetCategory}
-                onChange={e => setTargetCategory(e.target.value)}
-                className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm"
-              >
-                <option value="">Default（默认）</option>
-                {categories.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
+          {scanning && (
+            <p className="text-sm text-gray-400">扫描中...</p>
+          )}
+
+          {scanError && (
+            <div className="flex items-start gap-2 bg-red-950 border border-red-700 text-red-300 rounded-lg px-4 py-3 text-sm">
+              <AlertCircle size={16} className="mt-0.5 shrink-0 text-red-400" />
+              <span className="flex-1">{scanError}</span>
+              <button onClick={() => setScanError('')} className="shrink-0 text-red-500 hover:text-red-300">
+                <X size={14} />
+              </button>
             </div>
-            <button
-              onClick={pull}
-              disabled={pulling || selected.size === 0}
-              className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm disabled:opacity-50"
-            >
-              {pulling ? '拉取中...' : `开始拉取 (${selected.size})`}
-            </button>
-            {done && <span className="text-sm text-green-400">拉取完成 ✓</span>}
-          </div>
-        </>
-      )}
+          )}
+
+          {!scanError && !scanning && scannedOnce && scanned.length === 0 && (
+            <div className="flex items-center gap-2 bg-yellow-950 border border-yellow-700 text-yellow-300 rounded-lg px-4 py-3 text-sm">
+              <AlertCircle size={16} className="shrink-0 text-yellow-400" />
+              <span>未发现任何 Skill，请确认工具目录中包含含有 skill.md 的子目录</span>
+            </div>
+          )}
+
+          {scanned.length > 0 && (
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <p className="text-sm text-gray-400">
+                  选择要导入的 Skills
+                  <span className="ml-1 text-gray-500">（{selected.size}/{scanned.length}）</span>
+                </p>
+                <button
+                  onClick={toggleAll}
+                  className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white transition-colors"
+                >
+                  {allSelected ? <CheckSquare size={13} /> : <Square size={13} />}
+                  {allSelected ? '取消全选' : '全选'}
+                </button>
+              </div>
+              <p className="text-sm text-gray-400">
+                导入到分类「<span className="text-gray-200">{targetCategory || defaultCategory}</span>」
+              </p>
+            </div>
+          )}
+        </div>
+
+        {scanned.length > 0 && (
+          <>
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="grid grid-cols-3 xl:grid-cols-4 gap-4">
+                {scanned.map((sk: any) => (
+                  <SyncSkillCard
+                    key={sk.Name}
+                    name={sk.Name}
+                    path={sk.Path}
+                    selected={selected.has(sk.Name)}
+                    onToggle={() => toggle(sk.Name)}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-800 flex items-center gap-4">
+              <button
+                onClick={pull}
+                disabled={pulling || selected.size === 0}
+                className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm disabled:opacity-50"
+              >
+                {pulling ? '拉取中...' : `开始拉取 (${selected.size})`}
+              </button>
+              {done && <span className="text-sm text-green-400">拉取完成 ✓</span>}
+            </div>
+          </>
+        )}
+      </div>
 
       {conflicts.length > 0 && (
         <ConflictDialog

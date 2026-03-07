@@ -137,6 +137,12 @@ If a skill already exists in the target directory, a conflict dialog appears for
 
 Imports skills from external tool directories into your library.
 
+### Layout
+
+- Uses the same two-column shell as Push to Tools.
+- Left sidebar lists all categories and controls the import target category.
+- Right side contains the source-tool selector, scan feedback, selectable skill grid, and bottom action bar.
+
 ### Tool Selection
 
 - Same toggle buttons as Push; selecting a different tool resets the scanned list.
@@ -155,7 +161,6 @@ Imports skills from external tool directories into your library.
 
 ### Bottom Bar
 
-- **Target Category dropdown** — pick which category to import into (empty selection falls back to fixed category `Default`).
 - **"Start Pull (n)"** button — calls `PullFromTool()`.
 - **"Pull complete ✓"** — green success message.
 - Conflicts handled by the same [Conflict Dialog](#101-conflict-dialog).
@@ -491,7 +496,7 @@ Events emitted from the Go backend to the frontend via Wails runtime:
 
 The Dashboard listens to `update.available` and marks affected skill cards with a red update dot in real time.
 The Backup page listens to all `git.*` events and surfaces the conflict resolution dialog on `git.conflict`.
-`App.tsx` listens to all three `app.update.*` events and drives the update dialog state machine.
+`App.tsx` listens to all three `app.update.*` events, parses the emitted `AppUpdateInfo` payload, and drives the update dialog state machine.
 
 ---
 
@@ -517,10 +522,11 @@ Both startup and manual checks surface the same modal dialog.
 - **macOS** — Two choices in the `available` state (auto-download not supported):
   1. **前往 Release 页面手动下载** — opens the GitHub Releases page.
   2. **跳过此版本（下次启动不再提示）** — same skip behavior as Windows.
+- The `available` dialog always renders the current version, latest version, and the Release-page action from the same `AppUpdateInfo` payload on both platforms.
 
 ### Skip Version Behavior
 
-- The skipped version tag is stored in `AppConfig.SkippedUpdateVersion` (persisted to `config.json`).
+- The skipped version tag is stored in `AppConfig.SkippedUpdateVersion` and persisted in the shared `config.json` file, so it survives app restarts.
 - On app startup, if `latestVersion == skippedUpdateVersion` the `app.update.available` event is **not** emitted and no dialog appears.
 - When the user manually clicks "检测更新" in Settings, `CheckAppUpdateAndNotify` always emits the event, bypassing the skip — the dialog always appears for manual checks.
 - Clicking "跳过此版本" calls `SetSkippedUpdateVersion(latestVersion)`.
@@ -569,4 +575,4 @@ The startup check is skipped when `Version == "dev"` (local development).
 
 ---
 
-*Last updated: 2026-03-06*
+*Last updated: 2026-03-07*
