@@ -66,6 +66,32 @@ func TestFilesystemAdapterPullNested(t *testing.T) {
 	assert.ElementsMatch(t, []string{"skill-a", "skill-b", "skill-c", "skill-d"}, names)
 }
 
+func TestFilesystemAdapterPullWithMaxDepth(t *testing.T) {
+	src := t.TempDir()
+	writeSkill(t, filepath.Join(src, "skills", "skill-a"), "skill.md")
+	writeSkill(t, filepath.Join(src, "a", "b", "c", "skill-d"), "skill.md")
+
+	adapter := toolsync.NewFilesystemAdapter("test-tool", "")
+	skills, err := adapter.PullWithMaxDepth(context.Background(), src, 2)
+	require.NoError(t, err)
+
+	names := make([]string, len(skills))
+	for i, s := range skills {
+		names[i] = s.Name
+	}
+	assert.ElementsMatch(t, []string{"skill-a"}, names)
+}
+
+func TestFilesystemAdapterPullDefaultRespectsDepthLimit(t *testing.T) {
+	src := t.TempDir()
+	writeSkill(t, filepath.Join(src, "a", "b", "c", "d", "e", "f", "skill-g"), "skill.md")
+
+	adapter := toolsync.NewFilesystemAdapter("test-tool", "")
+	skills, err := adapter.Pull(context.Background(), src)
+	require.NoError(t, err)
+	assert.Empty(t, skills)
+}
+
 func TestFilesystemAdapterPullSkillNotRecursed(t *testing.T) {
 	// A skill dir that itself has subdirs should NOT have those subdirs pulled as skills.
 	src := t.TempDir()

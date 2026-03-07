@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/shinerio/skillflow/core/config"
 	"github.com/shinerio/skillflow/core/skill"
 )
 
@@ -37,13 +38,20 @@ func (f *FilesystemAdapter) Push(_ context.Context, skills []*skill.Skill, targe
 	return nil
 }
 
-func (f *FilesystemAdapter) Pull(_ context.Context, sourceDir string) ([]*skill.Skill, error) {
+func (f *FilesystemAdapter) Pull(ctx context.Context, sourceDir string) ([]*skill.Skill, error) {
+	return f.PullWithMaxDepth(ctx, sourceDir, config.DefaultRepoScanMaxDepth)
+}
+
+func (f *FilesystemAdapter) PullWithMaxDepth(_ context.Context, sourceDir string, maxDepth int) ([]*skill.Skill, error) {
 	if _, err := os.Stat(sourceDir); os.IsNotExist(err) {
 		return nil, fmt.Errorf("目录不存在: %s", sourceDir)
 	}
+	if maxDepth < 0 {
+		maxDepth = 0
+	}
 	var skills []*skill.Skill
-	var walk func(dir string)
-	walk = func(dir string) {
+	var walk func(dir string, depth int)
+	walk = func(dir string, depth int) {
 		entries, err := os.ReadDir(dir)
 		if err != nil {
 			return
@@ -59,10 +67,13 @@ func (f *FilesystemAdapter) Pull(_ context.Context, sourceDir string) ([]*skill.
 				return // found skill here — don't recurse deeper
 			}
 		}
+		if depth >= maxDepth {
+			return
+		}
 		// No skill.md found — recurse into subdirectories.
 		for _, e := range entries {
 			if e.IsDir() {
-				walk(filepath.Join(dir, e.Name()))
+				walk(filepath.Join(dir, e.Name()), depth+1)
 			}
 		}
 	}
@@ -72,7 +83,7 @@ func (f *FilesystemAdapter) Pull(_ context.Context, sourceDir string) ([]*skill.
 	}
 	for _, e := range entries {
 		if e.IsDir() {
-			walk(filepath.Join(sourceDir, e.Name()))
+			walk(filepath.Join(sourceDir, e.Name()), 0)
 		}
 	}
 	return skills, nil

@@ -26,7 +26,7 @@ Get the latest release from **[GitHub Releases →](https://github.com/shinerio/
 | **Update Checker** | Detects new commits for GitHub-sourced skills; one-click update |
 | **App Auto-Update** | Modal dialog notifies when a new version is available; Windows supports one-click download and restart; macOS links to GitHub Releases; users can skip a version to suppress future startup prompts |
 | **Background Tray** | Clicking the window close button keeps the app running in background; on macOS it hides the Dock icon and leaves a monochrome menu-bar status icon, on Windows it stays in the notification area |
-| **Settings** | Per-tool enable/disable, push & scan paths, custom tools, proxy configuration, configurable remote-repo scan depth, and local-only path settings kept out of sync; folder pickers reopen at the current location |
+| **Settings** | Per-tool enable/disable, push & scan paths, custom tools, proxy configuration, configurable local/remote scan depth, and local-only path settings kept out of sync; folder pickers reopen at the current location |
 | **Bilingual UI** | Switch the frontend instantly between Chinese and English from the sidebar or Settings; language preference is stored locally |
 | **Dark / Young / Light Themes** | Switch between a refined graphite Dark theme, a softened paper-blue Young theme evolved from the legacy Light palette, and a new Messor-inspired Light theme; persisted across restarts |
 

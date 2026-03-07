@@ -155,6 +155,7 @@ Imports skills from external tool directories into your library.
 ### Scan
 
 - **"Scan"** button — calls `ScanToolSkills(toolName)`; recursively searches the tool's configured scan directories for `skill.md` files.
+- Local tool scanning uses the same configurable depth limit from **Settings → General** (default `5`, saved range `1-20`).
 - Shows animated "Scanning…" state while in progress.
 - **Error alert** (red) if scan fails; **warning alert** (yellow) if no skills found.
 
@@ -374,7 +375,7 @@ For each built-in or custom tool:
 | **Language** | Two buttons, **中文** and **English**, switch the entire frontend language immediately; shares the same state as the sidebar **Languages** button and persists to `localStorage` |
 | **Appearance theme** | Three visual presets shown as preview cards: **Dark** (default, refined graphite with muted mist-blue accents), **Young** (a softened paper-blue evolution of the previous sky-blue Light palette), and **Light** (new low-saturation gray-white palette inspired by Messor); persisted to `localStorage`; changes apply immediately without restart; legacy stored `Light` preference auto-migrates to `Young` |
 | **Skills storage directory** | Root path where all skills are stored on disk; manual text entry + folder-picker button that opens at the current path or nearest existing parent |
-| **Remote repo recursive scan depth** | Maximum recursion depth used when scanning starred repos and GitHub-install repos; default `5`; saved values are clamped to `1-20` to avoid pathological nested trees |
+| **Skill recursive scan depth** | Maximum recursion depth used when scanning local tool directories, starred repos, and GitHub-install repos; default `5`; saved values are clamped to `1-20` to avoid pathological nested trees |
 | **Default category** | Fixed system fallback category `Default` (read-only), used when pulling/importing without specifying a category |
 | **Log level buttons** | Toggle runtime log level between `debug`, `info`, and `error` (default: `error`); takes effect after saving settings |
 | **Open log directory** | One-click open the local log folder in system file manager; missing targets fall back to the nearest existing parent directory |
@@ -614,11 +615,13 @@ Browse the skills currently present inside each enabled tool.
 ### Push Path Section
 
 - Shows deletable tool-local skills under the configured push directory.
+- Push-path discovery uses the same configurable depth limit from **Settings → General** (default `5`, saved range `1-20`).
 - In select mode, **Select All / Deselect All** applies to the currently visible filtered Push Path cards only.
 
 ### Scan Path Section
 
 - Shows read-only skills discovered only from scan directories.
+- Scan-path discovery uses the same configurable depth limit from **Settings → General** (default `5`, saved range `1-20`).
 - Shares the same search and sort controls as Push Path.
 
 ---

@@ -28,6 +28,10 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
+type maxDepthPuller interface {
+	PullWithMaxDepth(ctx context.Context, sourceDir string, maxDepth int) ([]*skill.Skill, error)
+}
+
 type App struct {
 	ctx         context.Context
 	hub         *notify.Hub
@@ -683,7 +687,7 @@ func (a *App) ScanToolSkills(toolName string) ([]*skill.Skill, error) {
 	cfg, _ := a.config.Load()
 	for _, t := range cfg.Tools {
 		if t.Name == toolName {
-			return scanToolSkills(a.ctx, getAdapter(t), t.ScanDirs)
+			return scanToolSkills(a.ctx, getAdapter(t), t.ScanDirs, a.repoScanMaxDepth())
 		}
 	}
 	return nil, nil
@@ -725,7 +729,7 @@ func (a *App) ListToolSkills(toolName string) ([]ToolSkillEntry, error) {
 
 	if tc.PushDir != "" {
 		if _, statErr := os.Stat(tc.PushDir); statErr == nil {
-			if pushSkills, pullErr := adapter.Pull(a.ctx, tc.PushDir); pullErr == nil {
+			if pushSkills, pullErr := pullToolSkills(a.ctx, adapter, tc.PushDir, a.repoScanMaxDepth()); pullErr == nil {
 				for _, sk := range pushSkills {
 					byName[sk.Name] = &entryState{path: sk.Path, inPush: true}
 				}
@@ -733,7 +737,7 @@ func (a *App) ListToolSkills(toolName string) ([]ToolSkillEntry, error) {
 		}
 	}
 
-	if scanSkills, _ := scanToolSkills(a.ctx, adapter, tc.ScanDirs); scanSkills != nil {
+	if scanSkills, _ := scanToolSkills(a.ctx, adapter, tc.ScanDirs, a.repoScanMaxDepth()); scanSkills != nil {
 		for _, sk := range scanSkills {
 			if e, ok := byName[sk.Name]; ok {
 				e.inScan = true
@@ -883,7 +887,7 @@ func (a *App) PullFromTool(toolName string, skillNames []string, category string
 		if t.Name != toolName {
 			continue
 		}
-		candidates, err := scanToolSkills(a.ctx, getAdapter(t), t.ScanDirs)
+		candidates, err := scanToolSkills(a.ctx, getAdapter(t), t.ScanDirs, a.repoScanMaxDepth())
 		if err != nil {
 			return nil, err
 		}
@@ -914,7 +918,7 @@ func (a *App) PullFromToolForce(toolName string, skillNames []string, category s
 		if t.Name != toolName {
 			continue
 		}
-		candidates, err := scanToolSkills(a.ctx, getAdapter(t), t.ScanDirs)
+		candidates, err := scanToolSkills(a.ctx, getAdapter(t), t.ScanDirs, a.repoScanMaxDepth())
 		if err != nil {
 			return err
 		}
@@ -936,7 +940,14 @@ func (a *App) PullFromToolForce(toolName string, skillNames []string, category s
 	return nil
 }
 
-func scanToolSkills(ctx context.Context, adapter toolsync.ToolAdapter, scanDirs []string) ([]*skill.Skill, error) {
+func pullToolSkills(ctx context.Context, adapter toolsync.ToolAdapter, dir string, maxDepth int) ([]*skill.Skill, error) {
+	if depthAware, ok := adapter.(maxDepthPuller); ok {
+		return depthAware.PullWithMaxDepth(ctx, dir, maxDepth)
+	}
+	return adapter.Pull(ctx, dir)
+}
+
+func scanToolSkills(ctx context.Context, adapter toolsync.ToolAdapter, scanDirs []string, maxDepth int) ([]*skill.Skill, error) {
 	var result []*skill.Skill
 	seen := map[string]struct{}{}
 	for _, dir := range scanDirs {
@@ -949,7 +960,7 @@ func scanToolSkills(ctx context.Context, adapter toolsync.ToolAdapter, scanDirs 
 			}
 			return nil, err
 		}
-		skills, err := adapter.Pull(ctx, dir)
+		skills, err := pullToolSkills(ctx, adapter, dir, maxDepth)
 		if err != nil {
 			return nil, err
 		}
