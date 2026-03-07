@@ -3,6 +3,17 @@ name: Build
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      run_release:
+        description: 'Run release + release-asset verification jobs'
+        required: false
+        type: boolean
+        default: true
+      release_tag:
+        description: 'Optional tag for manual release (default: rehearsal-<run_id>)'
+        required: false
+        type: string
 
 jobs:
   build:
@@ -40,6 +51,17 @@ jobs:
           # Copy our multi-resolution icns into the built app bundle
           cp build/darwin/iconfile.icns build/bin/SkillFlow.app/Contents/Resources/iconfile.icns
 
+          # Sign app bundle with ad-hoc identity after all bundle mutations.
+          codesign --force --deep --options runtime --sign - build/bin/SkillFlow.app
+          codesign --verify --deep --strict --verbose=2 build/bin/SkillFlow.app
+
+          APP_CDHASH="$(codesign -dv --verbose=4 build/bin/SkillFlow.app 2>&1 | awk -F= '/^CDHash=/{print $2; exit}' | tr -d '[:space:]')"
+          if [ -z "$APP_CDHASH" ]; then
+            echo "::error::Failed to capture app CDHash after signing"
+            exit 1
+          fi
+          echo "$APP_CDHASH" > build/bin/SkillFlow-${{ matrix.name }}.app.cdhash
+
           TMPDIR_DMG="$(mktemp -d)"
           TMP_DMG="/tmp/SkillFlow-rw.dmg"
           FINAL_DMG="build/bin/SkillFlow-${{ matrix.name }}.dmg"
@@ -70,6 +92,64 @@ jobs:
           hdiutil convert "$TMP_DMG" -format UDZO -imagekey zlib-level=9 -o "$FINAL_DMG"
           rm -f "$TMP_DMG"
 
+          # Sign DMG with ad-hoc identity.
+          codesign --force --sign - "$FINAL_DMG"
+          codesign --verify --verbose=2 "$FINAL_DMG"
+
+          # Regression guard: app signature summary must remain unchanged after packaging.
+          CURRENT_CDHASH="$(codesign -dv --verbose=4 build/bin/SkillFlow.app 2>&1 | awk -F= '/^CDHash=/{print $2; exit}' | tr -d '[:space:]')"
+          EXPECTED_CDHASH="$(cat build/bin/SkillFlow-${{ matrix.name }}.app.cdhash)"
+          if [ "$CURRENT_CDHASH" != "$EXPECTED_CDHASH" ]; then
+            echo "::error::App signature changed after packaging (expected $EXPECTED_CDHASH, got $CURRENT_CDHASH)"
+            exit 1
+          fi
+
+          HASH="$(shasum -a 256 "$FINAL_DMG" | awk '{print $1}')"
+          echo "$HASH  SkillFlow-${{ matrix.name }}.dmg" > "build/bin/SkillFlow-${{ matrix.name }}.dmg.sha256"
+
+      - name: Verify macOS DMG contents
+        if: runner.os == 'macOS'
+        working-directory: cmd/skillflow
+        run: |
+          set -euo pipefail
+          DMG_PATH="build/bin/SkillFlow-${{ matrix.name }}.dmg"
+          EXPECTED_ARCH="${{ matrix.arch == 'arm64' && 'arm64' || 'x86_64' }}"
+          MOUNT_POINT=""
+          cleanup() {
+            if [ -n "$MOUNT_POINT" ] && [ -d "$MOUNT_POINT" ]; then
+              hdiutil detach "$MOUNT_POINT" || hdiutil detach -force "$MOUNT_POINT" || true
+            fi
+          }
+          trap cleanup EXIT
+
+          MOUNT_POINT="$(hdiutil attach -readonly -noverify -noautoopen "$DMG_PATH" | awk '/\/Volumes\//{print $3; exit}')"
+          APP_PATH="$MOUNT_POINT/SkillFlow.app"
+
+          [ -d "$APP_PATH" ] || { echo "::error::App not found in mounted DMG"; exit 1; }
+          lipo -archs "$APP_PATH/Contents/MacOS/SkillFlow" | grep -w "$EXPECTED_ARCH"
+          codesign --verify --deep --strict --verbose=2 "$APP_PATH"
+
+          set +e
+          SPCTL_OUTPUT="$(spctl --assess --type execute --verbose=4 "$APP_PATH" 2>&1)"
+          SPCTL_STATUS=$?
+          set -e
+          echo "$SPCTL_OUTPUT"
+          if echo "$SPCTL_OUTPUT" | grep -qi "damaged"; then
+            echo "::error::Gatekeeper reported damaged artifact"
+            exit 1
+          fi
+          if [ $SPCTL_STATUS -ne 0 ] && ! echo "$SPCTL_OUTPUT" | grep -Eqi "rejected|cannot be opened"; then
+            echo "::error::Unexpected spctl failure"
+            exit 1
+          fi
+
+      - name: Upload macOS checksum
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: skillflow-checksum-${{ matrix.name }}
+          path: cmd/skillflow/build/bin/SkillFlow-${{ matrix.name }}.dmg.sha256
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -77,10 +157,13 @@ jobs:
           path: ${{ runner.os == 'Windows' && 'cmd/skillflow/build/bin/SkillFlow.exe' || format('cmd/skillflow/build/bin/SkillFlow-{0}.dmg', matrix.name) }}
 
   release:
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.run_release)
     needs: build
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && (inputs.release_tag != '' && inputs.release_tag || format('rehearsal-{0}', github.run_id)) || github.ref_name }}
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -89,11 +172,113 @@ jobs:
       - name: Rename Windows executable
         run: mv dist/skillflow-windows/SkillFlow.exe dist/SkillFlow-windows.exe
 
+      - name: Validate build checksums before release
+        run: |
+          set -euo pipefail
+          cp dist/skillflow-checksum-macos-intel/SkillFlow-macos-intel.dmg.sha256 dist/skillflow-macos-intel/
+          cp dist/skillflow-checksum-macos-apple-silicon/SkillFlow-macos-apple-silicon.dmg.sha256 dist/skillflow-macos-apple-silicon/
+          (cd dist/skillflow-macos-intel && sha256sum -c SkillFlow-macos-intel.dmg.sha256)
+          (cd dist/skillflow-macos-apple-silicon && sha256sum -c SkillFlow-macos-apple-silicon.dmg.sha256)
+
+      - name: Upload checksum manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: skillflow-release-checksums
+          path: |
+            dist/skillflow-checksum-macos-intel/SkillFlow-macos-intel.dmg.sha256
+            dist/skillflow-checksum-macos-apple-silicon/SkillFlow-macos-apple-silicon.dmg.sha256
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: ${{ env.RELEASE_TAG }}
+          prerelease: ${{ github.event_name == 'workflow_dispatch' }}
           files: |
             dist/skillflow-macos-intel/SkillFlow-macos-intel.dmg
             dist/skillflow-macos-apple-silicon/SkillFlow-macos-apple-silicon.dmg
             dist/SkillFlow-windows.exe
           generate_release_notes: true
+
+      - name: Release download guidance
+        run: |
+          {
+            echo "## Download guidance"
+            echo "- For user testing, download \`.dmg\` from the GitHub Release page."
+            echo "- GitHub Actions artifacts are packaged as ZIP by design and are only CI intermediates."
+            echo "- Release tag: \`${RELEASE_TAG}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  verify_release_assets:
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.run_release)
+    needs: release
+    runs-on: macos-latest
+    permissions:
+      contents: read
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && (inputs.release_tag != '' && inputs.release_tag || format('rehearsal-{0}', github.run_id)) || github.ref_name }}
+    strategy:
+      matrix:
+        include:
+          - name: macos-intel
+            expected_arch: x86_64
+          - name: macos-apple-silicon
+            expected_arch: arm64
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist/
+
+      - name: Download release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p release-assets
+          gh release download "${{ env.RELEASE_TAG }}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern "SkillFlow-${{ matrix.name }}.dmg" \
+            --dir release-assets
+
+      - name: Compare release asset checksum with build checksum
+        run: |
+          set -euo pipefail
+          EXPECTED_FILE="dist/skillflow-checksum-${{ matrix.name }}/SkillFlow-${{ matrix.name }}.dmg.sha256"
+          ACTUAL_HASH="$(shasum -a 256 release-assets/SkillFlow-${{ matrix.name }}.dmg | awk '{print $1}')"
+          EXPECTED_HASH="$(awk '{print $1}' "$EXPECTED_FILE")"
+          if [ "$ACTUAL_HASH" != "$EXPECTED_HASH" ]; then
+            echo "::error::Checksum mismatch for SkillFlow-${{ matrix.name }}.dmg"
+            echo "expected=$EXPECTED_HASH actual=$ACTUAL_HASH"
+            exit 1
+          fi
+
+      - name: Verify release DMG executable checks
+        run: |
+          set -euo pipefail
+          MOUNT_POINT=""
+          cleanup() {
+            if [ -n "$MOUNT_POINT" ] && [ -d "$MOUNT_POINT" ]; then
+              hdiutil detach "$MOUNT_POINT" || hdiutil detach -force "$MOUNT_POINT" || true
+            fi
+          }
+          trap cleanup EXIT
+
+          MOUNT_POINT="$(hdiutil attach -readonly -noverify -noautoopen "release-assets/SkillFlow-${{ matrix.name }}.dmg" | awk '/\/Volumes\//{print $3; exit}')"
+          APP_PATH="$MOUNT_POINT/SkillFlow.app"
+
+          [ -d "$APP_PATH" ] || { echo "::error::App not found in release DMG"; exit 1; }
+          lipo -archs "$APP_PATH/Contents/MacOS/SkillFlow" | grep -w "${{ matrix.expected_arch }}"
+          codesign --verify --deep --strict --verbose=2 "$APP_PATH"
+
+          set +e
+          SPCTL_OUTPUT="$(spctl --assess --type execute --verbose=4 "$APP_PATH" 2>&1)"
+          SPCTL_STATUS=$?
+          set -e
+          echo "$SPCTL_OUTPUT"
+          if echo "$SPCTL_OUTPUT" | grep -qi "damaged"; then
+            echo "::error::Gatekeeper reported damaged release artifact"
+            exit 1
+          fi
+          if [ $SPCTL_STATUS -ne 0 ] && ! echo "$SPCTL_OUTPUT" | grep -Eqi "rejected|cannot be opened"; then
+            echo "::error::Unexpected spctl failure for release artifact"
+            exit 1
+          fi
