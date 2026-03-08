@@ -146,6 +146,7 @@ Copies skills from your library to external tool directories.
 ### Tool Selection
 
 - One toggle button per enabled tool (icon + name).
+- Tool icon tiles adapt their background/border intensity per active theme (Dark / Young / Light) to keep glyph strokes legible in all palettes.
 - Multiple tools can be selected simultaneously.
 
 ### Sync Scope

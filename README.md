@@ -30,7 +30,7 @@ Get the latest release from **[GitHub Releases →](https://github.com/shinerio/
 | **Desktop Shell** | Fixed sidebar with the branded SkillFlow title, app icon, quick language/theme toggles, and feedback entry |
 | **Settings** | Per-tool enable/disable, push & scan paths, custom tools, proxy configuration, configurable local/remote scan depth, and local-only path settings kept out of sync; folder pickers reopen at the current location |
 | **Bilingual UI** | Switch the frontend instantly between Chinese and English from the sidebar or Settings; language preference is stored locally |
-| **Dark / Young / Light Themes** | Switch between a refined graphite Dark theme, a softened paper-blue Young theme evolved from the legacy Light palette, and a new Messor-inspired Light theme; persisted across restarts |
+| **Dark / Young / Light Themes** | Switch between a refined graphite Dark theme, a softened paper-blue Young theme evolved from the legacy Light palette, and a new Messor-inspired Light theme; tool icon tile contrast also adapts per theme and persists across restarts |
 
 For a complete description of every button, dialog, and interaction, see **[docs/features.md](docs/features.md)**.
 

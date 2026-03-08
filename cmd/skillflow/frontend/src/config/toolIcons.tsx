@@ -7,6 +7,34 @@ interface ToolIconConfig {
   svg: (iconSize: number) => React.ReactNode
 }
 
+type ThemeIconTone = {
+  bgAlpha: string
+  borderAlpha: string
+}
+
+const themeIconTones: Record<'dark' | 'young' | 'light', ThemeIconTone> = {
+  dark: {
+    bgAlpha: '14',
+    borderAlpha: '2E',
+  },
+  young: {
+    bgAlpha: '20',
+    borderAlpha: '38',
+  },
+  light: {
+    bgAlpha: '1A',
+    borderAlpha: '32',
+  },
+}
+
+function getThemeIconTone(): ThemeIconTone {
+  if (typeof document === 'undefined') {
+    return themeIconTones.dark
+  }
+  const currentTheme = document.documentElement.getAttribute('data-theme')
+  return themeIconTones[currentTheme as keyof typeof themeIconTones] ?? themeIconTones.dark
+}
+
 // --- Individual brand SVG icons ---
 
 function ClaudeIcon({ s }: { s: number }) {
@@ -129,6 +157,7 @@ interface ToolIconProps {
 
 export function ToolIcon({ name, size = 28 }: ToolIconProps) {
   const cfg = getToolIconConfig(name)
+  const tone = getThemeIconTone()
   const padding = Math.round(size * 0.18)
   const iconSize = size - padding * 2
   return (
@@ -136,9 +165,9 @@ export function ToolIcon({ name, size = 28 }: ToolIconProps) {
       style={{
         width: size,
         height: size,
-        backgroundColor: cfg.color + '22',
+        backgroundColor: cfg.color + tone.bgAlpha,
         borderRadius: Math.round(size * 0.28),
-        border: `1px solid ${cfg.color}44`,
+        border: `1px solid ${cfg.color}${tone.borderAlpha}`,
         flexShrink: 0,
       }}
       className="flex items-center justify-center select-none"
