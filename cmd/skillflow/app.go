@@ -1256,6 +1256,7 @@ func (a *App) SaveConfig(cfg config.AppConfig) error {
 		a.logErrorf("save config failed: %v", err)
 		return err
 	}
+	a.syncExistingSkillsForNewAutoPushTools(prevCfg, cfg)
 	if prevCfg.LaunchAtLogin != cfg.LaunchAtLogin {
 		if err := a.syncLaunchAtLogin(cfg.LaunchAtLogin); err != nil {
 			a.logErrorf("save config failed: apply launch-at-login failed: %v", err)
@@ -1266,6 +1267,47 @@ func (a *App) SaveConfig(cfg config.AppConfig) error {
 	a.logInfof("save config completed: logLevel=%s repoScanMaxDepth=%d launchAtLogin=%t", cfg.LogLevel, cfg.RepoScanMaxDepth, cfg.LaunchAtLogin)
 	a.startAutoSyncTimer(cfg.Cloud.SyncIntervalMinutes)
 	return nil
+}
+
+func (a *App) syncExistingSkillsForNewAutoPushTools(prevCfg, nextCfg config.AppConfig) {
+	prevTargets := make(map[string]struct{}, len(prevCfg.AutoPushTools))
+	for _, name := range prevCfg.AutoPushTools {
+		prevTargets[name] = struct{}{}
+	}
+
+	newTargets := make([]string, 0, len(nextCfg.AutoPushTools))
+	for _, name := range nextCfg.AutoPushTools {
+		if _, existed := prevTargets[name]; existed {
+			continue
+		}
+		newTargets = append(newTargets, name)
+	}
+	if len(newTargets) == 0 {
+		return
+	}
+
+	skills, err := a.storage.ListAll()
+	if err != nil {
+		a.logErrorf("sync existing skills to new auto push tools failed: load skills failed: %v", err)
+		return
+	}
+	if len(skills) == 0 {
+		a.logInfof("sync existing skills to new auto push tools skipped: reason=no-skills toolCount=%d", len(newTargets))
+		return
+	}
+
+	skillIDs := make([]string, 0, len(skills))
+	for _, sk := range skills {
+		skillIDs = append(skillIDs, sk.ID)
+	}
+
+	a.logInfof("sync existing skills to new auto push tools started: skillCount=%d toolCount=%d", len(skillIDs), len(newTargets))
+	conflicts, err := a.PushToTools(skillIDs, newTargets)
+	if err != nil {
+		a.logErrorf("sync existing skills to new auto push tools failed: %v", err)
+		return
+	}
+	a.logInfof("sync existing skills to new auto push tools completed: skillCount=%d toolCount=%d conflicts=%d", len(skillIDs), len(newTargets), len(conflicts))
 }
 
 func (a *App) AddCustomTool(name, pushDir string) error {

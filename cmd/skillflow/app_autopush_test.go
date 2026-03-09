@@ -45,6 +45,27 @@ func TestImportLocalAutoPushSkipsExistingToolSkill(t *testing.T) {
 	assert.Equal(t, "# Demo\nExisting\n", string(existingContent))
 }
 
+func TestSaveConfigAutoPushesExistingSkillsToNewTool(t *testing.T) {
+	app, pushDir, _ := newAutoPushTestApp(t, nil)
+	sourceDir := writeTestSkillDir(t, t.TempDir(), "demo-skill", "# Demo\nImported\n")
+
+	_, err := app.ImportLocal(sourceDir, "")
+	require.NoError(t, err)
+
+	cfg, err := app.GetConfig()
+	require.NoError(t, err)
+	cfg.AutoPushTools = []string{"codex"}
+
+	require.NoError(t, app.SaveConfig(cfg))
+
+	pushedPath := filepath.Join(pushDir, "demo-skill", "skill.md")
+	assert.FileExists(t, pushedPath)
+
+	pushedContent, err := os.ReadFile(pushedPath)
+	require.NoError(t, err)
+	assert.Equal(t, "# Demo\nImported\n", string(pushedContent))
+}
+
 func newAutoPushTestApp(t *testing.T, autoPushTools []string) (*App, string, string) {
 	t.Helper()
 

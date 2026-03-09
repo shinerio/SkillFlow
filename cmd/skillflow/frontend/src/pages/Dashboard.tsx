@@ -178,6 +178,7 @@ export default function Dashboard() {
 
     try {
       await SaveConfig(nextCfg)
+      await load()
     } catch (error) {
       console.error('Save auto push tools failed:', error)
       const latestCfg = await GetConfig()
@@ -320,31 +321,18 @@ export default function Dashboard() {
         </div>
 
         <div
-          className="px-6 py-4 flex flex-col gap-3"
+          className="px-6 py-3 flex flex-wrap items-center gap-3"
           style={{
             borderBottom: '1px solid var(--border-base)',
             background: 'linear-gradient(135deg, color-mix(in srgb, var(--accent-glow) 42%, transparent) 0%, color-mix(in srgb, var(--bg-elevated) 94%, transparent) 100%)',
           }}
         >
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-                <ArrowUpFromLine size={15} />
-                {t('dashboard.autoPushTitle')}
-              </div>
-              <p className="mt-1 text-xs leading-5" style={{ color: 'var(--text-muted)' }}>
-                {t('dashboard.autoPushDesc')}
-              </p>
-            </div>
-            {savingAutoPush && (
-              <span className="text-xs whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>
-                {t('common.saving')}
-              </span>
-            )}
+          <div className="flex items-center gap-2 shrink-0 text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+            <ArrowUpFromLine size={15} />
+            {t('dashboard.autoPushTitle')}
           </div>
-
           {toolOptions.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-2 min-w-0 flex-1">
               {toolOptions.map(tool => {
                 const active = autoPushTools.has(tool.name)
                 return (
@@ -369,6 +357,11 @@ export default function Dashboard() {
                   </button>
                 )
               })}
+              {savingAutoPush && (
+                <span className="text-xs whitespace-nowrap ml-1" style={{ color: 'var(--text-muted)' }}>
+                  {t('common.saving')}
+                </span>
+              )}
             </div>
           ) : (
             <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
