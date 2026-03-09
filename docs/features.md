@@ -75,6 +75,7 @@ Central library for managing your skill collection.
 - The selection is persisted locally on the current device and reused for future imports into **My Skills**.
 - Turning a tool on here immediately backfills the current library to that tool, so existing My Skills entries are pushed right away instead of waiting for the next import.
 - Any newly added skill in **My Skills** is automatically copied to the selected tools after the library import succeeds. This applies to local folder import, GitHub install, Pull from Tools, and Starred Repo import.
+- If a cloud restore brings new library skills onto the current device, SkillFlow immediately auto-pushes only those newly restored skills to the selected tools on this device.
 - Auto-push is non-destructive: if a selected tool already contains a same-name skill in its `PushDir`, SkillFlow skips that target instead of overwriting it.
 - Turning a tool off in this strip does not delete anything that was already pushed earlier; removing tool copies still requires manual deletion from **My Tools** or the tool directory.
 
@@ -296,6 +297,7 @@ Browse and import skills directly from watched Git repositories without installi
 
 - Repo-card **Update** and toolbar **Update All** refresh the locally cached clone for the starred repo.
 - This makes the latest repo contents visible in **Starred Repos** so the user can browse or import newer skill files.
+- If cloud restore syncs a newly starred repo onto this device, SkillFlow immediately clones that repo locally so search, import, and direct push-to-tools are ready without waiting for a manual update.
 - It does **not** overwrite the already installed copy in **My Skills**.
 - If a skill has already been imported into the library, updating that installed copy still happens from **My Skills (Dashboard)** via the card-level **Update** action.
 
@@ -404,6 +406,7 @@ Mirror your skill library to cloud storage. Two backend types are supported: **O
 - **Local-only path config** — `config_local.json` stores machine-specific filesystem paths such as external `SkillsStorageDir` values, tool `ScanDirs` / `PushDir`, and proxy settings; it is excluded from backup and git sync.
 - **Local-only cloud secrets** — sensitive cloud credentials (for example access key IDs, secret keys, and access tokens) are stored only in per-provider entries inside `config_local.json`; synced `config.json` keeps only non-sensitive cloud settings such as provider, bucket name, remote path, endpoint, repo URL, or branch.
 - **Git backup compatibility** — when Git backup uses a parent directory as the working tree, SkillFlow automatically moves any legacy nested `skills/.git` metadata aside so actual skill files remain trackable.
+- **Post-restore device compensation** — after a successful cloud restore, newly restored library skills are auto-pushed to this device's selected auto-push tools, and newly restored starred repos are cloned locally right away.
 
 ### Provider Coverage
 
@@ -824,4 +827,4 @@ Store reusable system prompts inside the synced `prompts/` directory.
 
 ---
 
-*Last updated: 2026-03-09*
+*Last updated: 2026-03-10*

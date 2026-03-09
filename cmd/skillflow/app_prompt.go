@@ -62,7 +62,7 @@ func (a *App) CreatePrompt(name, description, category, content string) (*prompt
 		return nil, err
 	}
 	a.logInfof("prompt create completed: prompt=%s category=%s file=%s", item.Name, item.Category, item.FilePath)
-	go a.autoBackup()
+	a.scheduleAutoBackup()
 	return item, nil
 }
 
@@ -79,7 +79,7 @@ func (a *App) UpdatePrompt(originalName, name, description, category, content st
 		return nil, err
 	}
 	a.logInfof("prompt update completed: prompt=%s category=%s file=%s", item.Name, item.Category, item.FilePath)
-	go a.autoBackup()
+	a.scheduleAutoBackup()
 	return item, nil
 }
 
@@ -95,7 +95,7 @@ func (a *App) MovePromptCategory(name string, category string) error {
 		return err
 	}
 	a.logInfof("prompt move category completed: prompt=%s category=%s", name, category)
-	go a.autoBackup()
+	a.scheduleAutoBackup()
 	return nil
 }
 
@@ -111,7 +111,7 @@ func (a *App) DeletePrompt(name string) error {
 		return err
 	}
 	a.logInfof("prompt delete completed: prompt=%s", name)
-	go a.autoBackup()
+	a.scheduleAutoBackup()
 	return nil
 }
 
@@ -127,7 +127,7 @@ func (a *App) CreatePromptCategory(name string) error {
 		return err
 	}
 	a.logInfof("prompt category create completed: category=%s", name)
-	go a.autoBackup()
+	a.scheduleAutoBackup()
 	return nil
 }
 
@@ -149,7 +149,7 @@ func (a *App) RenamePromptCategory(oldName, newName string) error {
 		return err
 	}
 	a.logInfof("prompt category rename completed: category=%s next=%s", oldName, newName)
-	go a.autoBackup()
+	a.scheduleAutoBackup()
 	return nil
 }
 
@@ -168,7 +168,7 @@ func (a *App) DeletePromptCategory(name string) error {
 		return err
 	}
 	a.logInfof("prompt category delete completed: category=%s", name)
-	go a.autoBackup()
+	a.scheduleAutoBackup()
 	return nil
 }
 
@@ -205,7 +205,7 @@ func (a *App) ImportPrompts() (int, error) {
 		return 0, err
 	}
 	a.logInfof("prompt import completed: file=%s count=%d", filePath, count)
-	go a.autoBackup()
+	a.scheduleAutoBackup()
 	return count, nil
 }
 
@@ -216,9 +216,9 @@ func (a *App) ExportPrompts() (string, error) {
 		return "", err
 	}
 	filePath, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
-		Title:             "导出提示词",
-		DefaultDirectory:  nearestExistingDirectory(root),
-		DefaultFilename:   fmt.Sprintf("skillflow-prompts-%s.json", time.Now().Format("20060102-150405")),
+		Title:                "导出提示词",
+		DefaultDirectory:     nearestExistingDirectory(root),
+		DefaultFilename:      fmt.Sprintf("skillflow-prompts-%s.json", time.Now().Format("20060102-150405")),
 		CanCreateDirectories: true,
 		Filters: []runtime.FileFilter{{
 			DisplayName: "JSON Files (*.json)",
