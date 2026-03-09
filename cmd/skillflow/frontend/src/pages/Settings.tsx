@@ -1190,6 +1190,20 @@ export default function SettingsPage() {
             </div>
           </div>
 
+          <div>
+            <p className="text-sm mb-2" style={{ color: 'var(--text-muted)' }}>{t('settings.githubPat')}</p>
+            <input
+              value={cfg.github?.pat ?? ''}
+              onChange={e => setCfg((p: any) => ({ ...p, github: { ...(p.github ?? {}), pat: e.target.value } }))}
+              placeholder="ghp_xxx"
+              type="password"
+              className="input-base font-mono"
+            />
+            <p className="mt-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>
+              {t('settings.githubPatHint')}
+            </p>
+          </div>
+
           {proxyMode === 'manual' && (
             <div>
               <p className="text-sm mb-2" style={{ color: 'var(--text-muted)' }}>{t('settings.proxyUrl')}</p>

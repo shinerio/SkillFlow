@@ -39,6 +39,7 @@ type App struct {
 	storage            *skill.Storage
 	config             *config.Service
 	starStorage        *coregit.StarStorage
+	githubStarStorage  *coregit.GitHubStarStorage
 	cacheDir           string
 	startupOnce        sync.Once
 	initialWindowState config.WindowState
@@ -86,6 +87,7 @@ func (a *App) startup(ctx context.Context) {
 	a.storage = skill.NewStorage(cfg.SkillsStorageDir)
 	a.cacheDir = filepath.Join(dataDir, "cache")
 	a.starStorage = coregit.NewStarStorageWithBuiltins(filepath.Join(dataDir, "star_repos.json"), builtinStarredRepoURLs)
+	a.githubStarStorage = coregit.NewGitHubStarStorage(filepath.Join(dataDir, "github_star_repo.json"))
 	registerAdapters()
 	registerProviders()
 	go forwardEvents(ctx, a.hub)
@@ -134,6 +136,7 @@ func (a *App) startBackgroundStartupTasks() {
 			go a.updateStarredReposOnStartup()
 			go a.checkAppUpdateOnStartup()
 			go a.gitPullOnStartup()
+			go a.startGitHubStarWatcher()
 		})
 	})
 }
@@ -1468,6 +1471,10 @@ func (a *App) AddStarredRepo(repoURL string) (*coregit.StarredRepo, error) {
 	}
 	for i, r := range repos {
 		if coregit.SameRepo(r.URL, repoURL) {
+			if !repos[i].Manual {
+				repos[i].Manual = true
+				_ = a.starStorage.Save(repos)
+			}
 			if repos[i].Source == "" {
 				if source, err := coregit.RepoSource(repos[i].URL); err == nil {
 					repos[i].Source = source
@@ -1493,7 +1500,7 @@ func (a *App) AddStarredRepo(repoURL string) (*coregit.StarredRepo, error) {
 		a.logErrorf("add starred repo failed: %v", err)
 		return nil, err
 	}
-	repo := coregit.StarredRepo{URL: repoURL, Name: name, Source: source, LocalDir: localDir}
+	repo := coregit.StarredRepo{URL: repoURL, Name: name, Source: source, LocalDir: localDir, Manual: true}
 	if cloneErr := coregit.CloneOrUpdate(a.ctx, repoURL, localDir, a.gitProxyURL()); cloneErr != nil {
 		// Return typed errors for auth failures so the frontend can show the right dialog.
 		if coregit.IsSSHAuthError(cloneErr) {
@@ -1551,7 +1558,7 @@ func (a *App) AddStarredRepoWithCredentials(repoURL, username, password string) 
 		a.logErrorf("add starred repo with credentials failed: %v", err)
 		return nil, err
 	}
-	repo := coregit.StarredRepo{URL: repoURL, Name: name, Source: source, LocalDir: localDir}
+	repo := coregit.StarredRepo{URL: repoURL, Name: name, Source: source, LocalDir: localDir, Manual: true}
 	if cloneErr := coregit.CloneOrUpdateWithCreds(a.ctx, repoURL, localDir, a.gitProxyURL(), username, password); cloneErr != nil {
 		a.logErrorf("add starred repo with credentials failed: %v", cloneErr)
 		return nil, cloneErr

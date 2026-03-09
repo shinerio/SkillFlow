@@ -45,6 +45,7 @@ type localConfig struct {
 	CloudCredentialsByProvider map[string]map[string]string `json:"cloudCredentialsByProvider,omitempty"`
 	CloudCredentials           map[string]string            `json:"cloudCredentials,omitempty"`
 	Proxy                      ProxyConfig                  `json:"proxy"`
+	GitHubPAT                  string                       `json:"githubPat,omitempty"`
 	Window                     *WindowState                 `json:"window,omitempty"`
 }
 
@@ -375,6 +376,7 @@ func (s *Service) merge(shared sharedConfig, local localConfig) AppConfig {
 		Cloud:                 buildRuntimeCloudConfig(shared.Cloud, cloudProfiles),
 		CloudProfiles:         cloudProfiles,
 		Proxy:                 NormalizeProxyConfig(local.Proxy),
+		GitHub:                GitHubConfig{PAT: strings.TrimSpace(local.GitHubPAT)},
 		SkippedUpdateVersion:  shared.SkippedUpdateVersion,
 	}
 }
@@ -418,6 +420,7 @@ func (s *Service) splitLocal(cfg AppConfig) localConfig {
 		Tools:                      tools,
 		CloudCredentialsByProvider: splitLocalCloudCredentialsByProvider(profiles),
 		Proxy:                      NormalizeProxyConfig(cfg.Proxy),
+		GitHubPAT:                  strings.TrimSpace(cfg.GitHub.PAT),
 	}
 }
 

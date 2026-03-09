@@ -811,6 +811,15 @@ Store reusable system prompts inside the synced `prompts/` directory.
 - Toolbar **Import** reads a JSON prompt library file and creates or updates prompts by name.
 - Toolbar **Export** writes the full prompt library to a JSON file selected by the user.
 
+
+### Starred Repos: GitHub Star Auto-Watcher
+
+- Added optional GitHub PAT configuration (stored in local-only config) to enable automatic GitHub Star watching.
+- App polls GitHub starred repositories every 5 minutes with ETag incremental requests.
+- Newly starred repos are scanned via Git Trees API for `skill.md` / `SKILL.md` across the full tree.
+- Matching repos are auto-added to Starred Repos and cloned to local cache, with capture notifications.
+- Starred repo cards now show source badges: `manual`, `star`, or both.
+
 ---
 
 *Last updated: 2026-03-09*

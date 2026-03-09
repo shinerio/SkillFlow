@@ -5,7 +5,7 @@ import {
   ListStarredRepos, AddStarredRepo, AddStarredRepoWithCredentials, RemoveStarredRepo,
   UpdateStarredRepo, UpdateAllStarredRepos,
   ListAllStarSkills, ListRepoStarSkills,
-  ImportStarSkills, ListCategories, OpenURL,
+  ImportStarSkills, ListCategories, OpenURL, GetConfig,
   GetEnabledTools, PushStarSkillsToTools, PushStarSkillsToToolsForce, CheckMissingPushDirs,
 } from '../../wailsjs/go/main/App'
 import { EventsOn } from '../../wailsjs/runtime/runtime'
@@ -62,6 +62,8 @@ export default function StarredRepos() {
   const [authAdding, setAuthAdding] = useState(false)
   const [search, setSearch] = useState('')
   const [sortOrder, setSortOrder] = useState<SkillSortOrder>('asc')
+  const [hasGitHubPAT, setHasGitHubPAT] = useState(true)
+  const [captureMsg, setCaptureMsg] = useState('')
 
   const loadRepos = async () => {
     const r = await ListStarredRepos()
@@ -85,10 +87,16 @@ export default function StarredRepos() {
       setCategories(c ?? [])
       if (c && c.length > 0) setImportCategory(c[0])
     })
+    GetConfig().then(c => setHasGitHubPAT(Boolean(c?.github?.pat?.trim?.() || c?.github?.pat)))
     GetEnabledTools().then(t => setTools(t ?? []))
     const off1 = EventsOn('star.sync.progress', () => loadRepos())
     const off2 = EventsOn('star.sync.done', () => { loadRepos(); loadAllSkills(); setSyncing(false) })
-    return () => { off1?.(); off2?.() }
+    const off3 = EventsOn('github.star.captured', (payload: string) => {
+      const repoName = String(payload || '')
+      if (repoName) setCaptureMsg(`🌟 ${t('starred.captured')}: ${repoName}`)
+      loadRepos(); loadAllSkills()
+    })
+    return () => { off1?.(); off2?.(); off3?.() }
   }, [])
 
   useEffect(() => {
@@ -290,6 +298,12 @@ export default function StarredRepos() {
     }
   }, [skillGridVisible, selectMode])
 
+  useEffect(() => {
+    if (!captureMsg) return
+    const timer = window.setTimeout(() => setCaptureMsg(''), 4000)
+    return () => window.clearTimeout(timer)
+  }, [captureMsg])
+
   return (
     <div className="flex flex-col h-full">
       {/* Success toast */}
@@ -310,6 +324,26 @@ export default function StarredRepos() {
           >
             <CheckCircle size={15} className="shrink-0" />
             {pushSuccessMsg}
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {captureMsg && (
+          <motion.div
+            variants={toastVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            className="fixed top-16 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm shadow-dialog"
+            style={{
+              background: 'rgba(251,191,36,0.15)',
+              border: '1px solid rgba(251,191,36,0.4)',
+              color: 'var(--color-warning)',
+              backdropFilter: 'blur(8px)',
+            }}
+          >
+            <Star size={15} className="shrink-0" />
+            {captureMsg}
           </motion.div>
         )}
       </AnimatePresence>
@@ -434,6 +468,12 @@ export default function StarredRepos() {
           </>
         )}
       </div>
+
+      {!hasGitHubPAT && !currentRepo && (
+        <div className="mx-6 mt-3 mb-0 px-3 py-2 rounded-lg text-xs" style={{ background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.4)', color: 'var(--text-secondary)' }}>
+          {t('starred.githubPatRequired')}
+        </div>
+      )}
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-6">
@@ -687,7 +727,13 @@ function RepoGrid({ repos, onEnter, onUpdate, onRemove }: {
           className="card-base p-4 cursor-pointer"
         >
           <div className="flex justify-between items-start mb-2">
-            <span className="font-medium text-sm truncate flex-1 mr-2" style={{ color: 'var(--text-primary)' }}>{r.name}</span>
+            <div className="flex-1 mr-2 min-w-0">
+              <span className="font-medium text-sm truncate block" style={{ color: 'var(--text-primary)' }}>{r.name}</span>
+              <div className="mt-1 flex gap-1">
+                {r.manual && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}>{t('starred.badgeManual')}</span>}
+                {r.starred && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'rgba(251,191,36,0.18)', color: 'var(--color-warning)' }}>⭐ {t('starred.badgeStarred')}</span>}
+              </div>
+            </div>
             <div className="flex gap-1 shrink-0" onClick={e => e.stopPropagation()}>
               <button
                 onClick={() => OpenURL(r.source ? `https://${r.source}` : r.url)}

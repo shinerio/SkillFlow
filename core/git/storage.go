@@ -56,6 +56,10 @@ func (s *StarStorage) Load() ([]StarredRepo, error) {
 		if s.resolveLocalDir(&repos[i]) {
 			changed = true
 		}
+		if !repos[i].Manual && !repos[i].Starred {
+			repos[i].Manual = true
+			changed = true
+		}
 	}
 	if changed {
 		if err := s.saveLocked(repos); err != nil {
@@ -141,6 +145,7 @@ func (s *StarStorage) buildBuiltinReposLocked() ([]StarredRepo, error) {
 			Name:     name,
 			Source:   source,
 			LocalDir: s.derivedLocalDir(repoURL),
+			Manual:   true,
 		})
 	}
 	return repos, nil

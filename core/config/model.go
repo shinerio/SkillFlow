@@ -57,7 +57,12 @@ type AppConfig struct {
 	Cloud                 CloudConfig                    `json:"cloud"`
 	CloudProfiles         map[string]CloudProviderConfig `json:"cloudProfiles,omitempty"`
 	Proxy                 ProxyConfig                    `json:"proxy"`
+	GitHub                GitHubConfig                   `json:"github"`
 	SkippedUpdateVersion  string                         `json:"skippedUpdateVersion,omitempty"` // version tag to suppress startup update prompt
+}
+
+type GitHubConfig struct {
+	PAT string `json:"pat"`
 }
 
 const (

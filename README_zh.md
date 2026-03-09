@@ -22,7 +22,7 @@
 | **提示词库** | 将可复用的 prompt 保存为同步的 `prompts/<category>/<name>/system.md` 卡片，支持必填唯一名称、可选描述、分类、导入导出、拖拽移动分类、一键复制，以及 `and` / `or` 关键字搜索 |
 | **GitHub 安装** | 克隆任意仓库，递归发现仓库内嵌套的 Skill 候选项，并一键选择安装；候选项状态 badge 会遵循可配置的页面级显示策略，同名候选项仍按规范化仓库来源 + 子路径准确区分 |
 | **跨工具同步** | 推送或拉取 Skills 到/从 Claude Code、OpenCode、Codex、Gemini CLI、OpenClaw 及自定义工具；推送页默认进入“手动选择”，拉取页默认全部不选并新增“选择未导入”复选框，已推送工具会以紧凑图标列表显示并支持悬浮查看完整列表 |
-| **仓库收藏** | 关注 Git 仓库，无需导入即可递归浏览和使用仓库内嵌套的 Skills；仓库 Skill 卡片显示“已导入 / 已推送工具”状态，其中导入关联仍按规范化仓库来源 + 子路径完成；内置起始仓库（`anthropics/skills`、`ComposioHQ/awesome-claude-skills`、`affaan-m/everything-claude-code`）仅在首次初始化时注入，用户删除后不会在后续启动被自动加回 |
+| **仓库收藏** | 关注 Git 仓库，无需导入即可递归浏览和使用仓库内嵌套的 Skills；支持 GitHub Star 自动捕获（PAT）、全仓深度 `skill.md`/`SKILL.md` 识别，并在仓库卡片展示 `manual`/`star` 来源标记 |
 | **云端备份** | 将 Skill 库镜像至阿里云 OSS、AWS S3、Azure Blob Storage、Google Cloud Storage、腾讯云 COS、华为云 OBS 或任意 Git 仓库，支持自定义对象存储远程路径预览、按服务商独立保存配置、敏感云凭据仅保存在本地、Git 冲突时的手动处理入口，以及只显示每次备份/恢复实际改动文件的结果页 |
 | **更新检测** | 按规范化仓库来源 + 子路径检测已安装 GitHub Skill 的新提交；实例已是最新时会自动清理过期更新标记，并支持一键更新 |
 | **应用自动更新** | 弹出模态对话框提示新版本；Windows 支持一键下载并重启；macOS 链接至 GitHub Releases 页面；用户可跳过当前版本以抑制后续启动弹窗 |

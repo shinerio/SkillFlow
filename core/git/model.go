@@ -7,6 +7,8 @@ type StarredRepo struct {
 	Name      string    `json:"name"`     // e.g. "owner/repo" or "group/subgroup/repo"
 	Source    string    `json:"source"`   // canonical source key: "<host>/<repo-path>"
 	LocalDir  string    `json:"localDir"` // absolute path under cache/
+	Manual    bool      `json:"manual,omitempty"`
+	Starred   bool      `json:"starred,omitempty"`
 	LastSync  time.Time `json:"lastSync"`
 	SyncError string    `json:"syncError,omitempty"`
 }

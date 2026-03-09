@@ -31,7 +31,7 @@ func TestStarStorageSaveLoad(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := []StarredRepo{
-		{URL: "https://github.com/a/b", Name: "a/b", LocalDir: localDir, LastSync: time.Time{}},
+		{URL: "https://github.com/a/b", Name: "a/b", LocalDir: localDir, Manual: true, LastSync: time.Time{}},
 	}
 	if err := s.Save(want); err != nil {
 		t.Fatal(err)
@@ -149,5 +149,26 @@ func TestStarStorageLoadDoesNotSeedWhenBuiltinsEmpty(t *testing.T) {
 	}
 	if repos != nil {
 		t.Fatalf("expected nil repos without builtins, got %+v", repos)
+	}
+}
+
+func TestStarStorageLoadMigratesLegacySourceFlags(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "star_repos.json")
+	legacy := []StarredRepo{{URL: "https://github.com/a/b", Name: "a/b"}}
+	data, err := json.MarshalIndent(legacy, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		t.Fatal(err)
+	}
+	s := NewStarStorage(path)
+	repos, err := s.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(repos) != 1 || !repos[0].Manual {
+		t.Fatalf("expected manual=true migration, got %+v", repos)
 	}
 }

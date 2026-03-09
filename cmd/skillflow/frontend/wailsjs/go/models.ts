@@ -117,6 +117,18 @@ export namespace config {
 	        this.githubInstall = source["githubInstall"];
 	    }
 	}
+	export class GitHubConfig {
+	    pat: string;
+
+	    static createFrom(source: any = {}) {
+	        return new GitHubConfig(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.pat = source["pat"];
+	    }
+	}
 	export class AppConfig {
 	    skillsStorageDir: string;
 	    defaultCategory: string;
@@ -127,6 +139,7 @@ export namespace config {
 	    cloud: CloudConfig;
 	    cloudProfiles?: Record<string, CloudProviderConfig>;
 	    proxy: ProxyConfig;
+	    github: GitHubConfig;
 	    skippedUpdateVersion?: string;
 	
 	    static createFrom(source: any = {}) {
@@ -144,6 +157,7 @@ export namespace config {
 	        this.cloud = this.convertValues(source["cloud"], CloudConfig);
 	        this.cloudProfiles = this.convertValues(source["cloudProfiles"], CloudProviderConfig, true);
 	        this.proxy = this.convertValues(source["proxy"], ProxyConfig);
+	        this.github = this.convertValues(source["github"], GitHubConfig);
 	        this.skippedUpdateVersion = source["skippedUpdateVersion"];
 	    }
 	

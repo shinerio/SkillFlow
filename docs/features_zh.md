@@ -813,6 +813,14 @@ wails build -ldflags "-X main.Version=${{ github.ref_name }}"
 - 工具栏 **导入** 支持读取 JSON 提示词库文件，并按名称创建或覆盖提示词。
 - 工具栏 **导出** 会把完整提示词库写入用户选择的 JSON 文件。
 
+### Starred Repos：GitHub Star 自动监听
+
+- 新增可选 GitHub PAT 配置（仅保存在本地配置）以启用自动监听 GitHub Star。
+- 应用每 5 分钟基于 ETag 增量轮询 GitHub starred repos。
+- 对新 Star 仓库使用 Git Trees API 全量树扫描，匹配任意层级 `skill.md` / `SKILL.md`。
+- 命中后自动加入 Starred Repos 并克隆到本地缓存，同时触发捕获提示。
+- Starred repo 卡片新增来源徽标：`manual`、`star`，或同时显示。
+
 ---
 
 *最后更新：2026-03-09*
