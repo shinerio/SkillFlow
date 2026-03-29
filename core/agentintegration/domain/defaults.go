@@ -46,7 +46,7 @@ func defaultMemoryPaths(agentName string) (memoryPath, rulesDir string) {
 			filepath.Join(home, ".config", "opencode", "rules"),
 		},
 		"openclaw": {
-			filepath.Join(home, ".openclaw", "workspace", "MEMORY.md"),
+			filepath.Join(home, ".openclaw", "workspace", "AGENTS.md"),
 			filepath.Join(home, ".openclaw", "workspace", "rules"),
 		},
 	}

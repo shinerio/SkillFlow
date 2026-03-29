@@ -13,7 +13,9 @@
       "Bash(go build:*)",
       "Bash(gh auth:*)",
       "Skill(shinerio-code-plugin:gitacp)",
-      "WebFetch(domain:opencode.ai)"
+      "WebFetch(domain:opencode.ai)",
+      "Bash(git tag:*)",
+      "Bash(git push:*)"
     ]
   }
 }
