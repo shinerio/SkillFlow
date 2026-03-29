@@ -8,4 +8,4 @@ This file records the default memory directories used by SkillFlow's built-in ag
 | OpenCode | [docs](https://opencode.ai/docs/zh-cn/rules/) | `~/.config/opencode/AGENTS.md`    | `~/.config/opencode/rules/`    |
 | Codex | [docs](https://developers.openai.com/codex/guides/agents-md) | `~/.codex/AGENTS.md`   | `~/.codex/rules/rules/`        |
 | Gemini CLI | [docs](https://geminicli.com/docs/cli/gemini-md/) | `~/.gemini/GEMINI.md`             | `~/.gemini/rules/`             |
-| OpenClaw | [docs](https://docs.openclaw.ai/concepts/system-prompt) | `~/.openclaw/workspace/MEMORY.md` | `~/.openclaw/workspace/rules/` |
+| OpenClaw | [docs](https://docs.openclaw.ai/concepts/system-prompt) | `~/.openclaw/workspace/AGENTS.md` | `~/.openclaw/workspace/rules/` |

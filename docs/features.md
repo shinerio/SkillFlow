@@ -942,4 +942,4 @@ Memory content files (`memory/main.md` and `memory/rules/*.md`) are included in 
 
 ---
 
-*Last updated: 2026-03-22*
+*Last updated: 2026-03-29*
