@@ -94,6 +94,40 @@ func TestScanSkillsRepoRootSkill(t *testing.T) {
 	}
 }
 
+func TestScanSkillsRepoRootSkillDoesNotBlockNestedSkills(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("# repo-root"), 0644); err != nil {
+		t.Fatalf("write repo root skill: %v", err)
+	}
+
+	nestedSkillDir := filepath.Join(dir, "skills", "nested")
+	if err := os.MkdirAll(nestedSkillDir, 0755); err != nil {
+		t.Fatalf("mkdir nested skill: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(nestedSkillDir, "SKILL.md"), []byte("# nested"), 0644); err != nil {
+		t.Fatalf("write nested skill: %v", err)
+	}
+
+	skills, err := NewRepoScanner().ScanSkills(dir, "https://github.com/a/root-plus-nested", "a/root-plus-nested", "github.com/a/root-plus-nested")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(skills) != 2 {
+		t.Fatalf("expected 2 skills, got %d: %+v", len(skills), skills)
+	}
+
+	got := map[string]string{}
+	for _, sk := range skills {
+		got[sk.Name] = sk.SubPath
+	}
+	if got[filepath.Base(dir)] != "." {
+		t.Fatalf("missing repo root skill: %+v", got)
+	}
+	if got["nested"] != "skills/nested" {
+		t.Fatalf("missing nested skill: %+v", got)
+	}
+}
+
 func TestScanSkillsNestedPluginSkills(t *testing.T) {
 	dir := t.TempDir()
 	pluginSkillDir := filepath.Join(dir, "plugins", "shinerio-note-plugin", "skills", "embed-mindmap")

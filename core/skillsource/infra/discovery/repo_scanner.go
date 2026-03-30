@@ -26,25 +26,25 @@ func scanTree(repoDir, dir, repoURL, repoName, source string, depth, maxDepth in
 		return nil, err
 	}
 
+	var result []sourcedomain.SourceSkillCandidate
 	if hasSkillMd(entries) {
 		rel, err := filepath.Rel(repoDir, dir)
 		if err != nil {
 			return nil, err
 		}
-		return []sourcedomain.SourceSkillCandidate{{
+		result = append(result, sourcedomain.SourceSkillCandidate{
 			Name:     filepath.Base(dir),
 			Path:     dir,
 			SubPath:  filepath.ToSlash(rel),
 			RepoURL:  repoURL,
 			RepoName: repoName,
 			Source:   source,
-		}}, nil
+		})
 	}
 	if depth >= maxDepth {
-		return nil, nil
+		return result, nil
 	}
 
-	var result []sourcedomain.SourceSkillCandidate
 	for _, e := range entries {
 		if !e.IsDir() || shouldSkipScanDir(e.Name()) {
 			continue
