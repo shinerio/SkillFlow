@@ -13,6 +13,7 @@ export type MemoryPushStatusEntry = {
 
 const agentDisplayName: Record<string, string> = {
   'claude-code': 'Claude Code',
+  copilot: 'Copilot',
   codex: 'Codex',
   'gemini-cli': 'Gemini CLI',
   opencode: 'OpenCode',

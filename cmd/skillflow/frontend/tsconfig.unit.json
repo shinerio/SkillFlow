@@ -8,6 +8,7 @@
     "tsBuildInfoFile": ".cache/tsconfig.unit.tsbuildinfo"
   },
   "files": [
+    "src/config/toolIcons.tsx",
     "src/lib/agentMemoryPreview.ts",
     "src/lib/backend.ts",
     "src/lib/backendClient.ts",
@@ -36,4 +37,3 @@
     "src/hooks/useTheme.ts"
   ]
 }
-

@@ -72,6 +72,7 @@
   "agents": [
     { "name": "claude-code", "enabled": true },
     { "name": "codex", "enabled": true },
+    { "name": "copilot", "enabled": true },
     { "name": "gemini-cli", "enabled": false }
   ],
   "cloud": {
@@ -109,7 +110,7 @@
 | `logLevel` | string | 后端日志级别。可选值为 `debug`、`info`、`error`；非法值会被归一化为 `error`。 |
 | `repoScanMaxDepth` | number | 扫描智能体目录与仓库时允许的最大递归深度。会被归一化到 `1-20` 范围内，默认值是 `5`。 |
 | `agents` | object[] | 只保存内置智能体的启用/停用状态。路径相关设置保存在 `config_local.json`。 |
-| `agents[].name` | string | 内置智能体名，例如 `claude-code`、`codex`、`gemini-cli`、`opencode`、`openclaw`。 |
+| `agents[].name` | string | 内置智能体名，例如 `claude-code`、`codex`、`copilot`、`gemini-cli`、`opencode`、`openclaw`。 |
 | `agents[].enabled` | boolean | 该内置智能体是否在界面与扫描/推送流程中启用。 |
 | `cloud` | object | 当前选中的云备份提供方及调度状态。 |
 | `cloud.provider` | string | 当前激活的 provider 名称，例如 `git`、`aws`、`aliyun`、`azure`、`google`、`huawei`、`tencent`。 |
@@ -120,6 +121,8 @@
 | `cloudProfiles.<provider>.remotePath` | string | provider 根目录下的远端前缀。保存时会被规范化为以 `skillflow/` 结尾。 |
 | `cloudProfiles.<provider>.credentials` | object | 允许同步的 provider 配置项，例如 endpoint 或 repo URL。敏感项会拆分到 `config_local.json`。 |
 | `skippedUpdateVersion` | string | 用户在启动更新提示里选择“跳过此版本”后记录的应用版本号。 |
+
+对于内置智能体，`pushDir` 与 `scanDirs` 可以不同。Copilot 就是一个典型例子：SkillFlow 会把用户安装的 Copilot Skill 推送到 `~/.copilot/skills`，同时默认扫描共享个人 Skill 目录，以及本机存在时自动发现的 Copilot CLI 版本化 `builtin-skills` 目录。
 
 ### 会写入 `config.json` 的云配置键
 
@@ -161,6 +164,19 @@
       "pushDir": "/Users/demo/.claude/skills",
       "memoryPath": "/Users/demo/.claude/CLAUDE.md",
       "rulesDir": "/Users/demo/.claude/rules",
+      "custom": false,
+      "enabled": true
+    },
+    {
+      "name": "copilot",
+      "scanDirs": [
+        "/Users/demo/.claude/skills",
+        "/Users/demo/.agents/skills",
+        "/Users/demo/.copilot/pkg/universal/1.0.31/builtin-skills"
+      ],
+      "pushDir": "/Users/demo/.copilot/skills",
+      "memoryPath": "/Users/demo/.copilot/copilot-instructions.md",
+      "rulesDir": "",
       "custom": false,
       "enabled": true
     },
@@ -210,7 +226,7 @@
 | `agents[].scanDirs` | string[] | 扫描该智能体外部 Skill 的本地目录列表。 |
 | `agents[].pushDir` | string | 将 Skill 推送到该智能体时使用的目标目录。 |
 | `agents[].memoryPath` | string | 智能体主记忆文件的本地路径，供 **我的记忆** 推送和 **我的智能体** 记忆预览使用。 |
-| `agents[].rulesDir` | string | 智能体规则目录的本地路径，供记忆模块推送和预览使用。 |
+| `agents[].rulesDir` | string | 智能体规则目录的本地路径，供记忆模块推送和预览使用。对于没有官方规则目录语义的内置智能体（如 Copilot），这里可以为空字符串。 |
 | `agents[].custom` | boolean | `true` 表示用户创建的自定义智能体，`false` 表示内置智能体。 |
 | `agents[].enabled` | boolean | 每个智能体都会带上这个字段，但在 `config_local.json` 中它只对自定义智能体有实际意义；内置智能体的启用状态以 `config.json` 为准。 |
 | `cloudCredentialsByProvider` | object | 以 provider 名称为键的敏感凭据集合。 |

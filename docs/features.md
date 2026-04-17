@@ -438,10 +438,10 @@ For each built-in or custom agent:
 | **Enable toggle** | Enables or disables the agent across the app |
 | **Skill Paths section** | Dedicated grouped block for skill distribution paths |
 | **Push directory** | Single directory where skills are copied on push; supports both manual text entry and folder-picker button (FolderOpen icon), which opens at the current path or nearest existing parent |
-| **Scan directories** | Multiple directories searched when pulling; each row has a folder-picker button and a delete button; new directories added with an input + folder-picker + "Add" button, with the picker reopening at the current path or nearest existing parent |
+| **Scan directories** | Multiple directories searched when pulling; each row has a folder-picker button and a delete button; new directories added with an input + folder-picker + "Add" button, with the picker reopening at the current path or nearest existing parent. Built-in agents may use scan directories that differ from the push directory; Copilot defaults to `~/.copilot/skills` for push and scans its other shared sources separately |
 | **Memory Paths section** | Dedicated grouped block for memory-sync paths |
 | **Memory file** | Path to the agent's main memory file |
-| **Rules directory** | Path to the agent's rules directory |
+| **Rules directory** | Path to the agent's rules directory. Built-in agents without a first-party rules-directory concept, such as Copilot, keep this field empty by default |
 | **Delete agent** (custom agents only) | Removes the custom agent entry |
 
 **Add Custom Agent** entry point (dashed border):
@@ -932,7 +932,7 @@ In **Settings → Agents**, each agent now exposes:
 - **Skill Paths** – grouped block containing the push directory plus the editable multi-row scan directory list.
 - **Memory Paths** – grouped block containing the main memory file and rules directory.
 - **Memory File** – path to the agent's main memory file (default shown; user-overridable).
-- **Rules Directory** – path to the agent's rules directory.
+- **Rules Directory** – path to the agent's rules directory. Built-in agents without a first-party rules-directory concept, such as Copilot, keep this empty by default.
 
 ### Agent-side Verification
 
@@ -944,4 +944,4 @@ Memory content files (`memory/main.md` and `memory/rules/*.md`) are included in 
 
 ---
 
-*Last updated: 2026-04-06*
+*Last updated: 2026-04-17*

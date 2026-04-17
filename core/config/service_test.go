@@ -16,12 +16,33 @@ func TestLoadDefaultConfig(t *testing.T) {
 	svc := config.NewService(dir)
 	cfg, err := svc.Load()
 	require.NoError(t, err)
+	home, err := os.UserHomeDir()
+	require.NoError(t, err)
 	assert.Equal(t, filepath.Join(dir, "cache", "repos"), cfg.RepoCacheDir)
 	assert.Equal(t, "Default", cfg.DefaultCategory)
 	assert.False(t, cfg.AutoUpdateSkills)
 	assert.Equal(t, config.DefaultLogLevel, cfg.LogLevel)
 	assert.Equal(t, config.DefaultRepoScanMaxDepth, cfg.RepoScanMaxDepth)
 	assert.NotEmpty(t, cfg.Agents)
+
+	var copilot config.AgentConfig
+	var found bool
+	for _, agent := range cfg.Agents {
+		if agent.Name != "copilot" {
+			continue
+		}
+		copilot = agent
+		found = true
+		break
+	}
+	require.True(t, found)
+	assert.NotEmpty(t, copilot.ScanDirs)
+	assert.Equal(t, filepath.Join(home, ".copilot", "skills"), copilot.PushDir)
+	assert.Contains(t, copilot.ScanDirs, filepath.Join(home, ".claude", "skills"))
+	assert.Contains(t, copilot.ScanDirs, filepath.Join(home, ".agents", "skills"))
+	assert.NotContains(t, copilot.ScanDirs, copilot.PushDir)
+	assert.NotEmpty(t, copilot.MemoryPath)
+	assert.Empty(t, copilot.RulesDir)
 }
 
 func TestSaveAndLoadConfig(t *testing.T) {

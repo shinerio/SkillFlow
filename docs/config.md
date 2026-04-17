@@ -74,6 +74,7 @@ Before config is loaded, SkillFlow runs the one-time terminology cutover in `cor
   "agents": [
     { "name": "claude-code", "enabled": true },
     { "name": "codex", "enabled": true },
+    { "name": "copilot", "enabled": true },
     { "name": "gemini-cli", "enabled": false }
   ],
   "cloud": {
@@ -111,7 +112,7 @@ Before config is loaded, SkillFlow runs the one-time terminology cutover in `cor
 | `logLevel` | string | Backend log level. Valid values are `debug`, `info`, and `error`. Invalid values are normalized to `error`. |
 | `repoScanMaxDepth` | number | Maximum recursive depth used when scanning agent directories and repos. Values are normalized to the `1-20` range, with `5` as the default. |
 | `agents` | object[] | Built-in agent enable/disable state only. Path-related agent settings are stored in `config_local.json`. |
-| `agents[].name` | string | Built-in agent name such as `claude-code`, `codex`, `gemini-cli`, `opencode`, or `openclaw`. |
+| `agents[].name` | string | Built-in agent name such as `claude-code`, `codex`, `copilot`, `gemini-cli`, `opencode`, or `openclaw`. |
 | `agents[].enabled` | boolean | Whether this built-in agent is enabled in the UI and scanning/push flows. |
 | `cloud` | object | Active cloud-backup selection and scheduling state. |
 | `cloud.provider` | string | Active provider name, such as `git`, `aws`, `aliyun`, `azure`, `google`, `huawei`, or `tencent`. |
@@ -122,6 +123,8 @@ Before config is loaded, SkillFlow runs the one-time terminology cutover in `cor
 | `cloudProfiles.<provider>.remotePath` | string | Remote prefix under the provider root. It is normalized to always end in `skillflow/`. |
 | `cloudProfiles.<provider>.credentials` | object | Provider settings that are safe to sync, such as endpoints or repo URLs. Secrets are split into `config_local.json`. |
 | `skippedUpdateVersion` | string | App version tag the user chose to skip in the startup update prompt. |
+
+For built-in agents, `pushDir` and `scanDirs` may differ. Copilot pushes user-installed skills to `~/.copilot/skills`, while its default scan list also includes shared personal-skill directories and the versioned Copilot CLI `builtin-skills` directory when one is detected locally.
 
 ### Sync-safe cloud credential keys
 
@@ -163,6 +166,19 @@ The same startup cutover also rewrites legacy local keys such as `autoPushTools`
       "pushDir": "/Users/demo/.claude/skills",
       "memoryPath": "/Users/demo/.claude/CLAUDE.md",
       "rulesDir": "/Users/demo/.claude/rules",
+      "custom": false,
+      "enabled": true
+    },
+    {
+      "name": "copilot",
+      "scanDirs": [
+        "/Users/demo/.claude/skills",
+        "/Users/demo/.agents/skills",
+        "/Users/demo/.copilot/pkg/universal/1.0.31/builtin-skills"
+      ],
+      "pushDir": "/Users/demo/.copilot/skills",
+      "memoryPath": "/Users/demo/.copilot/copilot-instructions.md",
+      "rulesDir": "",
       "custom": false,
       "enabled": true
     },
@@ -212,7 +228,7 @@ The same startup cutover also rewrites legacy local keys such as `autoPushTools`
 | `agents[].scanDirs` | string[] | Local directories scanned for external skills from this agent. |
 | `agents[].pushDir` | string | Local target directory used when pushing skills to this agent. |
 | `agents[].memoryPath` | string | Local path to the agent's main memory file used by **My Memory** push and **My Agents** memory preview. |
-| `agents[].rulesDir` | string | Local path to the agent's rules directory used by memory module push and preview. |
+| `agents[].rulesDir` | string | Local path to the agent's rules directory used by memory module push and preview. This may be empty for built-in agents that do not expose a first-party rules directory, such as Copilot. |
 | `agents[].custom` | boolean | `true` for user-created custom agents, `false` for built-in agents. |
 | `agents[].enabled` | boolean | Stored for every agent, but only meaningful for custom agents in `config_local.json`; built-in enable state comes from `config.json`. |
 | `cloudCredentialsByProvider` | object | Sensitive provider credentials keyed by provider name. |

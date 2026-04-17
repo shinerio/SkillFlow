@@ -22,11 +22,13 @@ func DefaultConfig(dataDir string) AppConfig {
 	agents := make([]AgentConfig, 0, len(agentSettings.Local.Agents))
 	for _, agent := range agentSettings.Local.Agents {
 		agents = append(agents, AgentConfig{
-			Name:     agent.Name,
-			ScanDirs: append([]string(nil), agent.ScanDirs...),
-			PushDir:  agent.PushDir,
-			Enabled:  true,
-			Custom:   agent.Custom,
+			Name:       agent.Name,
+			ScanDirs:   append([]string(nil), agent.ScanDirs...),
+			PushDir:    agent.PushDir,
+			MemoryPath: agent.MemoryPath,
+			RulesDir:   agent.RulesDir,
+			Enabled:    true,
+			Custom:     agent.Custom,
 		})
 	}
 	return AppConfig{

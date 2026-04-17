@@ -9,3 +9,6 @@ This file records the default memory directories used by SkillFlow's built-in ag
 | Codex | [docs](https://developers.openai.com/codex/guides/agents-md) | `~/.codex/AGENTS.md`   | `~/.codex/rules/rules/`        |
 | Gemini CLI | [docs](https://geminicli.com/docs/cli/gemini-md/) | `~/.gemini/GEMINI.md`             | `~/.gemini/rules/`             |
 | OpenClaw | [docs](https://docs.openclaw.ai/concepts/system-prompt) | `~/.openclaw/workspace/MEMORY.md` | `~/.openclaw/workspace/rules/` |
+| Copilot | [docs](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-custom-instructions) | `~/.copilot/copilot-instructions.md` | — |
+
+Copilot does not define a first-party rules-directory equivalent in the GitHub Copilot CLI docs, so SkillFlow leaves its built-in `rulesDir` empty by default.

@@ -3,7 +3,9 @@ package app
 import (
 	"testing"
 
+	"github.com/shinerio/skillflow/core/agentintegration/domain"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDefaultSettingsIncludeBuiltinAgents(t *testing.T) {
@@ -19,8 +21,33 @@ func TestDefaultSettingsIncludeBuiltinAgentMemoryPaths(t *testing.T) {
 
 	for _, agent := range settings.Local.Agents {
 		assert.NotEmpty(t, agent.MemoryPath)
+		if agent.Name == "copilot" {
+			assert.Empty(t, agent.RulesDir)
+			continue
+		}
 		assert.NotEmpty(t, agent.RulesDir)
 	}
+}
+
+func TestDefaultSettingsIncludeCopilotProfile(t *testing.T) {
+	settings := DefaultSettings()
+	require.NotEmpty(t, settings.Local.Agents)
+
+	var found bool
+	for _, agent := range settings.Local.Agents {
+		if agent.Name != "copilot" {
+			continue
+		}
+		found = true
+		expected := domain.DefaultProfile("copilot")
+		assert.Equal(t, expected.ScanDirs, agent.ScanDirs)
+		assert.Equal(t, expected.PushDir, agent.PushDir)
+		assert.Equal(t, expected.MemoryPath, agent.MemoryPath)
+		assert.Equal(t, expected.RulesDir, agent.RulesDir)
+		break
+	}
+
+	assert.True(t, found)
 }
 
 func TestNormalizeAutoPushAgentNames(t *testing.T) {
