@@ -1,4 +1,4 @@
 package main
 
 // Version is set at build time via -ldflags "-X main.Version=vX.Y.Z".
-var Version = "v1.0.8"
+var Version = "dev"

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { buildMemoryPushStatusEntries, getMemoryDrawerMetrics } from '../.tmp-tests/src/lib/memoryUi.js'
+import { buildMemoryPushStatusEntries, getMemoryAgentLabel, getMemoryDrawerMetrics } from '../.tmp-tests/src/lib/memoryUi.js'
 
 test('getMemoryDrawerMetrics widens the drawer but keeps practical bounds', () => {
   assert.deepEqual(getMemoryDrawerMetrics(1600), {
@@ -34,4 +34,9 @@ test('buildMemoryPushStatusEntries preserves enabled-agent order and labels', ()
       { agentType: 'custom-agent', label: 'custom-agent', status: 'neverPushed' },
     ],
   )
+})
+
+test('getMemoryAgentLabel returns Copilot brand name', () => {
+  assert.equal(getMemoryAgentLabel('copilot'), 'Copilot')
+  assert.equal(getMemoryAgentLabel('custom-agent'), 'custom-agent')
 })

@@ -22,7 +22,7 @@ PROVIDER_BUILD_TAGS = $(strip provider_select $(foreach provider,$(call NORMALIZ
 WAILS_SKIP_FLAGS = $(shell $(BUILD_PLAN_CMD) plan)
 WAILS_BUILD_FLAGS = -trimpath -m -nosyncgomod $(WAILS_SKIP_FLAGS) $(if $(strip $(WAILS_BUILD_TAGS)),-tags "$(WAILS_BUILD_TAGS)") $(if $(strip $(WAILS_BUILD_LDFLAGS)),-ldflags "$(WAILS_BUILD_LDFLAGS)")
 
-.PHONY: all dev build build-cloud test test-cloud tidy generate install-frontend clean help
+.PHONY: all dev build build-version build-cloud test test-cloud tidy generate install-frontend clean help
 
 all: build
 
@@ -39,6 +39,18 @@ ifneq ($(OS),Windows_NT)
 		cp $(APP_DIR)/build/darwin/iconfile.icns $(APP_DIR)/build/bin/SkillFlow.app/Contents/Resources/iconfile.icns; \
 	fi
 endif
+
+## build-version: Build production binary with VERSION=vX.Y.Z and matching bundle version
+build-version:
+	$(if $(strip $(VERSION)),,$(error Usage: make build-version VERSION="v1.0.9"))
+	@set -e; \
+	backup="$(APP_DIR)/wails.json.bak"; \
+	cp $(APP_DIR)/wails.json "$$backup"; \
+	PRODUCT_VERSION=$$(printf '%s' "$(VERSION)" | sed 's/^v//') $(NODE) -e 'const fs=require("fs"); const p=process.argv[1]; const obj=JSON.parse(fs.readFileSync(p,"utf8")); obj.info={...(obj.info||{}), productVersion:process.env.PRODUCT_VERSION}; fs.writeFileSync(p, JSON.stringify(obj, null, 2)+"\n");' "$(APP_DIR)/wails.json"; \
+	status=0; \
+	$(MAKE) build WAILS_BUILD_LDFLAGS='$(WAILS_BUILD_LDFLAGS) -X main.Version=$(VERSION)' || status=$$?; \
+	mv "$$backup" $(APP_DIR)/wails.json; \
+	exit $$status
 
 ## build-cloud: Build with only selected cloud providers, e.g. make build-cloud PROVIDERS="aws,google"
 build-cloud:

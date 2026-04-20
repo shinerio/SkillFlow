@@ -38,10 +38,43 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: '20' }
       - name: Install Wails
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
+      - name: Resolve build version
+        id: build-version
+        shell: bash
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            BUILD_VERSION="${GITHUB_REF_NAME}"
+          elif [ -n "${{ inputs.release_tag }}" ]; then
+            BUILD_VERSION="${{ inputs.release_tag }}"
+          else
+            BUILD_VERSION="rehearsal-${GITHUB_RUN_ID}"
+          fi
+
+          if [[ "$BUILD_VERSION" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            PRODUCT_VERSION="${BASH_REMATCH[1]}"
+          else
+            PRODUCT_VERSION="0.0.0"
+          fi
+
+          echo "build_version=$BUILD_VERSION" >> "$GITHUB_OUTPUT"
+          echo "product_version=$PRODUCT_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Set bundle version
+        working-directory: cmd/skillflow
+        shell: bash
+        run: |
+          PRODUCT_VERSION="${{ steps.build-version.outputs.product_version }}"
+          PRODUCT_VERSION="$PRODUCT_VERSION" node -e '
+            const fs = require("fs");
+            const p = "wails.json";
+            const obj = JSON.parse(fs.readFileSync(p, "utf8"));
+            obj.info = { ...(obj.info || {}), productVersion: process.env.PRODUCT_VERSION };
+            fs.writeFileSync(p, JSON.stringify(obj, null, 2) + "\n");
+          '
       - name: Build
         working-directory: cmd/skillflow
-        run: wails build -platform ${{ matrix.arch == 'arm64' && 'darwin/arm64' || matrix.os == 'windows-latest' && 'windows/amd64' || 'darwin/amd64' }} -ldflags "-X main.Version=${{ github.ref_name }}"
+        run: wails build -platform ${{ matrix.arch == 'arm64' && 'darwin/arm64' || matrix.os == 'windows-latest' && 'windows/amd64' || 'darwin/amd64' }} -ldflags "-X main.Version=${{ steps.build-version.outputs.build_version }}"
 
       # macOS: package .app bundle into a drag-to-install DMG
       - name: Package macOS DMG

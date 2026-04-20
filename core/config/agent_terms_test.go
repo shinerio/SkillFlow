@@ -55,3 +55,22 @@ func TestConfigAgentsCanBeConsumedDirectlyByAgentIntegration(t *testing.T) {
 	assert.Equal(t, "codex", profile.Name)
 	assert.True(t, profile.Enabled)
 }
+
+func TestDefaultConfigIncludesCopilotAgentPaths(t *testing.T) {
+	dir := t.TempDir()
+
+	cfg := config.DefaultConfig(dir)
+	home, err := os.UserHomeDir()
+	require.NoError(t, err)
+
+	profile, ok := agentapp.FindProfile(cfg.Agents, "copilot")
+	require.True(t, ok)
+	assert.Equal(t, "copilot", profile.Name)
+	assert.NotEmpty(t, profile.ScanDirs)
+	assert.Equal(t, filepath.Join(home, ".copilot", "skills"), profile.PushDir)
+	assert.Contains(t, profile.ScanDirs, filepath.Join(home, ".claude", "skills"))
+	assert.Contains(t, profile.ScanDirs, filepath.Join(home, ".agents", "skills"))
+	assert.NotContains(t, profile.ScanDirs, profile.PushDir)
+	assert.Equal(t, filepath.Join(home, ".copilot", "copilot-instructions.md"), profile.MemoryPath)
+	assert.Empty(t, profile.RulesDir)
+}
