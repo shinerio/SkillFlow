@@ -71,6 +71,24 @@ func TestDaemonServiceHandlersOnlyExposeAllowlistedMethods(t *testing.T) {
 	require.NotContains(t, handlers, "DaemonTestEcho")
 }
 
+func TestDaemonServiceHandlersExposeAgentSkillManagementMethods(t *testing.T) {
+	handlers := daemonServiceHandlers(NewApp())
+
+	for _, methodName := range []string{
+		"ListAllAgentSkills",
+		"ListManagedAgentSkills",
+		"CreateAgentSkillGroup",
+		"RenameAgentSkillGroup",
+		"DeleteAgentSkillGroup",
+		"AssignAgentSkillGroup",
+		"ClearAgentSkillGroup",
+		"SetAgentSkillEnabled",
+		"SetAgentSkillGroupEnabled",
+	} {
+		require.Contains(t, handlers, methodName)
+	}
+}
+
 func TestStartDaemonEventForwarderStartsStreamInUIRole(t *testing.T) {
 	prevActiveProcessRole := activeProcessRole
 	prevDaemonStreamEventsFn := daemonStreamEventsFn

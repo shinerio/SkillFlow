@@ -50,10 +50,23 @@ type localConfig struct {
 	AutoPushAgents             []string                     `json:"autoPushAgents"`
 	LaunchAtLogin              bool                         `json:"launchAtLogin"`
 	Agents                     []localAgentConfig           `json:"agents"`
+	AgentSkillManagement       localAgentSkillManagement    `json:"agentSkillManagement,omitempty"`
 	CloudCredentialsByProvider map[string]map[string]string `json:"cloudCredentialsByProvider,omitempty"`
 	CloudCredentials           map[string]string            `json:"cloudCredentials,omitempty"`
 	Proxy                      ProxyConfig                  `json:"proxy"`
 	Window                     *WindowState                 `json:"window,omitempty"`
+}
+
+type localAgentSkillManagement struct {
+	Groups      []string                          `json:"groups,omitempty"`
+	Assignments []AgentSkillGroupAssignment       `json:"assignments,omitempty"`
+	AgentStates []localAgentSkillManagementState  `json:"agentStates,omitempty"`
+}
+
+type localAgentSkillManagementState struct {
+	AgentName          string   `json:"agentName"`
+	DisabledSkillNames []string `json:"disabledSkillNames,omitempty"`
+	DisabledGroupNames []string `json:"disabledGroupNames,omitempty"`
 }
 
 // localAgentConfig holds path settings for one agent.
@@ -138,6 +151,7 @@ func (s *Service) Save(cfg AppConfig) error {
 	cfg.RepoScanMaxDepth = NormalizeRepoScanMaxDepth(cfg.RepoScanMaxDepth)
 	cfg.Proxy = NormalizeProxyConfig(cfg.Proxy)
 	cfg.Agents = normalizeAgentConfigs(cfg.Agents)
+	cfg.AgentSkillManagement = normalizeAgentSkillManagement(cfg.AgentSkillManagement)
 
 	shared, err := s.loadShared()
 	if err != nil {
@@ -235,6 +249,7 @@ func (s *Service) loadLocal() localConfig {
 	lc.RepoCacheDir = normalizeRepoCacheDir(lc.RepoCacheDir, s.DataDir())
 	lc.AutoPushAgents = agentapp.NormalizeAutoPushAgentNames(lc.AutoPushAgents)
 	lc.CloudCredentialsByProvider = normalizeCredentialProfiles(lc.CloudCredentialsByProvider)
+	lc.AgentSkillManagement = toLocalAgentSkillManagement(fromLocalAgentSkillManagement(lc.AgentSkillManagement))
 	normalizedShell := shellsettings.NormalizeLocalSettings(shellsettings.LocalSettings{
 		LaunchAtLogin: lc.LaunchAtLogin,
 		Proxy:         lc.Proxy,
@@ -315,9 +330,10 @@ func (s *Service) defaultLocal() localConfig {
 		})
 	}
 	return localConfig{
-		RepoCacheDir: appdata.RepoCacheDir(s.DataDir()),
-		Agents:       agents,
-		Proxy:        defaultShellSettings.Proxy,
+		RepoCacheDir:         appdata.RepoCacheDir(s.DataDir()),
+		Agents:               agents,
+		AgentSkillManagement: localAgentSkillManagement{},
+		Proxy:                defaultShellSettings.Proxy,
 	}
 }
 
@@ -400,6 +416,7 @@ func (s *Service) merge(shared sharedConfig, local localConfig) AppConfig {
 		Cloud:                buildRuntimeCloudConfig(shared.Cloud, cloudProfiles),
 		CloudProfiles:        cloudProfiles,
 		Proxy:                NormalizeProxyConfig(local.Proxy),
+		AgentSkillManagement: fromLocalAgentSkillManagement(local.AgentSkillManagement),
 		SkippedUpdateVersion: shared.SkippedUpdateVersion,
 	}
 }
@@ -424,14 +441,14 @@ func normalizeAgentConfigs(agents []AgentConfig) []AgentConfig {
 	return normalized
 }
 
-func normalizeAgentPathList(paths []string) []string {
-	if len(paths) == 0 {
+func normalizeStringList(values []string) []string {
+	if len(values) == 0 {
 		return nil
 	}
-	seen := make(map[string]struct{}, len(paths))
-	normalized := make([]string, 0, len(paths))
-	for _, path := range paths {
-		trimmed := strings.TrimSpace(path)
+	seen := make(map[string]struct{}, len(values))
+	normalized := make([]string, 0, len(values))
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
 		if trimmed == "" {
 			continue
 		}
@@ -445,6 +462,99 @@ func normalizeAgentPathList(paths []string) []string {
 		return nil
 	}
 	return normalized
+}
+
+func normalizeAgentSkillManagement(cfg AgentSkillManagementConfig) AgentSkillManagementConfig {
+	cfg.Groups = normalizeStringList(cfg.Groups)
+
+	assignments := make([]AgentSkillGroupAssignment, 0, len(cfg.Assignments))
+	seenAssignments := make(map[string]struct{}, len(cfg.Assignments))
+	for _, assignment := range cfg.Assignments {
+		skillName := strings.TrimSpace(assignment.SkillName)
+		groupName := strings.TrimSpace(assignment.GroupName)
+		if skillName == "" || groupName == "" {
+			continue
+		}
+		if _, ok := seenAssignments[skillName]; ok {
+			continue
+		}
+		seenAssignments[skillName] = struct{}{}
+		assignments = append(assignments, AgentSkillGroupAssignment{
+			SkillName: skillName,
+			GroupName: groupName,
+		})
+	}
+	if len(assignments) == 0 {
+		cfg.Assignments = nil
+	} else {
+		cfg.Assignments = assignments
+	}
+
+	agentStates := make([]AgentSkillAgentState, 0, len(cfg.AgentStates))
+	seenAgentStates := make(map[string]struct{}, len(cfg.AgentStates))
+	for _, state := range cfg.AgentStates {
+		agentName := strings.TrimSpace(state.AgentName)
+		if agentName == "" {
+			continue
+		}
+		if _, ok := seenAgentStates[agentName]; ok {
+			continue
+		}
+		seenAgentStates[agentName] = struct{}{}
+		agentStates = append(agentStates, AgentSkillAgentState{
+			AgentName:          agentName,
+			DisabledSkillNames: normalizeStringList(state.DisabledSkillNames),
+			DisabledGroupNames: normalizeStringList(state.DisabledGroupNames),
+		})
+	}
+	if len(agentStates) == 0 {
+		cfg.AgentStates = nil
+	} else {
+		cfg.AgentStates = agentStates
+	}
+
+	return cfg
+}
+
+func fromLocalAgentSkillManagement(local localAgentSkillManagement) AgentSkillManagementConfig {
+	cfg := AgentSkillManagementConfig{
+		Groups:      append([]string(nil), local.Groups...),
+		Assignments: append([]AgentSkillGroupAssignment(nil), local.Assignments...),
+	}
+	if len(local.AgentStates) > 0 {
+		cfg.AgentStates = make([]AgentSkillAgentState, 0, len(local.AgentStates))
+		for _, state := range local.AgentStates {
+			cfg.AgentStates = append(cfg.AgentStates, AgentSkillAgentState{
+				AgentName:          state.AgentName,
+				DisabledSkillNames: append([]string(nil), state.DisabledSkillNames...),
+				DisabledGroupNames: append([]string(nil), state.DisabledGroupNames...),
+			})
+		}
+	}
+	return normalizeAgentSkillManagement(cfg)
+}
+
+func toLocalAgentSkillManagement(cfg AgentSkillManagementConfig) localAgentSkillManagement {
+	cfg = normalizeAgentSkillManagement(cfg)
+	local := localAgentSkillManagement{
+		Groups:      append([]string(nil), cfg.Groups...),
+		Assignments: append([]AgentSkillGroupAssignment(nil), cfg.Assignments...),
+	}
+	if len(cfg.AgentStates) > 0 {
+		local.AgentStates = make([]localAgentSkillManagementState, 0, len(cfg.AgentStates))
+		for _, state := range cfg.AgentStates {
+			local.AgentStates = append(local.AgentStates, localAgentSkillManagementState{
+				AgentName:          state.AgentName,
+				DisabledSkillNames: append([]string(nil), state.DisabledSkillNames...),
+				DisabledGroupNames: append([]string(nil), state.DisabledGroupNames...),
+			})
+		}
+	}
+	return local
+}
+
+func normalizeAgentPathList(paths []string) []string {
+	return normalizeStringList(paths)
 }
 
 // splitShared extracts the platform-agnostic fields from AppConfig.
@@ -488,6 +598,7 @@ func (s *Service) splitLocal(cfg AppConfig) localConfig {
 		AutoPushAgents:             NormalizeAgentNameList(cfg.AutoPushAgents),
 		LaunchAtLogin:              cfg.LaunchAtLogin,
 		Agents:                     agents,
+		AgentSkillManagement:       toLocalAgentSkillManagement(cfg.AgentSkillManagement),
 		CloudCredentialsByProvider: splitLocalCloudCredentialsByProvider(profiles),
 		Proxy:                      NormalizeProxyConfig(cfg.Proxy),
 	}

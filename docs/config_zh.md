@@ -151,6 +151,19 @@
   "autoUpdateSkills": true,
   "autoPushAgents": ["codex", "gemini-cli"],
   "launchAtLogin": true,
+  "agentSkillManagement": {
+    "groups": ["frontend", "backend"],
+    "assignments": [
+      { "skillName": "react-expert", "groupName": "frontend" }
+    ],
+    "agentStates": [
+      {
+        "agentName": "codex",
+        "disabledSkillNames": ["legacy-lint"],
+        "disabledGroupNames": ["backend"]
+      }
+    ]
+  },
   "agents": [
     {
       "name": "claude-code",
@@ -205,6 +218,15 @@
 | `autoUpdateSkills` | boolean | 当前设备在刷新收藏仓库后，是否应自动把匹配的已安装 Git Skill 更新到 **我的skills**。 |
 | `autoPushAgents` | string[] | 在导入/更新后自动推送到哪些智能体。保存前会去空格并去重。 |
 | `launchAtLogin` | boolean | 当前设备上是否把 SkillFlow 注册为开机/登录自启动项。 |
+| `agentSkillManagement` | object | **我的智能体** 使用的本地 skill 分组与启用/停用状态。 |
+| `agentSkillManagement.groups` | string[] | 在 **我的智能体 → 全部** 中维护的全局 skill 分组名。 |
+| `agentSkillManagement.assignments` | object[] | 基于 skill 名称的 `skillName -> groupName` 映射。一个 skill 名称最多只属于一个分组。 |
+| `agentSkillManagement.assignments[].skillName` | string | 用作全局分组键的智能体 skill 名称。 |
+| `agentSkillManagement.assignments[].groupName` | string | 该 skill 名称所属的全局分组。 |
+| `agentSkillManagement.agentStates` | object[] | 每个智能体自己的单 skill / 整组停用状态。 |
+| `agentSkillManagement.agentStates[].agentName` | string | 智能体标识，例如 `codex`。 |
+| `agentSkillManagement.agentStates[].disabledSkillNames` | string[] | 只对该智能体生效的停用 skill 名称列表。 |
+| `agentSkillManagement.agentStates[].disabledGroupNames` | string[] | 只对该智能体生效的停用分组名列表。 |
 | `agents` | object[] | 智能体路径配置，既包含内置智能体，也包含自定义智能体。 |
 | `agents[].name` | string | 智能体标识名。 |
 | `agents[].scanDirs` | string[] | 扫描该智能体外部 Skill 的本地目录列表。 |

@@ -4,8 +4,10 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	agentdomain "github.com/shinerio/skillflow/core/agentintegration/domain"
 	agentgateway "github.com/shinerio/skillflow/core/agentintegration/infra/gateway"
 	skilldomain "github.com/shinerio/skillflow/core/skillcatalog/domain"
 	"github.com/stretchr/testify/assert"
@@ -106,4 +108,95 @@ func TestFilesystemAdapterPullDirNotExist(t *testing.T) {
 	adapter := agentgateway.NewFilesystemAdapter("test-agent", "")
 	_, err := adapter.Pull(context.Background(), "/nonexistent/path")
 	assert.Error(t, err)
+}
+
+func TestCodexApplySkillEnablementDisablesEveryMatchingPath(t *testing.T) {
+	configRoot := t.TempDir()
+	configPath := filepath.Join(configRoot, ".codex", "config.toml")
+	require.NoError(t, os.MkdirAll(filepath.Dir(configPath), 0o755))
+	require.NoError(t, os.WriteFile(configPath, []byte("[profiles.default]\nmodel = \"gpt-5\"\n"), 0o644))
+	skillRoot := t.TempDir()
+	firstSkillDir := filepath.Join(skillRoot, "a", "react-expert")
+	secondSkillDir := filepath.Join(skillRoot, "b", "react-expert")
+	writeSkill(t, firstSkillDir, "SKILL.md")
+	writeSkill(t, secondSkillDir, "skill.md")
+
+	adapter := agentgateway.NewFilesystemAdapter("codex", "")
+	skills := []agentdomain.ManagedAgentSkill{
+		{
+			Name:    "react-expert",
+			Enabled: false,
+			Paths: []string{
+				firstSkillDir,
+				secondSkillDir,
+			},
+		},
+	}
+
+	configured := adapter
+	configuredValue := *configured
+	configuredValueName := &configuredValue
+	configuredValueNameTestHackSetCodexConfigPath(configuredValueName, configPath)
+
+	require.NoError(t, configuredValueName.ApplySkillEnablement(agentdomain.AgentProfile{Name: "codex"}, skills))
+
+	data, err := os.ReadFile(configPath)
+	require.NoError(t, err)
+	content := string(data)
+	assert.Contains(t, content, "[profiles.default]")
+	assert.NotContains(t, content, "skills.config = [")
+	assert.Equal(t, 2, strings.Count(content, "[[skills.config]]"))
+	assert.Contains(t, content, `path = "`+filepath.Join(firstSkillDir, "SKILL.md")+`"`)
+	assert.Contains(t, content, `path = "`+filepath.Join(secondSkillDir, "skill.md")+`"`)
+	assert.Contains(t, content, "enabled = false")
+}
+
+func TestCodexApplySkillEnablementRemovesManagedEntriesWhenEnabled(t *testing.T) {
+	configRoot := t.TempDir()
+	configPath := filepath.Join(configRoot, ".codex", "config.toml")
+	require.NoError(t, os.MkdirAll(filepath.Dir(configPath), 0o755))
+	require.NoError(t, os.WriteFile(configPath, []byte(strings.Join([]string{
+		"[profiles.default]",
+		`model = "gpt-5"`,
+		"",
+		"[[skills.config]]",
+		`path = "/tmp/a/react-expert/SKILL.md"`,
+		"enabled = false",
+		"",
+		"[[skills.config]]",
+		`path = "/tmp/other/unmanaged/SKILL.md"`,
+		"enabled = false",
+		"",
+	}, "\n")), 0o644))
+
+	adapter := agentgateway.NewFilesystemAdapter("codex", "")
+	configured := *adapter
+	configuredValueName := &configured
+	configuredValueNameTestHackSetCodexConfigPath(configuredValueName, configPath)
+
+	require.NoError(t, configuredValueName.ApplySkillEnablement(agentdomain.AgentProfile{Name: "codex"}, []agentdomain.ManagedAgentSkill{
+		{
+			Name:    "react-expert",
+			Enabled: true,
+			Paths:   []string{"/tmp/a/react-expert/SKILL.md"},
+		},
+	}))
+
+	data, err := os.ReadFile(configPath)
+	require.NoError(t, err)
+	content := string(data)
+	assert.NotContains(t, content, "skills.config = [")
+	assert.Equal(t, 1, strings.Count(content, "[[skills.config]]"))
+	assert.NotContains(t, content, `path = "/tmp/a/react-expert/SKILL.md"`)
+	assert.NotContains(t, content, "enabled = true")
+	assert.Contains(t, content, `path = "/tmp/other/unmanaged/SKILL.md"`)
+}
+
+func configuredValueNameTestHackSetCodexConfigPath(adapter interface{}, configPath string) {
+	switch typed := adapter.(type) {
+	case interface{ TestSetCodexConfigPath(string) }:
+		typed.TestSetCodexConfigPath(configPath)
+	case *agentgateway.FilesystemAdapter:
+		typed.TestSetCodexConfigPath(configPath)
+	}
 }

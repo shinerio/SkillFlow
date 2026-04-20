@@ -33,6 +33,8 @@ type AgentSkillCandidate struct {
 	Path         string   `json:"path"`
 	Source       string   `json:"source"`
 	LogicalKey   string   `json:"logicalKey"`
+	GroupName    string   `json:"groupName,omitempty"`
+	Enabled      bool     `json:"enabled"`
 	Installed    bool     `json:"installed"`
 	Imported     bool     `json:"imported"`
 	Updatable    bool     `json:"updatable"`
@@ -45,12 +47,22 @@ type AgentSkillEntry struct {
 	Path            string   `json:"path"`
 	Source          string   `json:"source"`
 	LogicalKey      string   `json:"logicalKey"`
+	GroupName       string   `json:"groupName,omitempty"`
+	Enabled         bool     `json:"enabled"`
 	Installed       bool     `json:"installed"`
 	Imported        bool     `json:"imported"`
 	Updatable       bool     `json:"updatable"`
 	Pushed          bool     `json:"pushed"`
 	PushedAgents    []string `json:"pushedAgents"`
 	SeenInAgentScan bool     `json:"seenInAgentScan"`
+}
+
+type ManagedAgentSkill struct {
+	Name      string   `json:"name"`
+	GroupName string   `json:"groupName,omitempty"`
+	Paths     []string `json:"paths"`
+	Agents    []string `json:"agents,omitempty"`
+	Enabled   bool     `json:"enabled"`
 }
 
 type AgentPresenceIndex struct {

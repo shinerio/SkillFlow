@@ -728,9 +728,11 @@ Browse the skills currently present inside each enabled agent.
 
 ### Layout
 
-- Left sidebar lists enabled agents.
-- Main area shows one shared toolbar plus a top segmented control for the skills and memory surfaces.
-- The segmented control defaults to **Skills** when the page first loads.
+- Left sidebar now starts with a global **All** entry, followed by enabled agents.
+- Selecting **All** opens the cross-agent grouping surface for every enabled agent's `pushDir` plus all configured `scanDirs`, using a **left group sidebar + right card grid** layout.
+- Main area shows one shared toolbar plus a top segmented control for the skills and memory surfaces when a concrete agent is selected.
+- For a concrete agent, the **Skills** surface now has two states: **Browse** and **Enablement Management**.
+- The segmented control defaults to **Skills** when a concrete agent page first loads.
 - In Chinese mode the segmented labels are localized instead of mixing English into the primary workflow.
 - Switching to another agent keeps the current panel selection instead of forcing the page back to **Skills**.
 
@@ -738,16 +740,31 @@ Browse the skills currently present inside each enabled agent.
 
 | Control | Description |
 |---------|-------------|
-| **Skills / Memory segmented control** | Switches the right-side content surface between skill management and memory preview |
+| **Skills / Memory segmented control** | Shown only for a concrete agent; switches the right-side content surface between grouped skill management and memory preview |
 | **Search input** | Filters only the currently active panel in real time |
-| **Sort toggle** | Stays shared in the toolbar; in **Skills** it sorts Push Path and Scan Path cards, and in **Memory** it reorders the visible memory entries within that panel |
-| **Batch Delete** | Available only in the **Skills** panel when the visible Push Path list is non-empty; enters select mode |
-| **Manual Pull** | Available in the **Skills** panel; enters inline scan-and-pull mode for the currently selected agent |
+| **Sort toggle** | Stays shared in the toolbar; in **All** and concrete-agent **Skills** it sorts grouped skill names, and in **Memory** it reorders the visible memory entries within that panel |
+| **Create Group** | Shown only in **All**; opens an in-page dialog to create a global skill-name group |
+| **Manage Enablement / Back to Browse** | Shown only in a concrete agent's **Skills** surface; switches between the browse surface and the enable/disable management surface |
+| **Manual Pull / Batch Delete** | Shown only in **Skills → Browse**; hidden while the enablement-management surface is active |
+| **Codex restart hint** | Shown only in Codex **Skills**; reminds the user that enablement changes apply after restart |
 
 The result counter in the toolbar is panel-scoped:
-- **Skills** counts visible Push Path plus Scan Path cards only.
+- **All** counts visible grouped skill names only.
+- **Skills** counts visible grouped skill names only.
 - **Memory** counts visible memory preview entries only.
-- **Manual Pull mode** counts only the currently visible scanned candidates.
+
+### All View
+
+- The **All** entry is a cross-agent management surface, not a real agent.
+- It aggregates all enabled agents' current skill names from both push paths and scan paths, then collapses them by **skill name**.
+- The left sidebar lists **All / Ungrouped / named groups** and shows the current card count for each group.
+- The sidebar footer includes **Create Group**. Named groups also support right-click **Rename / Delete** actions.
+- The right side is a multi-row card grid. Each card shows the skill name, current global group, which agents contain that name, and the total number of discovered on-disk instances.
+- It does not show skill descriptions, frontmatter details, or version differences.
+- A skill name can belong to at most one global group.
+- Group assignments are intentionally name-based only and ignore version mismatches across agents.
+- Users can drag a skill card onto a sidebar group to reassign it, or drop it on **Ungrouped** to clear the assignment.
+- Group create, rename, and delete all happen through in-page dialogs instead of browser prompts.
 
 ### Memory Panel
 
@@ -762,37 +779,14 @@ The result counter in the toolbar is panel-scoped:
 ### Skills Panel
 
 - Shown only when the top segmented control is switched to **Skills**.
-
-### Manual Pull Mode
-
-- Clicking **Manual Pull** does not open a separate page or modal. It converts the current skills panel into an inline pull surface for the selected agent.
-- Entering the mode triggers a fresh `ScanAgentSkills(agentName)` scan against the selected agent's configured scan directories.
-- The target category is chosen directly in the toolbar instead of a dedicated left category sidebar.
-- While in manual-pull mode, the toolbar exposes:
-  - target category selector
-  - **Select All / Deselect All**
-  - **Select Not Imported**
-  - **Start Pull (n)**
-  - **Cancel**
-- Search and sorting apply only to the scanned results while this mode is active.
-- Scan errors still surface as a red alert and empty scans still surface as a yellow warning state.
-- Pull conflicts still use the shared overwrite/skip dialog behavior, but the resolution flow now completes inside **My Agents**.
-- After a successful pull, the page exits manual-pull mode and shows a green completion notice at the top of the skills panel.
-
-### Push Path Section
-
-- Shows deletable agent-local skills under the configured push directory.
-- Push-path discovery uses the same configurable depth limit from **Settings → General** (default `5`, saved range `1-20`).
-- In select mode, **Select All / Deselect All** applies to the currently visible filtered Push Path cards only.
-- When a agent-local skill correlates to an installed My Skills entry, the card also shows that installed entry's source badge so users can tell manual imports from git-backed installs.
-- Cards continue showing imported, update-available, and "pushed to other agents" states. The current agent is excluded from the pushed-agent icon list so the card only surfaces cross-agent distribution that adds information.
-
-### Scan Path Section
-
-- Shows read-only skills discovered only from scan directories.
-- Scan-path discovery uses the same configurable depth limit from **Settings → General** (default `5`, saved range `1-20`).
-- Shares the same panel-scoped search and sort controls as Push Path.
-- Scan-path cards use the same compact strip for source / imported / update-available / pushed-to-other-agents states whenever the scanned item can be correlated to an installed My Skills entry; the fact that they were found via scan paths is conveyed by the section itself instead of repeating a detected badge on every card.
+- The Skills panel now has two states:
+  - **Browse**: keeps the existing push-path and scan-path card grids for the selected agent.
+  - **Enablement Management**: reorganizes the current agent's manageable skills by the shared global groups and splits them into **Enabled** and **Disabled** card sections.
+- Browse keeps the existing multi-column grids so users can inspect real files in the push path and scan paths.
+- In Enablement Management, each skill card shows the group, path count, and final enablement state for that agent, plus direct **Enable / Disable** and **Open Directory** actions.
+- Each real group inside Enablement Management also exposes **Enable Group / Disable Group** actions.
+- For Codex, enablement is persisted through `~/.codex/config.toml` `[[skills.config]]` entries. SkillFlow disables a path by writing `enabled = false` and re-enables it by removing the matching disabled entry.
+- If multiple Codex skill instances share the same name, SkillFlow enables or disables all of them together.
 
 ---
 
@@ -944,4 +938,4 @@ Memory content files (`memory/main.md` and `memory/rules/*.md`) are included in 
 
 ---
 
-*Last updated: 2026-04-06*
+*Last updated: 2026-04-16*

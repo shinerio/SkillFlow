@@ -171,6 +171,114 @@ func TestAutoPushAgentsStoredOnlyInLocalConfig(t *testing.T) {
 	assert.Equal(t, []string{"codex", "gemini-cli"}, loaded.AutoPushAgents)
 }
 
+func TestSaveAndLoadAgentSkillManagement(t *testing.T) {
+	dir := t.TempDir()
+	svc := config.NewService(dir)
+	cfg := config.DefaultConfig(dir)
+	cfg.AgentSkillManagement = config.AgentSkillManagementConfig{
+		Groups: []string{"frontend", "backend"},
+		Assignments: []config.AgentSkillGroupAssignment{
+			{SkillName: "react-expert", GroupName: "frontend"},
+			{SkillName: "go-reviewer", GroupName: "backend"},
+		},
+		AgentStates: []config.AgentSkillAgentState{
+			{
+				AgentName:           "codex",
+				DisabledSkillNames:  []string{"legacy-lint"},
+				DisabledGroupNames:  []string{"backend"},
+			},
+		},
+	}
+
+	require.NoError(t, svc.Save(cfg))
+
+	loaded, err := svc.Load()
+	require.NoError(t, err)
+	assert.Equal(t, []string{"frontend", "backend"}, loaded.AgentSkillManagement.Groups)
+	assert.Equal(t, []config.AgentSkillGroupAssignment{
+		{SkillName: "react-expert", GroupName: "frontend"},
+		{SkillName: "go-reviewer", GroupName: "backend"},
+	}, loaded.AgentSkillManagement.Assignments)
+	assert.Equal(t, []config.AgentSkillAgentState{
+		{
+			AgentName:          "codex",
+			DisabledSkillNames: []string{"legacy-lint"},
+			DisabledGroupNames: []string{"backend"},
+		},
+	}, loaded.AgentSkillManagement.AgentStates)
+}
+
+func TestAgentSkillManagementStoredOnlyInLocalConfig(t *testing.T) {
+	dir := t.TempDir()
+	svc := config.NewService(dir)
+	cfg := config.DefaultConfig(dir)
+	cfg.AgentSkillManagement = config.AgentSkillManagementConfig{
+		Groups: []string{"frontend"},
+		Assignments: []config.AgentSkillGroupAssignment{
+			{SkillName: "react-expert", GroupName: "frontend"},
+		},
+		AgentStates: []config.AgentSkillAgentState{
+			{
+				AgentName:          "codex",
+				DisabledSkillNames: []string{"react-expert"},
+			},
+		},
+	}
+
+	require.NoError(t, svc.Save(cfg))
+
+	sharedData, err := os.ReadFile(filepath.Join(dir, "config.json"))
+	require.NoError(t, err)
+	assert.NotContains(t, string(sharedData), "agentSkillManagement")
+
+	localData, err := os.ReadFile(filepath.Join(dir, "config_local.json"))
+	require.NoError(t, err)
+	assert.Contains(t, string(localData), `"agentSkillManagement"`)
+	assert.Contains(t, string(localData), `"frontend"`)
+	assert.Contains(t, string(localData), `"react-expert"`)
+}
+
+func TestSaveAndLoadConfigNormalizesAgentSkillManagement(t *testing.T) {
+	dir := t.TempDir()
+	svc := config.NewService(dir)
+	cfg := config.DefaultConfig(dir)
+	cfg.AgentSkillManagement = config.AgentSkillManagementConfig{
+		Groups: []string{" frontend ", "backend", "frontend", ""},
+		Assignments: []config.AgentSkillGroupAssignment{
+			{SkillName: " react-expert ", GroupName: " frontend "},
+			{SkillName: "react-expert", GroupName: "backend"},
+			{SkillName: "", GroupName: "backend"},
+			{SkillName: "go-reviewer", GroupName: ""},
+		},
+		AgentStates: []config.AgentSkillAgentState{
+			{
+				AgentName:          " codex ",
+				DisabledSkillNames: []string{" legacy-lint ", "legacy-lint", ""},
+				DisabledGroupNames: []string{" backend ", "backend", ""},
+			},
+			{
+				AgentName: " ",
+			},
+		},
+	}
+
+	require.NoError(t, svc.Save(cfg))
+
+	loaded, err := svc.Load()
+	require.NoError(t, err)
+	assert.Equal(t, []string{"frontend", "backend"}, loaded.AgentSkillManagement.Groups)
+	assert.Equal(t, []config.AgentSkillGroupAssignment{
+		{SkillName: "react-expert", GroupName: "frontend"},
+	}, loaded.AgentSkillManagement.Assignments)
+	assert.Equal(t, []config.AgentSkillAgentState{
+		{
+			AgentName:          "codex",
+			DisabledSkillNames: []string{"legacy-lint"},
+			DisabledGroupNames: []string{"backend"},
+		},
+	}, loaded.AgentSkillManagement.AgentStates)
+}
+
 func TestSkippedUpdateVersionPersistsInSharedConfig(t *testing.T) {
 	dir := t.TempDir()
 	svc := config.NewService(dir)

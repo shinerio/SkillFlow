@@ -18,6 +18,10 @@ export function ApplyAppUpdate() {
   return window['go']['main']['App']['ApplyAppUpdate']();
 }
 
+export function AssignAgentSkillGroup(arg1, arg2) {
+  return window['go']['main']['App']['AssignAgentSkillGroup'](arg1, arg2);
+}
+
 export function BackupNow() {
   return window['go']['main']['App']['BackupNow']();
 }
@@ -42,8 +46,16 @@ export function CheckUpdates() {
   return window['go']['main']['App']['CheckUpdates']();
 }
 
+export function ClearAgentSkillGroup(arg1) {
+  return window['go']['main']['App']['ClearAgentSkillGroup'](arg1);
+}
+
 export function CompleteImportPrompts(arg1, arg2) {
   return window['go']['main']['App']['CompleteImportPrompts'](arg1, arg2);
+}
+
+export function CreateAgentSkillGroup(arg1) {
+  return window['go']['main']['App']['CreateAgentSkillGroup'](arg1);
 }
 
 export function CreateCategory(arg1) {
@@ -64,6 +76,10 @@ export function CreatePromptCategory(arg1) {
 
 export function DeleteAgentSkill(arg1, arg2) {
   return window['go']['main']['App']['DeleteAgentSkill'](arg1, arg2);
+}
+
+export function DeleteAgentSkillGroup(arg1) {
+  return window['go']['main']['App']['DeleteAgentSkillGroup'](arg1);
 }
 
 export function DeleteCategory(arg1) {
@@ -206,6 +222,10 @@ export function ListAgentSkills(arg1) {
   return window['go']['main']['App']['ListAgentSkills'](arg1);
 }
 
+export function ListAllAgentSkills() {
+  return window['go']['main']['App']['ListAllAgentSkills']();
+}
+
 export function ListAllStarSkills() {
   return window['go']['main']['App']['ListAllStarSkills']();
 }
@@ -220,6 +240,10 @@ export function ListCloudFiles() {
 
 export function ListCloudProviders() {
   return window['go']['main']['App']['ListCloudProviders']();
+}
+
+export function ListManagedAgentSkills(arg1) {
+  return window['go']['main']['App']['ListManagedAgentSkills'](arg1);
 }
 
 export function ListModuleMemories() {
@@ -338,6 +362,10 @@ export function RemoveStarredRepo(arg1) {
   return window['go']['main']['App']['RemoveStarredRepo'](arg1);
 }
 
+export function RenameAgentSkillGroup(arg1, arg2) {
+  return window['go']['main']['App']['RenameAgentSkillGroup'](arg1, arg2);
+}
+
 export function RenameCategory(arg1, arg2) {
   return window['go']['main']['App']['RenameCategory'](arg1, arg2);
 }
@@ -376,6 +404,14 @@ export function SaveModulePushTargets(arg1, arg2) {
 
 export function ScanAgentSkills(arg1) {
   return window['go']['main']['App']['ScanAgentSkills'](arg1);
+}
+
+export function SetAgentSkillEnabled(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SetAgentSkillEnabled'](arg1, arg2, arg3);
+}
+
+export function SetAgentSkillGroupEnabled(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SetAgentSkillGroupEnabled'](arg1, arg2, arg3);
 }
 
 export function SetModuleMemoryEnabled(arg1, arg2) {

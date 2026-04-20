@@ -30,12 +30,13 @@ func DefaultConfig(dataDir string) AppConfig {
 		})
 	}
 	return AppConfig{
-		RepoCacheDir:     appdata.RepoCacheDir(dataDir),
-		DefaultCategory:  skillSettings.Shared.DefaultCategory,
-		LogLevel:         shellSharedSettings.LogLevel,
-		RepoScanMaxDepth: agentSettings.Shared.RepoScanMaxDepth,
-		Agents:           agents,
-		Cloud:            backupSettings.Cloud,
-		Proxy:            shellLocalSettings.Proxy,
+		RepoCacheDir:         appdata.RepoCacheDir(dataDir),
+		DefaultCategory:      skillSettings.Shared.DefaultCategory,
+		LogLevel:             shellSharedSettings.LogLevel,
+		RepoScanMaxDepth:     agentSettings.Shared.RepoScanMaxDepth,
+		Agents:               agents,
+		Cloud:                backupSettings.Cloud,
+		Proxy:                shellLocalSettings.Proxy,
+		AgentSkillManagement: AgentSkillManagementConfig{},
 	}
 }

@@ -6,7 +6,7 @@
 |--------|------|------|
 | `skillcatalog` | core | installed skill truth |
 | `promptcatalog` | core | prompt truth |
-| `agentintegration` | core | agent definitions and push/pull semantics |
+| `agentintegration` | core | agent definitions, push/pull semantics, and agent-side skill enablement behavior |
 | `skillsource` | supporting | tracked repositories, logical skill sources, and source discovery |
 | `backup` | supporting | backup and restore planning |
 
@@ -90,6 +90,7 @@ Shell concerns such as tray, window state, launch-at-login, single-instance beha
 - own agent profiles
 - own built-in agent profile defaults
 - own scan, push, and pull semantics
+- own agent-side skill enable/disable semantics
 - own push and pull conflict detection
 - own agent-side presence meaning
 
@@ -268,4 +269,4 @@ Examples:
 - Settings
 - source candidate list enriched with installed and pushed status
 
-*Last updated: 2026-03-21*
+*Last updated: 2026-04-12*

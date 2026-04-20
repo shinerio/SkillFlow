@@ -160,3 +160,48 @@ func TestServiceScansAndListsAgentSkillsWithPresence(t *testing.T) {
 	assert.False(t, betaEntry.Pushed)
 	assert.True(t, betaEntry.SeenInAgentScan)
 }
+
+func TestServiceListManagedSkillsGroupsSameNameAndResolvesEnablement(t *testing.T) {
+	service := newService()
+	ctx := context.Background()
+	pushDir := t.TempDir()
+	scanDir := t.TempDir()
+
+	writeSkillDir(t, pushDir, "react-expert", "# react\nPush\n")
+	writeSkillDir(t, scanDir, "react-expert", "# react\nScan\n")
+	writeSkillDir(t, scanDir, "go-reviewer", "# go\nScan\n")
+
+	profile := domain.AgentProfile{
+		Name:     "codex",
+		PushDir:  pushDir,
+		ScanDirs: []string{scanDir},
+		Enabled:  true,
+	}
+	management := domain.SkillManagementConfig{
+		Groups: []string{"frontend", "backend"},
+		Assignments: []domain.SkillGroupAssignment{
+			{SkillName: "react-expert", GroupName: "frontend"},
+			{SkillName: "go-reviewer", GroupName: "backend"},
+		},
+		AgentStates: []domain.AgentSkillState{
+			{
+				AgentName:          "codex",
+				DisabledGroupNames: []string{"backend"},
+			},
+		},
+	}
+
+	managed, err := service.ListManagedSkills(ctx, profile, management, 5)
+	require.NoError(t, err)
+	require.Len(t, managed, 2)
+
+	assert.Equal(t, "go-reviewer", managed[0].Name)
+	assert.Equal(t, "backend", managed[0].GroupName)
+	assert.False(t, managed[0].Enabled)
+	assert.Len(t, managed[0].Paths, 1)
+
+	assert.Equal(t, "react-expert", managed[1].Name)
+	assert.Equal(t, "frontend", managed[1].GroupName)
+	assert.True(t, managed[1].Enabled)
+	assert.Len(t, managed[1].Paths, 2)
+}
