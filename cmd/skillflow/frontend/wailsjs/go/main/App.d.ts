@@ -3,6 +3,7 @@
 import {domain} from '../models';
 import {main} from '../models';
 import {config} from '../models';
+import {agentskills} from '../models';
 import {skills} from '../models';
 import {shellsettings} from '../models';
 
@@ -13,6 +14,8 @@ export function AddStarredRepo(arg1:string):Promise<domain.StarRepo>;
 export function AddStarredRepoWithCredentials(arg1:string,arg2:string,arg3:string):Promise<domain.StarRepo>;
 
 export function ApplyAppUpdate():Promise<void>;
+
+export function AssignAgentSkillGroup(arg1:string,arg2:string):Promise<void>;
 
 export function BackupNow():Promise<void>;
 
@@ -26,7 +29,11 @@ export function CheckMissingAgentPushDirs(arg1:Array<string>):Promise<Array<doma
 
 export function CheckUpdates():Promise<void>;
 
+export function ClearAgentSkillGroup(arg1:string):Promise<void>;
+
 export function CompleteImportPrompts(arg1:string,arg2:Array<string>):Promise<number>;
+
+export function CreateAgentSkillGroup(arg1:string):Promise<void>;
 
 export function CreateCategory(arg1:string):Promise<void>;
 
@@ -37,6 +44,8 @@ export function CreatePrompt(arg1:string,arg2:string,arg3:string,arg4:string,arg
 export function CreatePromptCategory(arg1:string):Promise<void>;
 
 export function DeleteAgentSkill(arg1:string,arg2:string):Promise<void>;
+
+export function DeleteAgentSkillGroup(arg1:string):Promise<void>;
 
 export function DeleteCategory(arg1:string):Promise<void>;
 
@@ -108,6 +117,8 @@ export function ImportStarSkills(arg1:Array<string>,arg2:string,arg3:string):Pro
 
 export function ListAgentSkills(arg1:string):Promise<Array<domain.AgentSkillEntry>>;
 
+export function ListAllAgentSkills():Promise<Array<agentskills.AllEntry>>;
+
 export function ListAllStarSkills():Promise<Array<skills.StarSkillEntry>>;
 
 export function ListCategories():Promise<Array<string>>;
@@ -115,6 +126,8 @@ export function ListCategories():Promise<Array<string>>;
 export function ListCloudFiles():Promise<Array<domain.RemoteFile>>;
 
 export function ListCloudProviders():Promise<Array<Record<string, any>>>;
+
+export function ListManagedAgentSkills(arg1:string):Promise<Array<domain.ManagedAgentSkill>>;
 
 export function ListModuleMemories():Promise<Array<main.ModuleMemoryDTO>>;
 
@@ -174,6 +187,8 @@ export function RemoveCustomAgent(arg1:string):Promise<void>;
 
 export function RemoveStarredRepo(arg1:string):Promise<void>;
 
+export function RenameAgentSkillGroup(arg1:string,arg2:string):Promise<void>;
+
 export function RenameCategory(arg1:string,arg2:string):Promise<void>;
 
 export function RenamePromptCategory(arg1:string,arg2:string):Promise<void>;
@@ -193,6 +208,10 @@ export function SaveModuleMemory(arg1:string,arg2:string):Promise<main.ModuleMem
 export function SaveModulePushTargets(arg1:string,arg2:Array<string>):Promise<void>;
 
 export function ScanAgentSkills(arg1:string):Promise<Array<domain.AgentSkillCandidate>>;
+
+export function SetAgentSkillEnabled(arg1:string,arg2:string,arg3:boolean):Promise<void>;
+
+export function SetAgentSkillGroupEnabled(arg1:string,arg2:string,arg3:boolean):Promise<void>;
 
 export function SetModuleMemoryEnabled(arg1:string,arg2:boolean):Promise<main.ModuleMemoryDTO>;
 

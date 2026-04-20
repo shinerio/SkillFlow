@@ -202,6 +202,38 @@ func (s *Service) ListAgentSkills(ctx context.Context, profile domain.AgentProfi
 	return aggregateAgentSkillEntries(pushSkills, scanSkills, idx, presence), nil
 }
 
+func (s *Service) ListManagedSkills(ctx context.Context, profile domain.AgentProfile, management domain.SkillManagementConfig, maxDepth int) ([]domain.ManagedAgentSkill, error) {
+	gateway, err := s.gateway(profile)
+	if err != nil {
+		return nil, err
+	}
+	dirs := compactKeys(append([]string{profile.PushDir}, profile.ScanDirs...)...)
+	rawSkills, err := scanAgentSkillsRaw(ctx, gateway, dirs, maxDepth)
+	if err != nil {
+		return nil, err
+	}
+	return buildManagedSkills(profile.Name, rawSkills, management), nil
+}
+
+func (s *Service) ApplyManagedSkillEnablement(ctx context.Context, profile domain.AgentProfile, management domain.SkillManagementConfig, maxDepth int) ([]domain.ManagedAgentSkill, error) {
+	gateway, err := s.gateway(profile)
+	if err != nil {
+		return nil, err
+	}
+	applier, ok := gateway.(gatewayport.SkillEnablementApplier)
+	if !ok {
+		return nil, fmt.Errorf("agent skill enablement is not supported: %s", profile.Name)
+	}
+	managedSkills, err := s.ListManagedSkills(ctx, profile, management, maxDepth)
+	if err != nil {
+		return nil, err
+	}
+	if err := applier.ApplySkillEnablement(profile, managedSkills); err != nil {
+		return nil, err
+	}
+	return managedSkills, nil
+}
+
 func (s *Service) RefreshPushedCopies(ctx context.Context, profiles []domain.AgentProfile, skill *skilldomain.InstalledSkill) error {
 	if skill == nil {
 		return nil
@@ -337,6 +369,7 @@ func resolveAgentSkillCandidates(candidates []*skilldomain.InstalledSkill, idx *
 			Path:         candidate.Path,
 			Source:       state.Source,
 			LogicalKey:   coalesceLogicalKey(state.LogicalKey, logicalKey),
+			Enabled:      true,
 			Installed:    state.Installed,
 			Imported:     state.Imported,
 			Updatable:    updatable,
@@ -374,6 +407,7 @@ func aggregateAgentSkillEntries(pushSkills, scanSkills []*skilldomain.InstalledS
 		entry.Path = candidate.Path
 		entry.Source = coalesceSource(candidate.Source, entry.Source)
 		entry.LogicalKey = coalesceLogicalKey(candidate.LogicalKey, entry.LogicalKey)
+		entry.Enabled = true
 		entry.Installed = entry.Installed || candidate.Installed
 		entry.Imported = entry.Imported || candidate.Imported
 		entry.Updatable = entry.Updatable || candidate.Updatable
@@ -393,6 +427,9 @@ func aggregateAgentSkillEntries(pushSkills, scanSkills []*skilldomain.InstalledS
 		}
 		entry.Source = coalesceSource(candidate.Source, entry.Source)
 		entry.LogicalKey = coalesceLogicalKey(candidate.LogicalKey, entry.LogicalKey)
+		if !entry.Pushed {
+			entry.Enabled = true
+		}
 		entry.Installed = entry.Installed || candidate.Installed
 		entry.Imported = entry.Imported || candidate.Imported
 		entry.Updatable = entry.Updatable || candidate.Updatable
@@ -436,6 +473,10 @@ func mergeAgentCandidate(existing, incoming domain.AgentSkillCandidate) domain.A
 	if existing.Source == "" {
 		existing.Source = incoming.Source
 	}
+	if existing.GroupName == "" {
+		existing.GroupName = incoming.GroupName
+	}
+	existing.Enabled = existing.Enabled || incoming.Enabled
 	existing.Installed = existing.Installed || incoming.Installed
 	existing.Imported = existing.Imported || incoming.Imported
 	existing.Updatable = existing.Updatable || incoming.Updatable
@@ -510,4 +551,50 @@ func agentGroupKey(name, logicalKey, path string) string {
 		return "fallback:" + trimmedName
 	}
 	return "path:" + path
+}
+
+func buildManagedSkills(agentName string, rawSkills []*skilldomain.InstalledSkill, management domain.SkillManagementConfig) []domain.ManagedAgentSkill {
+	grouped := map[string]*domain.ManagedAgentSkill{}
+	for _, rawSkill := range rawSkills {
+		if rawSkill == nil {
+			continue
+		}
+		skillName := strings.TrimSpace(rawSkill.Name)
+		skillPath := strings.TrimSpace(rawSkill.Path)
+		if skillName == "" || skillPath == "" {
+			continue
+		}
+		entry := grouped[skillName]
+		if entry == nil {
+			resolved := domain.ResolveManagedSkillState(agentName, skillName, management)
+			entry = &domain.ManagedAgentSkill{
+				Name:      skillName,
+				GroupName: resolved.GroupName,
+				Enabled:   !resolved.Disabled,
+			}
+			grouped[skillName] = entry
+		}
+		entry.Paths = appendUniquePath(entry.Paths, skillPath)
+		entry.Agents = appendUniqueAgent(entry.Agents, agentName)
+	}
+	result := make([]domain.ManagedAgentSkill, 0, len(grouped))
+	for _, entry := range grouped {
+		result = append(result, *entry)
+	}
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].GroupName == result[j].GroupName {
+			return result[i].Name < result[j].Name
+		}
+		return result[i].GroupName < result[j].GroupName
+	})
+	return result
+}
+
+func appendUniquePath(paths []string, path string) []string {
+	for _, existing := range paths {
+		if existing == path {
+			return paths
+		}
+	}
+	return append(paths, path)
 }

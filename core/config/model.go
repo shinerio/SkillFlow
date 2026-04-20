@@ -15,6 +15,10 @@ type ProxyMode = shellsettings.ProxyMode
 type ProxyConfig = shellsettings.ProxyConfig
 type WindowState = shellsettings.WindowState
 
+type AgentSkillManagementConfig = agentdomain.SkillManagementConfig
+type AgentSkillGroupAssignment = agentdomain.SkillGroupAssignment
+type AgentSkillAgentState = agentdomain.AgentSkillState
+
 const (
 	DefaultCloudRemotePath  = backupapp.DefaultCloudRemotePath
 	ProxyModeNone           = shellsettings.ProxyModeNone
@@ -41,6 +45,7 @@ type AppConfig struct {
 	Cloud                 CloudConfig                    `json:"cloud"`
 	CloudProfiles         map[string]CloudProviderConfig `json:"cloudProfiles,omitempty"`
 	Proxy                 ProxyConfig                    `json:"proxy"`
+	AgentSkillManagement  AgentSkillManagementConfig     `json:"agentSkillManagement,omitempty"`
 	SkippedUpdateVersion  string                         `json:"skippedUpdateVersion,omitempty"` // version tag to suppress startup update prompt
 }
 

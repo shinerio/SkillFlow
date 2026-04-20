@@ -156,6 +156,19 @@ The same startup cutover also rewrites legacy local keys such as `autoPushTools`
   "autoUpdateSkills": true,
   "autoPushAgents": ["codex", "gemini-cli"],
   "launchAtLogin": true,
+  "agentSkillManagement": {
+    "groups": ["frontend", "backend"],
+    "assignments": [
+      { "skillName": "react-expert", "groupName": "frontend" }
+    ],
+    "agentStates": [
+      {
+        "agentName": "codex",
+        "disabledSkillNames": ["legacy-lint"],
+        "disabledGroupNames": ["backend"]
+      }
+    ]
+  },
   "agents": [
     {
       "name": "claude-code",
@@ -223,6 +236,15 @@ The same startup cutover also rewrites legacy local keys such as `autoPushTools`
 | `autoUpdateSkills` | boolean | Whether starred-repo refresh on this device should automatically update matching installed git-backed skills in **My Skills**. |
 | `autoPushAgents` | string[] | Agent names that should receive auto-push after import/update flows. Values are trimmed and deduplicated. |
 | `launchAtLogin` | boolean | Whether SkillFlow should register itself as a login/startup item on the current machine. |
+| `agentSkillManagement` | object | Local-only agent skill grouping and enable/disable state used by **My Agents**. |
+| `agentSkillManagement.groups` | string[] | Global skill-group names managed from **My Agents → All**. |
+| `agentSkillManagement.assignments` | object[] | Name-based `skillName -> groupName` assignments. One skill name can belong to at most one group. |
+| `agentSkillManagement.assignments[].skillName` | string | Agent skill name used as the global grouping key. |
+| `agentSkillManagement.assignments[].groupName` | string | Global group assigned to that skill name. |
+| `agentSkillManagement.agentStates` | object[] | Per-agent local disable state for single skills and whole groups. |
+| `agentSkillManagement.agentStates[].agentName` | string | Agent identifier such as `codex`. |
+| `agentSkillManagement.agentStates[].disabledSkillNames` | string[] | Skill names disabled only for that agent. |
+| `agentSkillManagement.agentStates[].disabledGroupNames` | string[] | Global group names disabled only for that agent. |
 | `agents` | object[] | Agent path configuration. This includes built-in agents and all custom agents. |
 | `agents[].name` | string | Agent identifier. |
 | `agents[].scanDirs` | string[] | Local directories scanned for external skills from this agent. |
