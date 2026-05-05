@@ -10,6 +10,7 @@ import (
 
 	daemonruntime "github.com/shinerio/skillflow/core/platform/daemon"
 	"github.com/shinerio/skillflow/core/platform/eventbus"
+	"github.com/shinerio/skillflow/core/platform/nativeapi"
 )
 
 type BackendClientConfig struct {
@@ -20,75 +21,75 @@ type BackendClientConfig struct {
 var daemonStreamEventsFn = daemonruntime.StreamEvents
 
 var daemonAppMethodAllowlist = map[string]struct{}{
-	"GetGitConflictPending":          {},
-	"ResolveGitConflict":             {},
-	"SetSkippedUpdateVersion":        {},
-	"BackupNow":                      {},
-	"GetConfig":                      {},
-	"GetLastBackupChanges":           {},
-	"GetLastBackupCompletedAt":       {},
-	"RestoreFromCloud":               {},
-	"ListSkills":                     {},
-	"ListCategories":                 {},
-	"MoveSkillCategory":              {},
-	"DeleteSkill":                    {},
-	"DeleteSkills":                   {},
-	"ImportLocal":                    {},
-	"UpdateSkill":                    {},
-	"CheckUpdates":                   {},
-	"GetSkillMeta":                   {},
-	"GetSkillMetaByPath":             {},
-	"ReadSkillFileContent":           {},
-	"SaveConfig":                     {},
-	"CheckMissingAgentPushDirs":      {},
-	"PushToAgents":                   {},
-	"PushToAgentsForce":              {},
-	"CreateCategory":                 {},
-	"RenameCategory":                 {},
-	"DeleteCategory":                 {},
-	"GetEnabledAgents":               {},
-	"GetAgentMemoryPreview":          {},
-	"ListAgentSkills":                {},
-	"DeleteAgentSkill":               {},
-	"ScanAgentSkills":                {},
-	"PullFromAgent":                  {},
-	"PullFromAgentForce":             {},
-	"CreateModuleMemory":             {},
-	"DeleteModuleMemory":             {},
-	"GetAllMemoryPushConfigs":        {},
-	"GetAllMemoryPushStatuses":       {},
-	"GetMainMemory":                  {},
-	"ListModuleMemories":             {},
-	"PushSelectedMemory":             {},
-	"SaveMainMemory":                 {},
-	"SaveMemoryPushConfig":           {},
-	"SaveModuleMemory":               {},
-	"SetModuleMemoryEnabled":         {},
-	"CancelImportPrompts":            {},
-	"CompleteImportPrompts":          {},
-	"CreatePrompt":                   {},
-	"DeletePrompt":                   {},
-	"ListPromptCategories":           {},
-	"ListPrompts":                    {},
-	"MovePromptCategory":             {},
-	"UpdatePrompt":                   {},
-	"CreatePromptCategory":           {},
-	"RenamePromptCategory":           {},
-	"DeletePromptCategory":           {},
-	"ListCloudProviders":             {},
-	"TestProxyConnection":            {},
-	"CheckAppUpdateAndNotify":        {},
-	"ListStarredRepos":               {},
-	"AddStarredRepo":                 {},
-	"AddStarredRepoWithCredentials":  {},
-	"RemoveStarredRepo":              {},
-	"UpdateStarredRepo":              {},
-	"UpdateAllStarredRepos":          {},
-	"ListAllStarSkills":              {},
-	"ListRepoStarSkills":             {},
-	"ImportStarSkills":               {},
-	"PushStarSkillsToAgents":         {},
-	"PushStarSkillsToAgentsForce":    {},
+	"GetGitConflictPending":         {},
+	"ResolveGitConflict":            {},
+	"SetSkippedUpdateVersion":       {},
+	"BackupNow":                     {},
+	"GetConfig":                     {},
+	"GetLastBackupChanges":          {},
+	"GetLastBackupCompletedAt":      {},
+	"RestoreFromCloud":              {},
+	"ListSkills":                    {},
+	"ListCategories":                {},
+	"MoveSkillCategory":             {},
+	"DeleteSkill":                   {},
+	"DeleteSkills":                  {},
+	"ImportLocal":                   {},
+	"UpdateSkill":                   {},
+	"CheckUpdates":                  {},
+	"GetSkillMeta":                  {},
+	"GetSkillMetaByPath":            {},
+	"ReadSkillFileContent":          {},
+	"SaveConfig":                    {},
+	"CheckMissingAgentPushDirs":     {},
+	"PushToAgents":                  {},
+	"PushToAgentsForce":             {},
+	"CreateCategory":                {},
+	"RenameCategory":                {},
+	"DeleteCategory":                {},
+	"GetEnabledAgents":              {},
+	"GetAgentMemoryPreview":         {},
+	"ListAgentSkills":               {},
+	"DeleteAgentSkill":              {},
+	"ScanAgentSkills":               {},
+	"PullFromAgent":                 {},
+	"PullFromAgentForce":            {},
+	"CreateModuleMemory":            {},
+	"DeleteModuleMemory":            {},
+	"GetAllMemoryPushConfigs":       {},
+	"GetAllMemoryPushStatuses":      {},
+	"GetMainMemory":                 {},
+	"ListModuleMemories":            {},
+	"PushSelectedMemory":            {},
+	"SaveMainMemory":                {},
+	"SaveMemoryPushConfig":          {},
+	"SaveModuleMemory":              {},
+	"SetModuleMemoryEnabled":        {},
+	"CancelImportPrompts":           {},
+	"CompleteImportPrompts":         {},
+	"CreatePrompt":                  {},
+	"DeletePrompt":                  {},
+	"ListPromptCategories":          {},
+	"ListPrompts":                   {},
+	"MovePromptCategory":            {},
+	"UpdatePrompt":                  {},
+	"CreatePromptCategory":          {},
+	"RenamePromptCategory":          {},
+	"DeletePromptCategory":          {},
+	"ListCloudProviders":            {},
+	"TestProxyConnection":           {},
+	"CheckAppUpdateAndNotify":       {},
+	"ListStarredRepos":              {},
+	"AddStarredRepo":                {},
+	"AddStarredRepoWithCredentials": {},
+	"RemoveStarredRepo":             {},
+	"UpdateStarredRepo":             {},
+	"UpdateAllStarredRepos":         {},
+	"ListAllStarSkills":             {},
+	"ListRepoStarSkills":            {},
+	"ImportStarSkills":              {},
+	"PushStarSkillsToAgents":        {},
+	"PushStarSkillsToAgentsForce":   {},
 }
 
 func (a *App) GetBackendClientConfig() (*BackendClientConfig, error) {
@@ -135,7 +136,27 @@ func daemonServiceHandlers(app *App) map[string]daemonruntime.ServiceHandler {
 			return invokeDaemonAppMethod(app, name, params)
 		}
 	}
+	handlers["native.api"] = nativeAPIDaemonHandler(app)
 	return handlers
+}
+
+func nativeAPIDaemonHandler(app *App) daemonruntime.ServiceHandler {
+	router := nativeAPIRouter(app)
+	return func(ctx context.Context, params json.RawMessage) (any, error) {
+		var req nativeapi.Request
+		if err := json.Unmarshal(params, &req); err != nil {
+			return nativeapi.Response{
+				OK:     false,
+				Result: json.RawMessage(`null`),
+				Error: &nativeapi.Error{
+					Code:       nativeapi.CodeInternalError,
+					Message:    err.Error(),
+					MessageKey: nativeapi.MessageKeyInternalError,
+				},
+			}, nil
+		}
+		return router.Handle(ctx, req), nil
+	}
 }
 
 func invokeDaemonAppMethod(app *App, methodName string, params json.RawMessage) (any, error) {
