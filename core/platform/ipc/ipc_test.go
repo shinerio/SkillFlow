@@ -1,6 +1,7 @@
 package ipc
 
 import (
+	"context"
 	"encoding/json"
 	"net"
 	"os"
@@ -8,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/shinerio/skillflow/core/platform/nativeapi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -56,6 +58,47 @@ func TestSendLoopbackCommandRejectsUnauthorizedToken(t *testing.T) {
 	err = SendLoopbackCommand(statePath, "show-ui")
 	require.Error(t, err)
 	assert.EqualError(t, err, "unauthorized")
+}
+
+func TestLoopbackServerRoundTripsPayloadWithToken(t *testing.T) {
+	dir := t.TempDir()
+	statePath := filepath.Join(dir, "daemon-control.json")
+
+	router := nativeapi.NewRouter()
+	router.Register("ping", func(_ context.Context, params json.RawMessage) (any, error) {
+		assert.JSONEq(t, `{"value":"hello"}`, string(params))
+		return map[string]string{"value": "pong"}, nil
+	})
+
+	server, err := StartLoopbackPayloadServer(statePath, func(payload json.RawMessage) (json.RawMessage, error) {
+		var req nativeapi.Request
+		if err := json.Unmarshal(payload, &req); err != nil {
+			return nil, err
+		}
+		resp := router.Handle(context.Background(), req)
+		return json.Marshal(resp)
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_ = server.Close()
+	})
+
+	reqPayload, err := json.Marshal(nativeapi.Request{
+		Version:   "2026-04-25",
+		Method:    "ping",
+		Params:    json.RawMessage(`{"value":"hello"}`),
+		RequestID: "req-1",
+	})
+	require.NoError(t, err)
+
+	respPayload, err := SendLoopbackPayload(statePath, reqPayload)
+	require.NoError(t, err)
+
+	var resp nativeapi.Response
+	require.NoError(t, json.Unmarshal(respPayload, &resp))
+	assert.True(t, resp.OK)
+	assert.JSONEq(t, `{"value":"pong"}`, string(resp.Result))
+	assert.Nil(t, resp.Error)
 }
 
 func TestPruneStaleStateRemovesDeadEndpoint(t *testing.T) {
