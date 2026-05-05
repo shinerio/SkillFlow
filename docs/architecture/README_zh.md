@@ -26,6 +26,19 @@ SkillFlow 的后端是一个基于 DDD 的模块化单体：
 - [运行时、仓库布局与存储](./runtime-and-storage_zh.md)
   - Wails 壳层约束、daemon/UI 双进程、loopback 网关职责、存储布局，以及 repository 与 gateway 的划分规则
 
+## 迁移计划
+
+- [原生平台重构设计](../plans/2026-04-25-native-platform-refactor-design.md)
+  - 从 Wails/React 生产 UI 迁移到 macOS Swift 与 Windows WinUI 原生客户端的目标设计
+- [原生平台重构实施计划](../plans/2026-04-25-native-platform-refactor-implementation.md)
+  - daemon API 稳定、原生壳、功能切片、打包和发布切换的分批执行计划
+- [原生平台功能契约](../plans/2026-04-25-native-platform-feature-contract.md)
+  - Wails baseline、macOS 原生客户端、Windows 原生客户端和 daemon API 的行为保持检查表
+- [原生平台性能基线](../plans/2026-04-25-native-platform-performance-baseline.md)
+  - 资源占用和启动性能对比所需的测量流程和基线表格
+- [原生平台发布检查清单](../plans/2026-04-25-native-platform-release-checklist.md)
+  - 原生客户端替代 Wails 生产 UI 前必须通过的阻塞发布门槛
+
 ## 不变约束
 
 - 仓库根目录不能放 Go 源文件。
@@ -40,4 +53,4 @@ SkillFlow 的后端是一个基于 DDD 的模块化单体：
 
 这组文档只覆盖后端架构。用户可见行为仍然以 [`docs/features_zh.md`](../features_zh.md) 为准，落盘配置格式仍然以 [`docs/config_zh.md`](../config_zh.md) 为准。
 
-*最后更新：2026-04-06*
+*最后更新：2026-04-26*

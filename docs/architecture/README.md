@@ -26,6 +26,19 @@ SkillFlow's backend is a DDD-oriented modular monolith:
 - [Runtime, Repository Layout, and Storage](./runtime-and-storage.md)
   - Wails shell constraints, daemon/UI runtime split, loopback gateway responsibilities, storage layout, and repository vs gateway rules
 
+## Migration Plans
+
+- [Native platform refactor design](../plans/2026-04-25-native-platform-refactor-design.md)
+  - target migration from the Wails/React production UI to macOS Swift and Windows WinUI native clients
+- [Native platform refactor implementation plan](../plans/2026-04-25-native-platform-refactor-implementation.md)
+  - batch-by-batch execution plan for daemon API stabilization, native shells, feature slices, packaging, and release cutover
+- [Native platform feature contract](../plans/2026-04-25-native-platform-feature-contract.md)
+  - behavior-preservation checklist for the Wails baseline, macOS native client, Windows native client, and daemon API
+- [Native platform performance baseline](../plans/2026-04-25-native-platform-performance-baseline.md)
+  - required measurement protocol and baseline tables for resource and startup comparisons
+- [Native platform release checklist](../plans/2026-04-25-native-platform-release-checklist.md)
+  - blocking release gates before native clients can replace the Wails production UI
+
 ## Invariants
 
 - The repository root must contain no Go source files.
@@ -40,4 +53,4 @@ SkillFlow's backend is a DDD-oriented modular monolith:
 
 These documents cover backend architecture only. User-facing behavior remains documented in [`docs/features.md`](../features.md), and persisted file schemas remain documented in [`docs/config.md`](../config.md).
 
-*Last updated: 2026-04-06*
+*Last updated: 2026-04-26*
