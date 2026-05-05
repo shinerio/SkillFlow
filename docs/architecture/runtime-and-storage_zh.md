@@ -37,6 +37,23 @@ SkillFlow 采用 daemon/UI 双进程模型：
 - 前端业务调用不再直接依赖完整 Wails 后端绑定，而是由 `ui` 通过本地鉴权 loopback 网关转发给 `daemon`
 - 关闭或隐藏主窗口时，`ui` 进程会直接退出，但 `daemon` 会继续常驻；再次显示应用时会重新冷启动一个新的 `ui`
 
+## 原生迁移期运行时
+
+在原生平台迁移期，SkillFlow 会同时存在两类客户端：
+
+- 现有 Wails/React UI 继续作为行为基线，并仍然从 `cmd/skillflow/` 运行
+- macOS 与 Windows 原生客户端会作为平台 UI 进程运行，并调用同一个 Go `daemon`
+
+Go `daemon` 是唯一允许读取或修改业务数据的进程。原生客户端不能直接读写 `config*.json`、`star_repos*.json`、`skills/`、`prompts/`、`meta/`、备份状态或运行时派生的业务文件。
+
+原生 daemon API 使用 `core/platform/nativeapi` 定义的稳定 JSON 外壳：
+
+- 请求字段：`version`、`method`、`params`、`requestID`
+- 响应字段：`ok`、`result`、`error`
+- 稳定错误码，例如 `method_not_found` 与 `internal_error`
+
+迁移先从只读契约方法开始，例如 `settings.get`、`skills.list`、`skills.categories.list`、`agents.listEnabled` 和 `backup.providers.list`。当前 daemon 通过本地鉴权 daemon 网关暴露原生外壳，同时保留旧 Wails 方法代理。传输层后续可以从当前 loopback 实现迁移到 macOS Unix domain socket 或 Windows named pipe，而不改变 JSON 契约。
+
 ## 仓库结构
 
 ```text
@@ -186,4 +203,4 @@ Gateway：
 - 机器相关路径只保留在本地配置 namespace 中
 - 敏感信息不能写入日志
 
-*最后更新：2026-04-06*
+*最后更新：2026-05-06*

@@ -37,6 +37,23 @@ SkillFlow uses a daemon/UI split:
 - frontend business calls are proxied from the `ui` process to the `daemon` over the local authenticated loopback gateway instead of directly binding the full backend runtime into the UI process
 - closing or hiding the main window exits the `ui` process without killing the `daemon`; showing the app again cold-starts a fresh UI process
 
+## Native Migration Runtime
+
+During the native platform migration, SkillFlow has two client families:
+
+- the existing Wails/React UI remains the behavioral baseline and continues to run from `cmd/skillflow/`
+- the native macOS and Windows clients will run as platform UI processes and call the same Go `daemon`
+
+The Go `daemon` is the only process allowed to read or mutate business data. Native clients must not read or write `config*.json`, `star_repos*.json`, `skills/`, `prompts/`, `meta/`, backup state, or runtime-derived business files directly.
+
+The native daemon API is a stable JSON envelope defined under `core/platform/nativeapi`:
+
+- request fields: `version`, `method`, `params`, `requestID`
+- response fields: `ok`, `result`, `error`
+- stable error codes such as `method_not_found` and `internal_error`
+
+The migration starts with read-only contract methods such as `settings.get`, `skills.list`, `skills.categories.list`, `agents.listEnabled`, and `backup.providers.list`. The current daemon exposes the native envelope through the local authenticated daemon gateway while preserving the legacy Wails method proxy. Transport details can move from the current loopback implementation to Unix domain sockets on macOS or named pipes on Windows without changing the JSON contract.
+
 ## Repository Shape
 
 ```text
@@ -186,4 +203,4 @@ Existing constraints remain in force:
 - local-only machine-specific paths stay in local settings namespaces
 - secrets must never be written to logs
 
-*Last updated: 2026-04-06*
+*Last updated: 2026-05-06*
