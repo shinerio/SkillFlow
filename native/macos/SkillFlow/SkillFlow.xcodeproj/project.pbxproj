@@ -1,0 +1,384 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	objectVersion = 56;
+	classes = {
+	};
+	objects = {
+
+/* Begin PBXBuildFile section */
+		100000000000000000000101 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000201 /* AppDelegate.swift */; };
+		100000000000000000000102 /* DaemonClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000202 /* DaemonClient.swift */; };
+		100000000000000000000103 /* DaemonModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000203 /* DaemonModels.swift */; };
+		100000000000000000000104 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000204 /* RootView.swift */; };
+		100000000000000000000105 /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000205 /* SidebarView.swift */; };
+		100000000000000000000106 /* SkillFlowApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000206 /* SkillFlowApp.swift */; };
+		100000000000000000000107 /* DaemonClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000207 /* DaemonClientTests.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		100000000000000000000201 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		100000000000000000000202 /* DaemonClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DaemonClient.swift; sourceTree = "<group>"; };
+		100000000000000000000203 /* DaemonModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DaemonModels.swift; sourceTree = "<group>"; };
+		100000000000000000000204 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		100000000000000000000205 /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
+		100000000000000000000206 /* SkillFlowApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillFlowApp.swift; sourceTree = "<group>"; };
+		100000000000000000000207 /* DaemonClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DaemonClientTests.swift; sourceTree = "<group>"; };
+		100000000000000000000208 /* Package.swift */ = {isa = PBXFileReference; lastKnownFileType = text; path = Package.swift; sourceTree = "<group>"; };
+		100000000000000000000209 /* SkillFlow.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SkillFlow.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		10000000000000000000020A /* SkillFlowTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SkillFlowTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		100000000000000000000301 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		100000000000000000000302 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		100000000000000000000401 = {
+			isa = PBXGroup;
+			children = (
+				100000000000000000000208 /* Package.swift */,
+				100000000000000000000402 /* Sources */,
+				100000000000000000000405 /* Tests */,
+				100000000000000000000406 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		100000000000000000000402 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				100000000000000000000206 /* SkillFlowApp.swift */,
+				100000000000000000000201 /* AppDelegate.swift */,
+				100000000000000000000403 /* Daemon */,
+				100000000000000000000404 /* Shell */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		100000000000000000000403 /* Daemon */ = {
+			isa = PBXGroup;
+			children = (
+				100000000000000000000202 /* DaemonClient.swift */,
+				100000000000000000000203 /* DaemonModels.swift */,
+			);
+			path = Daemon;
+			sourceTree = "<group>";
+		};
+		100000000000000000000404 /* Shell */ = {
+			isa = PBXGroup;
+			children = (
+				100000000000000000000204 /* RootView.swift */,
+				100000000000000000000205 /* SidebarView.swift */,
+			);
+			path = Shell;
+			sourceTree = "<group>";
+		};
+		100000000000000000000405 /* Tests */ = {
+			isa = PBXGroup;
+			children = (
+				100000000000000000000207 /* DaemonClientTests.swift */,
+			);
+			path = Tests;
+			sourceTree = "<group>";
+		};
+		100000000000000000000406 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				100000000000000000000209 /* SkillFlow.app */,
+				10000000000000000000020A /* SkillFlowTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		100000000000000000000501 /* SkillFlow */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 100000000000000000000701 /* Build configuration list for PBXNativeTarget "SkillFlow" */;
+			buildPhases = (
+				100000000000000000000303 /* Sources */,
+				100000000000000000000301 /* Frameworks */,
+				100000000000000000000304 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SkillFlow;
+			packageProductDependencies = (
+			);
+			productName = SkillFlow;
+			productReference = 100000000000000000000209 /* SkillFlow.app */;
+			productType = "com.apple.product-type.application";
+		};
+		100000000000000000000502 /* SkillFlowTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 100000000000000000000702 /* Build configuration list for PBXNativeTarget "SkillFlowTests" */;
+			buildPhases = (
+				100000000000000000000305 /* Sources */,
+				100000000000000000000302 /* Frameworks */,
+				100000000000000000000306 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				100000000000000000000601 /* PBXTargetDependency */,
+			);
+			name = SkillFlowTests;
+			packageProductDependencies = (
+			);
+			productName = SkillFlowTests;
+			productReference = 10000000000000000000020A /* SkillFlowTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		100000000000000000000503 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+			};
+			buildConfigurationList = 100000000000000000000700 /* Build configuration list for PBXProject "SkillFlow" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 100000000000000000000401;
+			productRefGroup = 100000000000000000000406 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				100000000000000000000501 /* SkillFlow */,
+				100000000000000000000502 /* SkillFlowTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		100000000000000000000304 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		100000000000000000000306 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		100000000000000000000303 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				100000000000000000000101 /* AppDelegate.swift in Sources */,
+				100000000000000000000102 /* DaemonClient.swift in Sources */,
+				100000000000000000000103 /* DaemonModels.swift in Sources */,
+				100000000000000000000104 /* RootView.swift in Sources */,
+				100000000000000000000105 /* SidebarView.swift in Sources */,
+				100000000000000000000106 /* SkillFlowApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		100000000000000000000305 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				100000000000000000000107 /* DaemonClientTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXContainerItemProxy section */
+		100000000000000000000602 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 100000000000000000000503 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 100000000000000000000501;
+			remoteInfo = SkillFlow;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXTargetDependency section */
+		100000000000000000000601 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 100000000000000000000501 /* SkillFlow */;
+			targetProxy = 100000000000000000000602 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		100000000000000000000801 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		100000000000000000000802 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		100000000000000000000803 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = SkillFlow;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.shinerio.skillflow.native;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		100000000000000000000804 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = SkillFlow;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.shinerio.skillflow.native;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		100000000000000000000805 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.shinerio.skillflow.native.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/SkillFlow.app/Contents/MacOS/SkillFlow";
+			};
+			name = Debug;
+		};
+		100000000000000000000806 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.shinerio.skillflow.native.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/SkillFlow.app/Contents/MacOS/SkillFlow";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		100000000000000000000700 /* Build configuration list for PBXProject "SkillFlow" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				100000000000000000000801 /* Debug */,
+				100000000000000000000802 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		100000000000000000000701 /* Build configuration list for PBXNativeTarget "SkillFlow" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				100000000000000000000803 /* Debug */,
+				100000000000000000000804 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		100000000000000000000702 /* Build configuration list for PBXNativeTarget "SkillFlowTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				100000000000000000000805 /* Debug */,
+				100000000000000000000806 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 100000000000000000000503 /* Project object */;
+}

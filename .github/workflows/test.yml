@@ -44,3 +44,30 @@ jobs:
       - name: Run frontend unit tests
         working-directory: cmd/skillflow/frontend
         run: npm run test:unit
+
+  native-macos:
+    runs-on: macos-15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Build native macOS client
+        run: |
+          xcodebuild -project native/macos/SkillFlow/SkillFlow.xcodeproj \
+            -scheme SkillFlow \
+            -destination 'platform=macOS' \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Test native macOS daemon client
+        run: |
+          xcodebuild -project native/macos/SkillFlow/SkillFlow.xcodeproj \
+            -scheme SkillFlow \
+            -destination 'platform=macOS' \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO \
+            test
