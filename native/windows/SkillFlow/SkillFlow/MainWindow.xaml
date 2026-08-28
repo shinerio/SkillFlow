@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window
+    x:Class="SkillFlow.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:shell="using:SkillFlow.Shell">
+
+    <Grid RowDefinitions="*,Auto">
+        <NavigationView
+            x:Name="Navigation"
+            IsBackButtonVisible="Collapsed"
+            SelectionChanged="OnNavigationSelectionChanged">
+            <NavigationView.MenuItems>
+                <NavigationViewItem Content="Settings" Tag="settings" Icon="Setting" />
+                <NavigationViewItem Content="My Skills" Tag="skills">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE8A5;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="My Agents" Tag="agents">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE716;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="Starred Repos" Tag="starredRepos">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE735;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="My Prompts" Tag="prompts">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE70B;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="My Memory" Tag="memory">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE77B;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="Cloud Backup" Tag="backup">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE753;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+            </NavigationView.MenuItems>
+            <Frame x:Name="ContentFrame" />
+        </NavigationView>
+
+        <Border
+            Grid.Row="1"
+            Padding="16,8"
+            BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+            BorderThickness="0,1,0,0">
+            <TextBlock
+                x:Name="TrayPlaceholder"
+                Text="Background service integration is active; tray controls will arrive in a later migration batch."
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+        </Border>
+    </Grid>
+</Window>

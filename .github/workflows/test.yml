@@ -71,3 +71,32 @@ jobs:
             -configuration Debug \
             CODE_SIGNING_ALLOWED=NO \
             test
+
+  native-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Show .NET SDK version
+        run: dotnet --info
+
+      - name: Build native Windows client
+        run: |
+          dotnet build native/windows/SkillFlow/SkillFlow.sln `
+            -c Debug `
+            -p:Platform=x64 `
+            --nologo
+
+      - name: Test native Windows daemon client
+        run: |
+          dotnet test native/windows/SkillFlow/SkillFlow.sln `
+            -c Debug `
+            -p:Platform=x64 `
+            --no-build `
+            --nologo
