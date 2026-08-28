@@ -11,7 +11,12 @@ struct RootView: View {
             },
             detail: {
                 if let selection {
-                    PlaceholderView(item: selection)
+                    switch selection {
+                    case .settings:
+                        SettingsView()
+                    default:
+                        PlaceholderView(item: selection)
+                    }
                 } else {
                     VStack(spacing: 8) {
                         Image(systemName: "sidebar.left")

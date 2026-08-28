@@ -64,7 +64,7 @@ struct DaemonServiceResponse<Result: Decodable>: Decodable {
     let error: String?
 }
 
-enum DaemonClientError: Error, Equatable {
+public enum DaemonClientError: Error, Equatable {
     case endpointUnavailable
     case invalidEndpoint
     case invalidResponse

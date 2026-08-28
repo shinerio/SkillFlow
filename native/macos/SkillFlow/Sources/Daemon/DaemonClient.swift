@@ -1,10 +1,10 @@
 import Foundation
 
-struct DaemonClient {
+public struct DaemonClient {
     private let endpointPath: String
     private let session: URLSession
 
-    init(
+    public init(
         endpointPath: String = DaemonClient.defaultEndpointPath(),
         session: URLSession = .shared
     ) {
@@ -12,7 +12,7 @@ struct DaemonClient {
         self.session = session
     }
 
-    static func defaultEndpointPath() -> String {
+    public static func defaultEndpointPath() -> String {
         let applicationSupport = URL(
             fileURLWithPath: NSHomeDirectory(),
             isDirectory: true
@@ -25,7 +25,7 @@ struct DaemonClient {
         return applicationSupport.path
     }
 
-    func invoke<Result: Decodable, Parameters: Encodable>(
+public func invoke<Result: Decodable, Parameters: Encodable>(
         _ method: String,
         parameters: Parameters? = nil,
         requestID: String = UUID().uuidString
@@ -101,7 +101,7 @@ struct DaemonClient {
         return result
     }
 
-    func invoke<Result: Decodable>(
+public func invoke<Result: Decodable>(
         _ method: String,
         requestID: String = UUID().uuidString
     ) async throws -> Result {

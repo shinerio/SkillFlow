@@ -11,13 +11,13 @@ let package = Package(
             name: "SkillFlowCore",
             path: "Sources",
             exclude: ["AppDelegate.swift", "SkillFlowApp.swift", "Shell"],
-            sources: ["Daemon"]
+            sources: ["Daemon", "Settings"]
         ),
         .executableTarget(
             name: "SkillFlow",
             dependencies: ["SkillFlowCore"],
             path: "Sources",
-            exclude: ["Daemon"],
+            exclude: ["Daemon", "Settings"],
             sources: ["AppDelegate.swift", "SkillFlowApp.swift", "Shell"]
         ),
         .testTarget(
