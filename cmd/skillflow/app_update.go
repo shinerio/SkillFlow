@@ -46,7 +46,7 @@ func (a *App) GetAppVersion() string {
 
 // CheckAppUpdate queries GitHub Releases API and returns update information.
 func (a *App) CheckAppUpdate() (*AppUpdateInfo, error) {
-	a.logDebugf("check app update started")
+	a.logInfof("check app update started")
 	client := a.proxyHTTPClient()
 	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/latest", githubOwner, githubRepo)
 	releasePageURL := fmt.Sprintf("https://github.com/%s/%s/releases/latest", githubOwner, githubRepo)
@@ -93,7 +93,7 @@ func (a *App) CheckAppUpdate() (*AppUpdateInfo, error) {
 		ReleaseNotes:   release.Body,
 		CanAutoUpdate:  goruntime.GOOS == "windows",
 	}
-	a.logDebugf("check app update completed (hasUpdate=%v latest=%s)", info.HasUpdate, info.LatestVersion)
+	a.logInfof("check app update completed: hasUpdate=%v latest=%s", info.HasUpdate, info.LatestVersion)
 	return info, nil
 }
 

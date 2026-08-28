@@ -49,6 +49,7 @@ type App struct {
 	promptImports      *promptImportSessionStore
 	initialWindowState config.WindowState
 	autostartFactory   func() (launchAtLoginController, error)
+	openExternalPathFn func(target string) error
 	memoryService      *memorycatalogapp.MemoryService
 	memoryPushService  *memorycatalogapp.PushService
 
@@ -1382,6 +1383,15 @@ func (a *App) OpenPath(path string) error {
 		return err
 	}
 	a.logInfof("open path started: requested=%s target=%s", path, target)
+	if a.openExternalPathFn != nil {
+		if err := a.openExternalPathFn(target); err != nil {
+			a.logErrorf("open path failed: requested=%s target=%s err=%v", path, target, err)
+			return err
+		}
+		a.logInfof("open path completed: requested=%s target=%s", path, target)
+		return nil
+	}
+
 	var cmd *exec.Cmd
 	switch goruntime.GOOS {
 	case "darwin":
