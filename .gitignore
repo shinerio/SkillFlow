@@ -19,6 +19,18 @@
 /cmd/skillflow/frontend/node_modules/
 /cmd/skillflow/frontend/package.json.md5
 
+# Native macOS (Swift/Xcode) build artifacts
+native/macos/SkillFlow/.build/
+native/macos/**/DerivedData/
+native/macos/**/*.xcuserdata/
+native/macos/**/xcuserdata/
+native/macos/**/*.pcm
+native/macos/**/*.swiftinterface
+
+# Native Windows (.NET/WinUI) build artifacts
+native/windows/**/bin/
+native/windows/**/obj/
+
 .worktree
 .worktrees/
 .gocache/
