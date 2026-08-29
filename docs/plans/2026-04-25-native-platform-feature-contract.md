@@ -35,7 +35,7 @@
 | Legacy Push Route | Baseline | N/A | N/A | N/A | 旧路由或深链必须有兼容策略 |
 | Legacy Pull Route | Baseline | N/A | N/A | N/A | 旧路由或深链必须有兼容策略 |
 | Starred Repos | Baseline | Pending | Pending | Pending | 仓库添加、认证、刷新、候选技能、批量导入、批量推送 |
-| Cloud Backup | Baseline | Pending | Pending | Pending | Provider 配置、备份、恢复、Git 冲突、变更列表 |
+| Cloud Backup | Baseline | Pending | Pending | Done | Provider 配置、备份、恢复、Git 冲突、变更列表 |
 | Settings | Baseline | Pending | Pending | Done | Agents、Cloud、General、Proxy、保存、启动项、日志 |
 | Skill Card | Baseline | Pending | Pending | Pending | 状态语义、操作入口、溢出、右键菜单、拖放 |
 | Skill Tooltip | Baseline | Pending | Pending | Pending | 延迟、定位、内容、可读性 |
@@ -110,12 +110,12 @@
 
 | 验收项 | Wails baseline | macOS Native | Windows Native | daemon API |
 |--------|----------------|---------------|-----------------|------------|
-| Provider 列表与当前配置展示 | Baseline | Pending | Pending | Pending |
-| 手动备份、恢复、远端文件列表 | Baseline | Pending | Pending | Pending |
-| 备份变更列表和上次完成时间 | Baseline | Pending | Pending | Pending |
-| Git provider 冲突状态和选择本地/远端 | Baseline | Pending | Pending | Pending |
-| 自动备份间隔和 mutation 后备份语义 | Baseline | Pending | Pending | Pending |
-| Secret 只落入本地配置 | Baseline | Pending | Pending | Pending |
+| Provider 列表与当前配置展示 | Baseline | Pending | Pending | Done |
+| 手动备份、恢复、远端文件列表 | Baseline | Pending | Pending | Done |
+| 备份变更列表和上次完成时间 | Baseline | Pending | Pending | Done |
+| Git provider 冲突状态和选择本地/远端 | Baseline | Pending | Pending | Done |
+| 自动备份间隔和 mutation 后备份语义 | Baseline | Pending | Pending | Done |
+| Secret 只落入本地配置 | Baseline | Pending | Pending | Done |
 
 ### 7. Settings
 

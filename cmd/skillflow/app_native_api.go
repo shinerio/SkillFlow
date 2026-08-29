@@ -165,6 +165,10 @@ type nativeMemoryOpenEditorParams struct {
 	ModuleName string `json:"moduleName"`
 }
 
+type nativeBackupResolveConflictParams struct {
+	UseLocal bool `json:"useLocal"`
+}
+
 func nativeAPIRouter(app *App) *nativeapi.Router {
 	router := nativeapi.NewRouter()
 	registerNativeReadOnlyAPI(router, app)
@@ -173,6 +177,7 @@ func nativeAPIRouter(app *App) *nativeapi.Router {
 	registerNativeStarredAPI(router, app)
 	registerNativePromptsAPI(router, app)
 	registerNativeMemoryAPI(router, app)
+	registerNativeBackupAPI(router, app)
 	return router
 }
 
@@ -593,5 +598,33 @@ func registerNativeMemoryAPI(router *nativeapi.Router, app *App) {
 			return nil, err
 		}
 		return nil, app.OpenMemoryInEditor(req.MemoryType, req.ModuleName)
+	})
+}
+
+func registerNativeBackupAPI(router *nativeapi.Router, app *App) {
+	router.Register("backup.now", func(context.Context, json.RawMessage) (any, error) {
+		return nil, app.BackupNow()
+	})
+	router.Register("backup.listFiles", func(context.Context, json.RawMessage) (any, error) {
+		return app.ListCloudFiles()
+	})
+	router.Register("backup.restore", func(context.Context, json.RawMessage) (any, error) {
+		return nil, app.RestoreFromCloud()
+	})
+	router.Register("backup.gitConflictPending", func(context.Context, json.RawMessage) (any, error) {
+		return app.GetGitConflictPending(), nil
+	})
+	router.Register("backup.resolveGitConflict", func(_ context.Context, params json.RawMessage) (any, error) {
+		req, err := decodeNativeAPIParams[nativeBackupResolveConflictParams](params)
+		if err != nil {
+			return nil, err
+		}
+		return nil, app.ResolveGitConflict(req.UseLocal)
+	})
+	router.Register("backup.lastChanges", func(context.Context, json.RawMessage) (any, error) {
+		return app.GetLastBackupChanges(), nil
+	})
+	router.Register("backup.lastCompletedAt", func(context.Context, json.RawMessage) (any, error) {
+		return app.GetLastBackupCompletedAt(), nil
 	})
 }

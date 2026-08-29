@@ -457,6 +457,33 @@ func TestNativeAPIMemoryMethods(t *testing.T) {
 	assert.Empty(t, modules)
 }
 
+func TestNativeAPIBackupReadOnlyMethods(t *testing.T) {
+	app := newNativeAPITestApp(t)
+	handler, ok := daemonServiceHandlers(app)["native.api"]
+	require.True(t, ok, "native api daemon handler should be registered")
+
+	// backup.gitConflictPending — should be false initially.
+	resp := invokeNativeAPITestMethod(t, handler, "backup.gitConflictPending")
+	require.True(t, resp.OK)
+	var pending bool
+	require.NoError(t, json.Unmarshal(resp.Result, &pending))
+	assert.False(t, pending)
+
+	// backup.lastChanges — should be empty initially.
+	resp = invokeNativeAPITestMethod(t, handler, "backup.lastChanges")
+	require.True(t, resp.OK)
+	var changes []map[string]any
+	require.NoError(t, json.Unmarshal(resp.Result, &changes))
+	assert.Empty(t, changes)
+
+	// backup.lastCompletedAt — should be empty string initially.
+	resp = invokeNativeAPITestMethod(t, handler, "backup.lastCompletedAt")
+	require.True(t, resp.OK)
+	var completedAt string
+	require.NoError(t, json.Unmarshal(resp.Result, &completedAt))
+	assert.Empty(t, completedAt)
+}
+
 func nativeAPITestAgentNames(agents []config.AgentConfig) []string {
 	names := make([]string, 0, len(agents))
 	for _, agent := range agents {
