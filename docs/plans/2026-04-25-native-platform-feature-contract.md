@@ -31,7 +31,7 @@
 | 功能面 | Wails baseline | macOS Native | Windows Native | daemon API | 验收重点 |
 |--------|----------------|---------------|-----------------|------------|----------|
 | Navigation & Shell | Baseline | Pending | Pending | Partial | 导航、语言、主题、反馈、关闭/重开、托盘/菜单栏、窗口尺寸 |
-| My Skills | Baseline | Pending | Pending | Pending | 列表、分类、搜索、排序、导入、删除、移动、更新、手动推送、自动推送 |
+| My Skills | Baseline | Pending | Pending | Done | 列表、分类、搜索、排序、导入、删除、移动、更新、手动推送、自动推送 |
 | Legacy Push Route | Baseline | N/A | N/A | N/A | 旧路由或深链必须有兼容策略 |
 | Legacy Pull Route | Baseline | N/A | N/A | N/A | 旧路由或深链必须有兼容策略 |
 | Starred Repos | Baseline | Pending | Pending | Pending | 仓库添加、认证、刷新、候选技能、批量导入、批量推送 |
@@ -65,18 +65,18 @@
 
 | 验收项 | Wails baseline | macOS Native | Windows Native | daemon API |
 |--------|----------------|---------------|-----------------|------------|
-| 实时搜索、A-Z/Z-A 排序和分类过滤 | Baseline | Pending | Pending | Pending |
+| 实时搜索、A-Z/Z-A 排序和分类过滤 | Baseline | Pending | Pending | Done |
 | 分类创建、重命名、删除和空分类限制 | Baseline | Pending | Pending | Pending |
-| 本地文件夹导入技能 | Baseline | Pending | Pending | Pending |
-| OS 文件夹拖放导入技能 | Baseline | Pending | Pending | Pending |
-| 单个删除和批量删除技能 | Baseline | Pending | Pending | Pending |
-| 拖放或菜单移动技能分类 | Baseline | Pending | Pending | Pending |
-| 检查 Git-backed 技能更新 | Baseline | Pending | Pending | Pending |
-| 单卡更新并刷新已有 Agent 副本 | Baseline | Pending | Pending | Pending |
-| 自动更新开关本机持久化 | Baseline | Pending | Pending | Pending |
-| 自动推送目标本机持久化并可回填 | Baseline | Pending | Pending | Pending |
-| 手动推送选择可见技能和目标 Agent | Baseline | Pending | Pending | Pending |
-| 缺失推送目录确认和冲突覆盖/跳过 | Baseline | Pending | Pending | Pending |
+| 本地文件夹导入技能 | Baseline | Pending | Pending | Done |
+| OS 文件夹拖放导入技能 | Baseline | Pending | Pending | N/A |
+| 单个删除和批量删除技能 | Baseline | Pending | Pending | Done |
+| 拖放或菜单移动技能分类 | Baseline | Pending | Pending | Done |
+| 检查 Git-backed 技能更新 | Baseline | Pending | Pending | Done |
+| 单卡更新并刷新已有 Agent 副本 | Baseline | Pending | Pending | Done |
+| 自动更新开关本机持久化 | Baseline | Pending | Pending | Done |
+| 自动推送目标本机持久化并可回填 | Baseline | Pending | Pending | Done |
+| 手动推送选择可见技能和目标 Agent | Baseline | Pending | Pending | Done |
+| 缺失推送目录确认和冲突覆盖/跳过 | Baseline | Pending | Pending | Done |
 
 ### 3. Legacy Push Route
 
