@@ -40,10 +40,26 @@ type nativeSkillsPushParams struct {
 	AgentNames []string `json:"agentNames"`
 }
 
+type nativeAgentNameParams struct {
+	AgentName string `json:"agentName"`
+}
+
+type nativeAgentDeleteSkillParams struct {
+	AgentName string `json:"agentName"`
+	SkillPath string `json:"skillPath"`
+}
+
+type nativeAgentPullParams struct {
+	AgentName  string   `json:"agentName"`
+	SkillPaths []string `json:"skillPaths"`
+	Category   string   `json:"category"`
+}
+
 func nativeAPIRouter(app *App) *nativeapi.Router {
 	router := nativeapi.NewRouter()
 	registerNativeReadOnlyAPI(router, app)
 	registerNativeSkillsAPI(router, app)
+	registerNativeAgentsAPI(router, app)
 	return router
 }
 
@@ -155,5 +171,53 @@ func registerNativeSkillsAPI(router *nativeapi.Router, app *App) {
 			return nil, err
 		}
 		return nil, app.PushToAgentsForce(req.SkillIDs, req.AgentNames)
+	})
+}
+
+func registerNativeAgentsAPI(router *nativeapi.Router, app *App) {
+	router.Register("agents.list", func(context.Context, json.RawMessage) (any, error) {
+		return app.GetEnabledAgents()
+	})
+	router.Register("agents.scanSkills", func(_ context.Context, params json.RawMessage) (any, error) {
+		req, err := decodeNativeAPIParams[nativeAgentNameParams](params)
+		if err != nil {
+			return nil, err
+		}
+		return app.ScanAgentSkills(req.AgentName)
+	})
+	router.Register("agents.listSkills", func(_ context.Context, params json.RawMessage) (any, error) {
+		req, err := decodeNativeAPIParams[nativeAgentNameParams](params)
+		if err != nil {
+			return nil, err
+		}
+		return app.ListAgentSkills(req.AgentName)
+	})
+	router.Register("agents.deleteSkill", func(_ context.Context, params json.RawMessage) (any, error) {
+		req, err := decodeNativeAPIParams[nativeAgentDeleteSkillParams](params)
+		if err != nil {
+			return nil, err
+		}
+		return nil, app.DeleteAgentSkill(req.AgentName, req.SkillPath)
+	})
+	router.Register("agents.pull", func(_ context.Context, params json.RawMessage) (any, error) {
+		req, err := decodeNativeAPIParams[nativeAgentPullParams](params)
+		if err != nil {
+			return nil, err
+		}
+		return app.PullFromAgent(req.AgentName, req.SkillPaths, req.Category)
+	})
+	router.Register("agents.pullForce", func(_ context.Context, params json.RawMessage) (any, error) {
+		req, err := decodeNativeAPIParams[nativeAgentPullParams](params)
+		if err != nil {
+			return nil, err
+		}
+		return nil, app.PullFromAgentForce(req.AgentName, req.SkillPaths, req.Category)
+	})
+	router.Register("agents.memoryPreview", func(_ context.Context, params json.RawMessage) (any, error) {
+		req, err := decodeNativeAPIParams[nativeAgentNameParams](params)
+		if err != nil {
+			return nil, err
+		}
+		return app.GetAgentMemoryPreview(req.AgentName)
 	})
 }

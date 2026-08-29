@@ -247,6 +247,42 @@ func TestNativeAPISkillsBatchDelete(t *testing.T) {
 	assert.Empty(t, skills)
 }
 
+func TestNativeAPIAgentsMethods(t *testing.T) {
+	app := newNativeAPITestApp(t)
+	handler, ok := daemonServiceHandlers(app)["native.api"]
+	require.True(t, ok, "native api daemon handler should be registered")
+
+	// agents.list — should return enabled agents.
+	resp := invokeNativeAPITestMethod(t, handler, "agents.list")
+	require.True(t, resp.OK)
+	var agents []config.AgentConfig
+	require.NoError(t, json.Unmarshal(resp.Result, &agents))
+	enabledNames := nativeAPITestAgentNames(agents)
+	assert.Contains(t, enabledNames, "codex")
+	assert.NotContains(t, enabledNames, "disabled")
+
+	// agents.scanSkills — scan codex's scan dir (empty, should return empty list).
+	resp = invokeNativeAPITestMethodWithParams(t, handler, "agents.scanSkills", nativeAgentNameParams{
+		AgentName: "codex",
+	})
+	require.True(t, resp.OK)
+
+	// agents.listSkills — list codex's pushed skills (empty initially).
+	resp = invokeNativeAPITestMethodWithParams(t, handler, "agents.listSkills", nativeAgentNameParams{
+		AgentName: "codex",
+	})
+	require.True(t, resp.OK)
+
+	// agents.memoryPreview — preview codex memory.
+	resp = invokeNativeAPITestMethodWithParams(t, handler, "agents.memoryPreview", nativeAgentNameParams{
+		AgentName: "codex",
+	})
+	require.True(t, resp.OK)
+	var preview AgentMemoryPreviewDTO
+	require.NoError(t, json.Unmarshal(resp.Result, &preview))
+	assert.Equal(t, "codex", preview.AgentName)
+}
+
 func nativeAPITestAgentNames(agents []config.AgentConfig) []string {
 	names := make([]string, 0, len(agents))
 	for _, agent := range agents {
