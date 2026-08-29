@@ -121,6 +121,50 @@ type nativePromptExportByNamesParams struct {
 	Names []string `json:"names"`
 }
 
+type nativeMemoryContentParams struct {
+	Content string `json:"content"`
+}
+
+type nativeMemoryModuleNameParams struct {
+	Name string `json:"name"`
+}
+
+type nativeMemoryModuleContentParams struct {
+	Name    string `json:"name"`
+	Content string `json:"content"`
+}
+
+type nativeMemoryModuleEnabledParams struct {
+	Name    string `json:"name"`
+	Enabled bool   `json:"enabled"`
+}
+
+type nativeMemoryAgentTypeParams struct {
+	AgentType string `json:"agentType"`
+}
+
+type nativeMemorySavePushConfigParams struct {
+	AgentType string `json:"agentType"`
+	Mode      string `json:"mode"`
+	AutoPush  bool   `json:"autoPush"`
+}
+
+type nativeMemoryModulePushTargetsParams struct {
+	ModuleName  string   `json:"moduleName"`
+	PushTargets []string `json:"pushTargets"`
+}
+
+type nativeMemoryPushSelectedParams struct {
+	AgentTypes  []string `json:"agentTypes"`
+	ModuleNames []string `json:"moduleNames"`
+	Mode        string   `json:"mode"`
+}
+
+type nativeMemoryOpenEditorParams struct {
+	MemoryType string `json:"memoryType"`
+	ModuleName string `json:"moduleName"`
+}
+
 func nativeAPIRouter(app *App) *nativeapi.Router {
 	router := nativeapi.NewRouter()
 	registerNativeReadOnlyAPI(router, app)
@@ -128,6 +172,7 @@ func nativeAPIRouter(app *App) *nativeapi.Router {
 	registerNativeAgentsAPI(router, app)
 	registerNativeStarredAPI(router, app)
 	registerNativePromptsAPI(router, app)
+	registerNativeMemoryAPI(router, app)
 	return router
 }
 
@@ -429,5 +474,124 @@ func registerNativePromptsAPI(router *nativeapi.Router, app *App) {
 	})
 	router.Register("prompts.rootDir", func(context.Context, json.RawMessage) (any, error) {
 		return app.PromptRootDir()
+	})
+}
+
+func registerNativeMemoryAPI(router *nativeapi.Router, app *App) {
+	router.Register("memory.main.get", func(context.Context, json.RawMessage) (any, error) {
+		return app.GetMainMemory()
+	})
+	router.Register("memory.main.save", func(_ context.Context, params json.RawMessage) (any, error) {
+		req, err := decodeNativeAPIParams[nativeMemoryContentParams](params)
+		if err != nil {
+			return nil, err
+		}
+		return app.SaveMainMemory(req.Content)
+	})
+	router.Register("memory.modules.list", func(context.Context, json.RawMessage) (any, error) {
+		return app.ListModuleMemories()
+	})
+	router.Register("memory.modules.get", func(_ context.Context, params json.RawMessage) (any, error) {
+		req, err := decodeNativeAPIParams[nativeMemoryModuleNameParams](params)
+		if err != nil {
+			return nil, err
+		}
+		return app.GetModuleMemory(req.Name)
+	})
+	router.Register("memory.modules.create", func(_ context.Context, params json.RawMessage) (any, error) {
+		req, err := decodeNativeAPIParams[nativeMemoryModuleContentParams](params)
+		if err != nil {
+			return nil, err
+		}
+		return app.CreateModuleMemory(req.Name, req.Content)
+	})
+	router.Register("memory.modules.save", func(_ context.Context, params json.RawMessage) (any, error) {
+		req, err := decodeNativeAPIParams[nativeMemoryModuleContentParams](params)
+		if err != nil {
+			return nil, err
+		}
+		return app.SaveModuleMemory(req.Name, req.Content)
+	})
+	router.Register("memory.modules.delete", func(_ context.Context, params json.RawMessage) (any, error) {
+		req, err := decodeNativeAPIParams[nativeMemoryModuleNameParams](params)
+		if err != nil {
+			return nil, err
+		}
+		return nil, app.DeleteModuleMemory(req.Name)
+	})
+	router.Register("memory.modules.setEnabled", func(_ context.Context, params json.RawMessage) (any, error) {
+		req, err := decodeNativeAPIParams[nativeMemoryModuleEnabledParams](params)
+		if err != nil {
+			return nil, err
+		}
+		return app.SetModuleMemoryEnabled(req.Name, req.Enabled)
+	})
+	router.Register("memory.pushConfig.get", func(_ context.Context, params json.RawMessage) (any, error) {
+		req, err := decodeNativeAPIParams[nativeMemoryAgentTypeParams](params)
+		if err != nil {
+			return nil, err
+		}
+		return app.GetMemoryPushConfig(req.AgentType)
+	})
+	router.Register("memory.pushConfig.save", func(_ context.Context, params json.RawMessage) (any, error) {
+		req, err := decodeNativeAPIParams[nativeMemorySavePushConfigParams](params)
+		if err != nil {
+			return nil, err
+		}
+		return nil, app.SaveMemoryPushConfig(req.AgentType, req.Mode, req.AutoPush)
+	})
+	router.Register("memory.pushConfig.getAll", func(context.Context, json.RawMessage) (any, error) {
+		return app.GetAllMemoryPushConfigs()
+	})
+	router.Register("memory.modulePushTargets.get", func(_ context.Context, params json.RawMessage) (any, error) {
+		req, err := decodeNativeAPIParams[nativeMemoryModulePushTargetsParams](params)
+		if err != nil {
+			return nil, err
+		}
+		return app.GetModulePushTargets(req.ModuleName)
+	})
+	router.Register("memory.modulePushTargets.save", func(_ context.Context, params json.RawMessage) (any, error) {
+		req, err := decodeNativeAPIParams[nativeMemoryModulePushTargetsParams](params)
+		if err != nil {
+			return nil, err
+		}
+		return nil, app.SaveModulePushTargets(req.ModuleName, req.PushTargets)
+	})
+	router.Register("memory.modulePushTargets.getAll", func(context.Context, json.RawMessage) (any, error) {
+		return app.GetAllModulePushTargets()
+	})
+	router.Register("memory.push", func(_ context.Context, params json.RawMessage) (any, error) {
+		req, err := decodeNativeAPIParams[nativeMemoryAgentTypeParams](params)
+		if err != nil {
+			return nil, err
+		}
+		return app.PushMemoryToAgent(req.AgentType)
+	})
+	router.Register("memory.pushAll", func(context.Context, json.RawMessage) (any, error) {
+		return app.PushAllMemory()
+	})
+	router.Register("memory.pushSelected", func(_ context.Context, params json.RawMessage) (any, error) {
+		req, err := decodeNativeAPIParams[nativeMemoryPushSelectedParams](params)
+		if err != nil {
+			return nil, err
+		}
+		return app.PushSelectedMemory(req.AgentTypes, req.ModuleNames, req.Mode)
+	})
+	router.Register("memory.pushStatus.get", func(_ context.Context, params json.RawMessage) (any, error) {
+		req, err := decodeNativeAPIParams[nativeMemoryAgentTypeParams](params)
+		if err != nil {
+			return nil, err
+		}
+		return app.GetMemoryPushStatus(req.AgentType)
+	})
+	router.Register("memory.pushStatus.getAll", func(context.Context, json.RawMessage) (any, error) {
+		return app.GetAllMemoryPushStatuses()
+	})
+	router.Register("memory.openInEditor", func(_ context.Context, params json.RawMessage) (any, error) {
+		req, err := decodeNativeAPIParams[nativeMemoryOpenEditorParams](params)
+		if err != nil {
+			return nil, err
+		}
+		return nil, app.OpenMemoryInEditor(req.MemoryType, req.ModuleName)
 	})
 }

@@ -44,7 +44,7 @@
 | App Update Dialog | Baseline | Pending | Pending | Pending | 检查、下载、应用、跳过版本、平台差异 |
 | My Agents | Baseline | Pending | Pending | Pending | Agent 列表、扫描、PushDir、ScanDirs、手动拉取、删除、记忆预览 |
 | My Prompts | Baseline | Pending | Pending | Pending | 分类、卡片、编辑器、导入、导出、媒体、链接 |
-| My Memory | Baseline | Pending | Pending | Pending | 主记忆、模块记忆、批量推送、自动同步、外部编辑、Agent 侧校验 |
+| My Memory | Baseline | Pending | Pending | Done | 主记忆、模块记忆、批量推送、自动同步、外部编辑、Agent 侧校验 |
 
 ## 页面级验收清单
 
@@ -197,13 +197,13 @@
 
 | 验收项 | Wails baseline | macOS Native | Windows Native | daemon API |
 |--------|----------------|---------------|-----------------|------------|
-| 主记忆读取、编辑、保存 | Baseline | Pending | Pending | Pending |
-| 模块记忆列表、创建、编辑、删除、启停 | Baseline | Pending | Pending | Pending |
-| 每 Agent 推送模式和自动同步配置 | Baseline | Pending | Pending | Pending |
-| 模块推送目标配置 | Baseline | Pending | Pending | Pending |
-| 单 Agent、全部、选择性批量推送 | Baseline | Pending | Pending | Pending |
-| 推送状态读取和展示 | Baseline | Pending | Pending | Pending |
-| 打开外部编辑器 | Baseline | Pending | Pending | Pending |
+| 主记忆读取、编辑、保存 | Baseline | Pending | Pending | Done |
+| 模块记忆列表、创建、编辑、删除、启停 | Baseline | Pending | Pending | Done |
+| 每 Agent 推送模式和自动同步配置 | Baseline | Pending | Pending | Done |
+| 模块推送目标配置 | Baseline | Pending | Pending | Done |
+| 单 Agent、全部、选择性批量推送 | Baseline | Pending | Pending | Done |
+| 推送状态读取和展示 | Baseline | Pending | Pending | Done |
+| 打开外部编辑器 | Baseline | Pending | Pending | Done |
 | 云备份覆盖记忆内容但排除本地配置 | Baseline | Pending | Pending | Pending |
 
 ## 当前生产后端入口对照

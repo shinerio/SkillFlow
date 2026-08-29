@@ -303,6 +303,160 @@ func TestNativeAPIStarredReposMethods(t *testing.T) {
 	assert.Empty(t, skills)
 }
 
+func TestNativeAPIMemoryMethods(t *testing.T) {
+	app := newNativeAPITestApp(t)
+	handler, ok := daemonServiceHandlers(app)["native.api"]
+	require.True(t, ok, "native api daemon handler should be registered")
+
+	// memory.main.get — empty initially.
+	resp := invokeNativeAPITestMethod(t, handler, "memory.main.get")
+	require.True(t, resp.OK)
+	var mainMem MainMemoryDTO
+	require.NoError(t, json.Unmarshal(resp.Result, &mainMem))
+	assert.Empty(t, mainMem.Content)
+
+	// memory.main.save — save content.
+	resp = invokeNativeAPITestMethodWithParams(t, handler, "memory.main.save", nativeMemoryContentParams{
+		Content: "# Main Memory\nHello",
+	})
+	require.True(t, resp.OK)
+	require.NoError(t, json.Unmarshal(resp.Result, &mainMem))
+	assert.Equal(t, "# Main Memory\nHello", mainMem.Content)
+
+	// memory.main.get — verify saved content.
+	resp = invokeNativeAPITestMethod(t, handler, "memory.main.get")
+	require.True(t, resp.OK)
+	require.NoError(t, json.Unmarshal(resp.Result, &mainMem))
+	assert.Equal(t, "# Main Memory\nHello", mainMem.Content)
+
+	// memory.modules.list — empty initially.
+	resp = invokeNativeAPITestMethod(t, handler, "memory.modules.list")
+	require.True(t, resp.OK)
+	var modules []ModuleMemoryDTO
+	require.NoError(t, json.Unmarshal(resp.Result, &modules))
+	assert.Empty(t, modules)
+
+	// memory.modules.create — create a module.
+	resp = invokeNativeAPITestMethodWithParams(t, handler, "memory.modules.create", nativeMemoryModuleContentParams{
+		Name:    "coding-style",
+		Content: "Use tabs.",
+	})
+	require.True(t, resp.OK)
+	var module ModuleMemoryDTO
+	require.NoError(t, json.Unmarshal(resp.Result, &module))
+	assert.Equal(t, "coding-style", module.Name)
+	assert.Equal(t, "Use tabs.", module.Content)
+	assert.True(t, module.Enabled)
+
+	// memory.modules.list — should have one module.
+	resp = invokeNativeAPITestMethod(t, handler, "memory.modules.list")
+	require.True(t, resp.OK)
+	require.NoError(t, json.Unmarshal(resp.Result, &modules))
+	require.Len(t, modules, 1)
+	assert.Equal(t, "coding-style", modules[0].Name)
+
+	// memory.modules.get — get the module.
+	resp = invokeNativeAPITestMethodWithParams(t, handler, "memory.modules.get", nativeMemoryModuleNameParams{
+		Name: "coding-style",
+	})
+	require.True(t, resp.OK)
+	require.NoError(t, json.Unmarshal(resp.Result, &module))
+	assert.Equal(t, "coding-style", module.Name)
+	assert.Equal(t, "Use tabs.", module.Content)
+
+	// memory.modules.save — update content.
+	resp = invokeNativeAPITestMethodWithParams(t, handler, "memory.modules.save", nativeMemoryModuleContentParams{
+		Name:    "coding-style",
+		Content: "Use spaces.",
+	})
+	require.True(t, resp.OK)
+	require.NoError(t, json.Unmarshal(resp.Result, &module))
+	assert.Equal(t, "Use spaces.", module.Content)
+
+	// memory.modules.setEnabled — disable.
+	resp = invokeNativeAPITestMethodWithParams(t, handler, "memory.modules.setEnabled", nativeMemoryModuleEnabledParams{
+		Name:    "coding-style",
+		Enabled: false,
+	})
+	require.True(t, resp.OK)
+	require.NoError(t, json.Unmarshal(resp.Result, &module))
+	assert.False(t, module.Enabled)
+
+	// memory.pushConfig.getAll — should return configs for enabled agents.
+	resp = invokeNativeAPITestMethod(t, handler, "memory.pushConfig.getAll")
+	require.True(t, resp.OK)
+	var pushConfigs []*MemoryPushConfigDTO
+	require.NoError(t, json.Unmarshal(resp.Result, &pushConfigs))
+	assert.NotEmpty(t, pushConfigs)
+
+	// memory.pushConfig.get — get codex's push config.
+	resp = invokeNativeAPITestMethodWithParams(t, handler, "memory.pushConfig.get", nativeMemoryAgentTypeParams{
+		AgentType: "codex",
+	})
+	require.True(t, resp.OK)
+	var pushCfg MemoryPushConfigDTO
+	require.NoError(t, json.Unmarshal(resp.Result, &pushCfg))
+	assert.Equal(t, "codex", pushCfg.AgentType)
+
+	// memory.pushConfig.save — save codex's push config.
+	resp = invokeNativeAPITestMethodWithParams(t, handler, "memory.pushConfig.save", nativeMemorySavePushConfigParams{
+		AgentType: "codex",
+		Mode:      "merge",
+		AutoPush:  true,
+	})
+	require.True(t, resp.OK)
+
+	// memory.modulePushTargets.getAll — should be empty initially.
+	resp = invokeNativeAPITestMethod(t, handler, "memory.modulePushTargets.getAll")
+	require.True(t, resp.OK)
+	var allTargets []*ModulePushTargetsDTO
+	require.NoError(t, json.Unmarshal(resp.Result, &allTargets))
+
+	// memory.modulePushTargets.save — save targets for the module.
+	resp = invokeNativeAPITestMethodWithParams(t, handler, "memory.modulePushTargets.save", nativeMemoryModulePushTargetsParams{
+		ModuleName:  "coding-style",
+		PushTargets: []string{"codex"},
+	})
+	require.True(t, resp.OK)
+
+	// memory.modulePushTargets.get — verify saved targets.
+	resp = invokeNativeAPITestMethodWithParams(t, handler, "memory.modulePushTargets.get", nativeMemoryModulePushTargetsParams{
+		ModuleName: "coding-style",
+	})
+	require.True(t, resp.OK)
+	var targets ModulePushTargetsDTO
+	require.NoError(t, json.Unmarshal(resp.Result, &targets))
+	assert.Equal(t, "coding-style", targets.ModuleName)
+	assert.Contains(t, targets.PushTargets, "codex")
+
+	// memory.pushStatus.getAll — should return statuses.
+	resp = invokeNativeAPITestMethod(t, handler, "memory.pushStatus.getAll")
+	require.True(t, resp.OK)
+	var statuses []*PushStatusDTO
+	require.NoError(t, json.Unmarshal(resp.Result, &statuses))
+
+	// memory.pushStatus.get — get codex's push status.
+	resp = invokeNativeAPITestMethodWithParams(t, handler, "memory.pushStatus.get", nativeMemoryAgentTypeParams{
+		AgentType: "codex",
+	})
+	require.True(t, resp.OK)
+	var status PushStatusDTO
+	require.NoError(t, json.Unmarshal(resp.Result, &status))
+	assert.Equal(t, "codex", status.AgentType)
+
+	// memory.modules.delete — delete the module.
+	resp = invokeNativeAPITestMethodWithParams(t, handler, "memory.modules.delete", nativeMemoryModuleNameParams{
+		Name: "coding-style",
+	})
+	require.True(t, resp.OK)
+
+	// memory.modules.list — should be empty again.
+	resp = invokeNativeAPITestMethod(t, handler, "memory.modules.list")
+	require.True(t, resp.OK)
+	require.NoError(t, json.Unmarshal(resp.Result, &modules))
+	assert.Empty(t, modules)
+}
+
 func nativeAPITestAgentNames(agents []config.AgentConfig) []string {
 	names := make([]string, 0, len(agents))
 	for _, agent := range agents {
@@ -393,5 +547,6 @@ func newNativeAPITestApp(t *testing.T) *App {
 	app.cacheDir = filepath.Join(dataDir, "cache")
 	app.storage = skillcatalogapp.NewService(skillrepo.NewFilesystemStorage(appdata.SkillsDir(dataDir)))
 	require.NoError(t, app.storage.CreateCategory(defaultCategoryName))
+	app.memoryService, app.memoryPushService = newMemoryServices(app)
 	return app
 }
