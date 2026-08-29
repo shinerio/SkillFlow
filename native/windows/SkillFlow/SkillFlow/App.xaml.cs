@@ -4,6 +4,8 @@ namespace SkillFlow;
 
 public sealed partial class App : Application
 {
+    public static MainWindow? MainWindow { get; private set; }
+
     public App()
     {
         InitializeComponent();
@@ -11,7 +13,7 @@ public sealed partial class App : Application
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
-        var window = new MainWindow();
-        window.Activate();
+        MainWindow = new MainWindow();
+        MainWindow.Activate();
     }
 }

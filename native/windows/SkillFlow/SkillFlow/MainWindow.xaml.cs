@@ -1,5 +1,6 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using SkillFlow.Settings;
 using SkillFlow.Shell;
 
 namespace SkillFlow;
@@ -10,7 +11,7 @@ public sealed partial class MainWindow : Window
     {
         InitializeComponent();
         Title = "SkillFlow";
-        ContentFrame.Navigate(typeof(PlaceholderPage), "Settings");
+        ContentFrame.Navigate(typeof(SettingsPage));
         Navigation.SelectedItem = Navigation.MenuItems.First();
     }
 
@@ -21,16 +22,24 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        var title = tag switch
+        switch (tag)
         {
-            "skills" => "My Skills",
-            "agents" => "My Agents",
-            "starredRepos" => "Starred Repos",
-            "prompts" => "My Prompts",
-            "memory" => "My Memory",
-            "backup" => "Cloud Backup",
-            _ => "Settings",
-        };
-        ContentFrame.Navigate(typeof(PlaceholderPage), title);
+            case "settings":
+                ContentFrame.Navigate(typeof(SettingsPage));
+                break;
+            default:
+                var title = tag switch
+                {
+                    "skills" => "My Skills",
+                    "agents" => "My Agents",
+                    "starredRepos" => "Starred Repos",
+                    "prompts" => "My Prompts",
+                    "memory" => "My Memory",
+                    "backup" => "Cloud Backup",
+                    _ => "Settings",
+                };
+                ContentFrame.Navigate(typeof(PlaceholderPage), title);
+                break;
+        }
     }
 }

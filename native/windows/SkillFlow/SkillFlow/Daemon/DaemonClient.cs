@@ -124,9 +124,7 @@ public sealed class DaemonClient
 
         if (serviceResult.Result.Result is null)
         {
-            throw new DaemonClientException(
-                DaemonClientErrorKind.MissingResult,
-                "SkillFlow daemon response did not include a result payload.");
+            return default!;
         }
 
         return serviceResult.Result.Result;

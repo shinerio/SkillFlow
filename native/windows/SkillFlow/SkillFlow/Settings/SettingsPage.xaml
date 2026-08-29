@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="SkillFlow.Settings.SettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:settings="using:SkillFlow.Settings"
+    xmlns:local="using:SkillFlow">
+
+    <Page.Resources>
+        <local:BoolToVisibilityConverter x:Key="BoolToVisibility" />
+    </Page.Resources>
+
+    <Grid RowDefinitions="Auto,*,Auto">
+        <!-- Header -->
+        <Border Grid.Row="0" Padding="24,20" Background="{ThemeResource LayerFillColorDefaultBrush}">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="12">
+                    <FontIcon Glyph="&#xE713;" FontSize="20" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <StackPanel Spacing="2">
+                        <TextBlock Text="Settings" Style="{StaticResource TitleTextBlockStyle}" />
+                        <TextBlock
+                            Text="Manage SkillFlow preferences and system integrations."
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Style="{StaticResource CaptionTextBlockStyle}" />
+                    </StackPanel>
+                </StackPanel>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+                    <Button Content="Reload" Click="OnReload" IsEnabled="{x:Bind CanInteract, Mode=OneWay}" />
+                    <Button Content="Save" Click="OnSave" Style="{StaticResource AccentButtonStyle}" IsEnabled="{x:Bind CanInteract, Mode=OneWay}" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Loading indicator -->
+        <ProgressRing
+            Grid.Row="1"
+            IsActive="True"
+            Visibility="{x:Bind LoadingVisibility, Mode=OneWay}"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center" />
+
+        <!-- Content -->
+        <ScrollViewer Grid.Row="1" Padding="24,16" Visibility="{x:Bind ContentVisibility, Mode=OneWay}">
+            <StackPanel Spacing="20" MaxWidth="880" HorizontalAlignment="Stretch">
+
+                <!-- General Section -->
+                <StackPanel Spacing="12">
+                    <TextBlock Text="General" Style="{StaticResource SubtitleTextBlockStyle}" />
+                    <ComboBox Header="Log level" SelectedIndex="{x:Bind LogLevelIndex, Mode=TwoWay}">
+                        <x:String>Debug</x:String>
+                        <x:String>Info</x:String>
+                        <x:String>Error</x:String>
+                    </ComboBox>
+                    <ToggleSwitch Header="Launch at login" IsOn="{x:Bind Draft.LaunchAtLogin, Mode=TwoWay}" />
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Repository cache directory" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBox Grid.Column="0" Text="{x:Bind Draft.RepoCacheDir, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                            <Button Grid.Column="1" Content="Choose..." Click="OnChooseRepoCacheDir" Margin="8,0,0,0" />
+                        </Grid>
+                    </StackPanel>
+                    <NumberBox Header="Repository scan depth" Value="{x:Bind Draft.RepoScanMaxDepth, Mode=TwoWay}" Minimum="1" Maximum="20" />
+                    <ToggleSwitch Header="Automatically update skills" IsOn="{x:Bind Draft.AutoUpdateSkills, Mode=TwoWay}" />
+                </StackPanel>
+
+                <!-- Agents Section -->
+                <StackPanel Spacing="12">
+                    <TextBlock Text="Agents" Style="{StaticResource SubtitleTextBlockStyle}" />
+                    <TextBlock
+                        Text="No agents are configured in the daemon."
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Visibility="{x:Bind NoAgentsVisibility, Mode=OneWay}" />
+                    <ItemsControl ItemsSource="{x:Bind Draft.Agents, Mode=OneWay}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="settings:AgentSettings">
+                                <Border Padding="12" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8" Margin="0,0,0,8">
+                                    <StackPanel Spacing="8">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <ToggleSwitch Grid.Column="0" Header="{x:Bind Name, Mode=OneWay}" IsOn="{x:Bind Enabled, Mode=TwoWay}" />
+                                            <Border Grid.Column="1" Visibility="{Binding Custom, Converter={StaticResource BoolToVisibility}}" Padding="6,2" Background="{ThemeResource AccentFillColorDefaultBrush}" CornerRadius="8">
+                                                <TextBlock Text="Custom" FontSize="11" Foreground="White" />
+                                            </Border>
+                                        </Grid>
+                                        <TextBox Header="Push directory" Text="{x:Bind PushDir, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                        <TextBox Header="Scan directories (comma separated)" Text="{x:Bind ScanDirsText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                        <TextBox Header="Memory path" Text="{x:Bind MemoryPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                        <TextBox Header="Rules directory" Text="{x:Bind RulesDir, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
+                <!-- Cloud Backup Section -->
+                <StackPanel Spacing="12">
+                    <TextBlock Text="Cloud Backup" Style="{StaticResource SubtitleTextBlockStyle}" />
+                    <ComboBox Header="Provider" ItemsSource="{x:Bind ProviderNames, Mode=OneWay}" SelectedItem="{x:Bind SelectedProviderName, Mode=TwoWay}" />
+                    <ToggleSwitch Header="Enable scheduled cloud backup" IsOn="{x:Bind Draft.Cloud.Enabled, Mode=TwoWay}" />
+                    <TextBox Header="Bucket or repository" Text="{x:Bind Draft.Cloud.BucketName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBox Header="Remote path" Text="{x:Bind Draft.Cloud.RemotePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                    <NumberBox Header="Sync interval (minutes)" Value="{x:Bind Draft.Cloud.SyncIntervalMinutes, Mode=TwoWay}" Minimum="0" Maximum="1440" />
+                </StackPanel>
+
+                <!-- Network Section -->
+                <StackPanel Spacing="12">
+                    <TextBlock Text="Network" Style="{StaticResource SubtitleTextBlockStyle}" />
+                    <ComboBox Header="Proxy mode" SelectedIndex="{x:Bind ProxyModeIndex, Mode=TwoWay}">
+                        <x:String>Direct</x:String>
+                        <x:String>System</x:String>
+                        <x:String>Manual</x:String>
+                    </ComboBox>
+                    <TextBox
+                        Header="Proxy URL"
+                        Text="{x:Bind Draft.Proxy.Url, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                        Visibility="{x:Bind ManualProxyVisibility, Mode=OneWay}" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="Test Connection" Click="OnTestProxy" IsEnabled="{x:Bind CanTestProxy, Mode=OneWay}" />
+                        <ProgressRing IsActive="True" Width="20" Height="20" Visibility="{x:Bind TestingProxyVisibility, Mode=OneWay}" />
+                    </StackPanel>
+                    <TextBlock Text="{x:Bind ErrorMessage, Mode=OneWay}" Foreground="Red" Visibility="{x:Bind ErrorVisibility, Mode=OneWay}" />
+                </StackPanel>
+
+                <!-- Maintenance Section -->
+                <StackPanel Spacing="12">
+                    <TextBlock Text="Maintenance" Style="{StaticResource SubtitleTextBlockStyle}" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="Check for Updates" Click="OnCheckUpdate" IsEnabled="{x:Bind CanCheckUpdate, Mode=OneWay}" />
+                        <ProgressRing IsActive="True" Width="20" Height="20" Visibility="{x:Bind CheckingUpdateVisibility, Mode=OneWay}" />
+                        <Button Content="Open Log Directory" Click="OnOpenLogDir" />
+                    </StackPanel>
+                    <StackPanel Spacing="4" Visibility="{x:Bind UpdateInfoVisibility, Mode=OneWay}">
+                        <TextBlock Text="{x:Bind UpdateStatusText, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Style="{StaticResource CaptionTextBlockStyle}">
+                            <Run Text="Current: " /><Run Text="{x:Bind UpdateInfo.CurrentVersion, Mode=OneWay}" /><Run Text=" · Latest: " /><Run Text="{x:Bind UpdateInfo.LatestVersion, Mode=OneWay}" />
+                        </TextBlock>
+                        <TextBlock Text="{x:Bind UpdateInfo.ReleaseNotes, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Style="{StaticResource CaptionTextBlockStyle}" MaxLines="5" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <TextBlock Text="{x:Bind StatusMessage, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Visibility="{x:Bind StatusVisibility, Mode=OneWay}" />
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Footer -->
+        <Border Grid.Row="2" Padding="24,12" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,1,0,0">
+            <Grid ColumnDefinitions="Auto,*">
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" Visibility="{x:Bind SavingVisibility, Mode=OneWay}">
+                    <ProgressRing IsActive="True" Width="16" Height="16" />
+                    <TextBlock Text="Saving settings..." Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                </StackPanel>
+                <Button Grid.Column="1" Content="Save" Click="OnSave" Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Right" IsEnabled="{x:Bind CanInteract, Mode=OneWay}" />
+            </Grid>
+        </Border>
+    </Grid>
+</Page>
