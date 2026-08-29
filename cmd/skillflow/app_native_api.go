@@ -17,9 +17,33 @@ type nativeAutostartSetParams struct {
 	Enabled bool `json:"enabled"`
 }
 
+type nativeSkillsImportParams struct {
+	Dir      string `json:"dir"`
+	Category string `json:"category"`
+}
+
+type nativeSkillsDeleteParams struct {
+	SkillID string `json:"skillID"`
+}
+
+type nativeSkillsDeleteBatchParams struct {
+	SkillIDs []string `json:"skillIDs"`
+}
+
+type nativeSkillsMoveCategoryParams struct {
+	SkillID  string `json:"skillID"`
+	Category string `json:"category"`
+}
+
+type nativeSkillsPushParams struct {
+	SkillIDs   []string `json:"skillIDs"`
+	AgentNames []string `json:"agentNames"`
+}
+
 func nativeAPIRouter(app *App) *nativeapi.Router {
 	router := nativeapi.NewRouter()
 	registerNativeReadOnlyAPI(router, app)
+	registerNativeSkillsAPI(router, app)
 	return router
 }
 
@@ -77,4 +101,59 @@ func decodeNativeAPIParams[T any](params json.RawMessage) (T, error) {
 		return value, err
 	}
 	return value, nil
+}
+
+func registerNativeSkillsAPI(router *nativeapi.Router, app *App) {
+	router.Register("skills.importLocal", func(_ context.Context, params json.RawMessage) (any, error) {
+		req, err := decodeNativeAPIParams[nativeSkillsImportParams](params)
+		if err != nil {
+			return nil, err
+		}
+		return app.ImportLocal(req.Dir, req.Category)
+	})
+	router.Register("skills.delete", func(_ context.Context, params json.RawMessage) (any, error) {
+		req, err := decodeNativeAPIParams[nativeSkillsDeleteParams](params)
+		if err != nil {
+			return nil, err
+		}
+		return nil, app.DeleteSkill(req.SkillID)
+	})
+	router.Register("skills.deleteBatch", func(_ context.Context, params json.RawMessage) (any, error) {
+		req, err := decodeNativeAPIParams[nativeSkillsDeleteBatchParams](params)
+		if err != nil {
+			return nil, err
+		}
+		return nil, app.DeleteSkills(req.SkillIDs)
+	})
+	router.Register("skills.moveCategory", func(_ context.Context, params json.RawMessage) (any, error) {
+		req, err := decodeNativeAPIParams[nativeSkillsMoveCategoryParams](params)
+		if err != nil {
+			return nil, err
+		}
+		return nil, app.MoveSkillCategory(req.SkillID, req.Category)
+	})
+	router.Register("skills.updateCheck", func(context.Context, json.RawMessage) (any, error) {
+		return nil, app.CheckUpdates()
+	})
+	router.Register("skills.updateOne", func(_ context.Context, params json.RawMessage) (any, error) {
+		req, err := decodeNativeAPIParams[nativeSkillsDeleteParams](params)
+		if err != nil {
+			return nil, err
+		}
+		return nil, app.UpdateSkill(req.SkillID)
+	})
+	router.Register("skills.push", func(_ context.Context, params json.RawMessage) (any, error) {
+		req, err := decodeNativeAPIParams[nativeSkillsPushParams](params)
+		if err != nil {
+			return nil, err
+		}
+		return app.PushToAgents(req.SkillIDs, req.AgentNames)
+	})
+	router.Register("skills.pushForce", func(_ context.Context, params json.RawMessage) (any, error) {
+		req, err := decodeNativeAPIParams[nativeSkillsPushParams](params)
+		if err != nil {
+			return nil, err
+		}
+		return nil, app.PushToAgentsForce(req.SkillIDs, req.AgentNames)
+	})
 }

@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -130,6 +131,120 @@ func TestNativeAPIReadOnlyMethods(t *testing.T) {
 		}
 	}
 	assert.Contains(t, names, "git")
+}
+
+func TestNativeAPISkillsMutationMethods(t *testing.T) {
+	app := newNativeAPITestApp(t)
+	handler, ok := daemonServiceHandlers(app)["native.api"]
+	require.True(t, ok, "native api daemon handler should be registered")
+
+	// Ensure agent push directories exist for push tests.
+	for _, agent := range []string{"codex-push", "disabled-push"} {
+		require.NoError(t, os.MkdirAll(filepath.Join(app.config.DataDir(), agent), 0755))
+	}
+
+	// Import a local skill.
+	sourceDir := writeTestSkillDir(t, t.TempDir(), "demo-skill", "# Demo\nImported\n")
+	resp := invokeNativeAPITestMethodWithParams(t, handler, "skills.importLocal", nativeSkillsImportParams{
+		Dir:      sourceDir,
+		Category: defaultCategoryName,
+	})
+	require.True(t, resp.OK)
+	var imported map[string]any
+	require.NoError(t, json.Unmarshal(resp.Result, &imported))
+	assert.Equal(t, "demo-skill", imported["name"])
+
+	// List skills — imported skill should appear.
+	resp = invokeNativeAPITestMethod(t, handler, "skills.list")
+	require.True(t, resp.OK)
+	var skills []InstalledSkillEntry
+	require.NoError(t, json.Unmarshal(resp.Result, &skills))
+	require.Len(t, skills, 1)
+	assert.Equal(t, "demo-skill", skills[0].Name)
+	skillID := skills[0].ID
+
+	// Move category — create a new category first, then move.
+	resp = invokeNativeAPITestMethodWithParams(t, handler, "skills.moveCategory", nativeSkillsMoveCategoryParams{
+		SkillID:  skillID,
+		Category: "moved",
+	})
+	require.True(t, resp.OK)
+
+	// Verify the category changed.
+	resp = invokeNativeAPITestMethod(t, handler, "skills.list")
+	require.True(t, resp.OK)
+	require.NoError(t, json.Unmarshal(resp.Result, &skills))
+	require.Len(t, skills, 1)
+	assert.Equal(t, "moved", skills[0].Category)
+
+	// Push to agents — codex is enabled, disabled is not.
+	resp = invokeNativeAPITestMethodWithParams(t, handler, "skills.push", nativeSkillsPushParams{
+		SkillIDs:   []string{skillID},
+		AgentNames: []string{"codex"},
+	})
+	require.True(t, resp.OK)
+
+	// Force push to agents.
+	resp = invokeNativeAPITestMethodWithParams(t, handler, "skills.pushForce", nativeSkillsPushParams{
+		SkillIDs:   []string{skillID},
+		AgentNames: []string{"codex"},
+	})
+	require.True(t, resp.OK)
+
+	// Check updates — non-GitHub skills are skipped, should succeed.
+	resp = invokeNativeAPITestMethod(t, handler, "skills.updateCheck")
+	require.True(t, resp.OK)
+
+	// Delete the skill.
+	resp = invokeNativeAPITestMethodWithParams(t, handler, "skills.delete", nativeSkillsDeleteParams{
+		SkillID: skillID,
+	})
+	require.True(t, resp.OK)
+
+	// Verify the skill is gone.
+	resp = invokeNativeAPITestMethod(t, handler, "skills.list")
+	require.True(t, resp.OK)
+	require.NoError(t, json.Unmarshal(resp.Result, &skills))
+	assert.Empty(t, skills)
+}
+
+func TestNativeAPISkillsBatchDelete(t *testing.T) {
+	app := newNativeAPITestApp(t)
+	handler, ok := daemonServiceHandlers(app)["native.api"]
+	require.True(t, ok, "native api daemon handler should be registered")
+
+	// Import two skills.
+	var skillIDs []string
+	for _, name := range []string{"skill-a", "skill-b"} {
+		sourceDir := writeTestSkillDir(t, t.TempDir(), name, "# "+name+"\n")
+		resp := invokeNativeAPITestMethodWithParams(t, handler, "skills.importLocal", nativeSkillsImportParams{
+			Dir:      sourceDir,
+			Category: defaultCategoryName,
+		})
+		require.True(t, resp.OK)
+	}
+
+	// List to get IDs.
+	resp := invokeNativeAPITestMethod(t, handler, "skills.list")
+	require.True(t, resp.OK)
+	var skills []InstalledSkillEntry
+	require.NoError(t, json.Unmarshal(resp.Result, &skills))
+	require.Len(t, skills, 2)
+	for _, s := range skills {
+		skillIDs = append(skillIDs, s.ID)
+	}
+
+	// Batch delete.
+	resp = invokeNativeAPITestMethodWithParams(t, handler, "skills.deleteBatch", nativeSkillsDeleteBatchParams{
+		SkillIDs: skillIDs,
+	})
+	require.True(t, resp.OK)
+
+	// Verify all gone.
+	resp = invokeNativeAPITestMethod(t, handler, "skills.list")
+	require.True(t, resp.OK)
+	require.NoError(t, json.Unmarshal(resp.Result, &skills))
+	assert.Empty(t, skills)
 }
 
 func nativeAPITestAgentNames(agents []config.AgentConfig) []string {
