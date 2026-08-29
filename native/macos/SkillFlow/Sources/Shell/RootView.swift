@@ -14,6 +14,8 @@ struct RootView: View {
                     switch selection {
                     case .settings:
                         SettingsView()
+                    case .skills:
+                        SkillsView()
                     default:
                         PlaceholderView(item: selection)
                     }
