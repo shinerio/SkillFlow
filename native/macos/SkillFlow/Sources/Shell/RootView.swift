@@ -16,6 +16,8 @@ struct RootView: View {
                         SettingsView()
                     case .skills:
                         SkillsView()
+                    case .agents:
+                        AgentsView()
                     default:
                         PlaceholderView(item: selection)
                     }
