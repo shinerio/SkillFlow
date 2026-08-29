@@ -93,4 +93,6 @@ public sealed class AgentInfo
 
     [JsonPropertyName("custom")]
     public bool Custom { get; set; }
+
+    public string EnabledGlyph => Enabled ? "\xE73E" : "\xE711";
 }

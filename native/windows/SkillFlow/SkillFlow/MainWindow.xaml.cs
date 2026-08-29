@@ -1,5 +1,6 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using SkillFlow.Agents;
 using SkillFlow.Settings;
 using SkillFlow.Shell;
 using SkillFlow.Skills;
@@ -31,10 +32,12 @@ public sealed partial class MainWindow : Window
             case "skills":
                 ContentFrame.Navigate(typeof(SkillsPage));
                 break;
+            case "agents":
+                ContentFrame.Navigate(typeof(AgentsPage));
+                break;
             default:
                 var title = tag switch
                 {
-                    "agents" => "My Agents",
                     "starredRepos" => "Starred Repos",
                     "prompts" => "My Prompts",
                     "memory" => "My Memory",
