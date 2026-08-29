@@ -11,7 +11,7 @@ let package = Package(
             name: "SkillFlowCore",
             path: "Sources",
             exclude: ["AppDelegate.swift", "SkillFlowApp.swift", "Shell"],
-            sources: ["Daemon", "Settings", "Skills", "Agents"]
+            sources: ["Daemon", "Settings", "Skills", "Agents", "Memory"]
         ),
         .executableTarget(
             name: "SkillFlow",

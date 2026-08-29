@@ -18,6 +18,8 @@ struct RootView: View {
                         SkillsView()
                     case .agents:
                         AgentsView()
+                    case .memory:
+                        MemoryView()
                     default:
                         PlaceholderView(item: selection)
                     }
