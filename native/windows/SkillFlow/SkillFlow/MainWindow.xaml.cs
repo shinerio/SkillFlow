@@ -2,6 +2,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using SkillFlow.Settings;
 using SkillFlow.Shell;
+using SkillFlow.Skills;
 
 namespace SkillFlow;
 
@@ -27,10 +28,12 @@ public sealed partial class MainWindow : Window
             case "settings":
                 ContentFrame.Navigate(typeof(SettingsPage));
                 break;
+            case "skills":
+                ContentFrame.Navigate(typeof(SkillsPage));
+                break;
             default:
                 var title = tag switch
                 {
-                    "skills" => "My Skills",
                     "agents" => "My Agents",
                     "starredRepos" => "Starred Repos",
                     "prompts" => "My Prompts",
