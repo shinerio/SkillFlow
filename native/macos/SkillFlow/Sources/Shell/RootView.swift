@@ -20,6 +20,8 @@ struct RootView: View {
                         AgentsView()
                     case .memory:
                         MemoryView()
+                    case .backup:
+                        BackupView()
                     default:
                         PlaceholderView(item: selection)
                     }
