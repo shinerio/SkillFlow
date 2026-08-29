@@ -283,6 +283,26 @@ func TestNativeAPIAgentsMethods(t *testing.T) {
 	assert.Equal(t, "codex", preview.AgentName)
 }
 
+func TestNativeAPIStarredReposMethods(t *testing.T) {
+	app := newNativeAPITestApp(t)
+	handler, ok := daemonServiceHandlers(app)["native.api"]
+	require.True(t, ok, "native api daemon handler should be registered")
+
+	// starred.listRepos — empty initially.
+	resp := invokeNativeAPITestMethod(t, handler, "starred.listRepos")
+	require.True(t, resp.OK)
+	var repos []map[string]any
+	require.NoError(t, json.Unmarshal(resp.Result, &repos))
+	assert.Empty(t, repos)
+
+	// starred.listAllSkills — empty initially.
+	resp = invokeNativeAPITestMethod(t, handler, "starred.listAllSkills")
+	require.True(t, resp.OK)
+	var skills []map[string]any
+	require.NoError(t, json.Unmarshal(resp.Result, &skills))
+	assert.Empty(t, skills)
+}
+
 func nativeAPITestAgentNames(agents []config.AgentConfig) []string {
 	names := make([]string, 0, len(agents))
 	for _, agent := range agents {

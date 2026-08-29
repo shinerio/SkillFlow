@@ -55,11 +55,28 @@ type nativeAgentPullParams struct {
 	Category   string   `json:"category"`
 }
 
+type nativeStarredRepoURLParams struct {
+	RepoURL string `json:"repoURL"`
+}
+
+type nativeStarredRepoCredentialsParams struct {
+	RepoURL  string `json:"repoURL"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+type nativeStarredImportParams struct {
+	SkillPaths []string `json:"skillPaths"`
+	RepoURL    string   `json:"repoURL"`
+	Category   string   `json:"category"`
+}
+
 func nativeAPIRouter(app *App) *nativeapi.Router {
 	router := nativeapi.NewRouter()
 	registerNativeReadOnlyAPI(router, app)
 	registerNativeSkillsAPI(router, app)
 	registerNativeAgentsAPI(router, app)
+	registerNativeStarredAPI(router, app)
 	return router
 }
 
@@ -219,5 +236,59 @@ func registerNativeAgentsAPI(router *nativeapi.Router, app *App) {
 			return nil, err
 		}
 		return app.GetAgentMemoryPreview(req.AgentName)
+	})
+}
+
+func registerNativeStarredAPI(router *nativeapi.Router, app *App) {
+	router.Register("starred.listRepos", func(context.Context, json.RawMessage) (any, error) {
+		return app.ListStarredRepos()
+	})
+	router.Register("starred.addRepo", func(_ context.Context, params json.RawMessage) (any, error) {
+		req, err := decodeNativeAPIParams[nativeStarredRepoURLParams](params)
+		if err != nil {
+			return nil, err
+		}
+		return app.AddStarredRepo(req.RepoURL)
+	})
+	router.Register("starred.addRepoWithCredentials", func(_ context.Context, params json.RawMessage) (any, error) {
+		req, err := decodeNativeAPIParams[nativeStarredRepoCredentialsParams](params)
+		if err != nil {
+			return nil, err
+		}
+		return app.AddStarredRepoWithCredentials(req.RepoURL, req.Username, req.Password)
+	})
+	router.Register("starred.removeRepo", func(_ context.Context, params json.RawMessage) (any, error) {
+		req, err := decodeNativeAPIParams[nativeStarredRepoURLParams](params)
+		if err != nil {
+			return nil, err
+		}
+		return nil, app.RemoveStarredRepo(req.RepoURL)
+	})
+	router.Register("starred.updateRepo", func(_ context.Context, params json.RawMessage) (any, error) {
+		req, err := decodeNativeAPIParams[nativeStarredRepoURLParams](params)
+		if err != nil {
+			return nil, err
+		}
+		return nil, app.UpdateStarredRepo(req.RepoURL)
+	})
+	router.Register("starred.updateAll", func(context.Context, json.RawMessage) (any, error) {
+		return nil, app.UpdateAllStarredRepos()
+	})
+	router.Register("starred.listAllSkills", func(context.Context, json.RawMessage) (any, error) {
+		return app.ListAllStarSkills()
+	})
+	router.Register("starred.listRepoSkills", func(_ context.Context, params json.RawMessage) (any, error) {
+		req, err := decodeNativeAPIParams[nativeStarredRepoURLParams](params)
+		if err != nil {
+			return nil, err
+		}
+		return app.ListRepoStarSkills(req.RepoURL)
+	})
+	router.Register("starred.importSkills", func(_ context.Context, params json.RawMessage) (any, error) {
+		req, err := decodeNativeAPIParams[nativeStarredImportParams](params)
+		if err != nil {
+			return nil, err
+		}
+		return nil, app.ImportStarSkills(req.SkillPaths, req.RepoURL, req.Category)
 	})
 }
