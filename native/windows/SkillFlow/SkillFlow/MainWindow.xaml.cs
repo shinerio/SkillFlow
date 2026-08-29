@@ -1,6 +1,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using SkillFlow.Agents;
+using SkillFlow.Backup;
 using SkillFlow.Memory;
 using SkillFlow.Settings;
 using SkillFlow.Shell;
@@ -39,12 +40,14 @@ public sealed partial class MainWindow : Window
             case "memory":
                 ContentFrame.Navigate(typeof(MemoryPage));
                 break;
+            case "backup":
+                ContentFrame.Navigate(typeof(BackupPage));
+                break;
             default:
                 var title = tag switch
                 {
                     "starredRepos" => "Starred Repos",
                     "prompts" => "My Prompts",
-                    "backup" => "Cloud Backup",
                     _ => "Settings",
                 };
                 ContentFrame.Navigate(typeof(PlaceholderPage), title);
