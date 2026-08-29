@@ -36,7 +36,7 @@
 | Legacy Pull Route | Baseline | N/A | N/A | N/A | 旧路由或深链必须有兼容策略 |
 | Starred Repos | Baseline | Pending | Pending | Pending | 仓库添加、认证、刷新、候选技能、批量导入、批量推送 |
 | Cloud Backup | Baseline | Pending | Pending | Pending | Provider 配置、备份、恢复、Git 冲突、变更列表 |
-| Settings | Baseline | Pending | Pending | Pending | Agents、Cloud、General、Proxy、保存、启动项、日志 |
+| Settings | Baseline | Pending | Pending | Done | Agents、Cloud、General、Proxy、保存、启动项、日志 |
 | Skill Card | Baseline | Pending | Pending | Pending | 状态语义、操作入口、溢出、右键菜单、拖放 |
 | Skill Tooltip | Baseline | Pending | Pending | Pending | 延迟、定位、内容、可读性 |
 | Shared Dialogs | Baseline | Pending | Pending | Pending | 覆盖/跳过冲突、缺失目录确认、错误展示 |
@@ -121,12 +121,12 @@
 
 | 验收项 | Wails baseline | macOS Native | Windows Native | daemon API |
 |--------|----------------|---------------|-----------------|------------|
-| Agents Tab 可编辑 Agent 路径和启用状态 | Baseline | Pending | Pending | Pending |
-| Cloud Tab 可编辑 provider 配置和本地密钥 | Baseline | Pending | Pending | Pending |
-| General Tab 可编辑日志级别、扫描深度、仓库缓存目录 | Baseline | Pending | Pending | Pending |
-| Proxy Tab 可配置代理并测试连接 | Baseline | Pending | Pending | Pending |
-| Save 会分发到对应上下文和本地设置 | Baseline | Pending | Pending | Pending |
-| 打开 AppData、日志目录、Git backup 目录 | Baseline | Pending | Pending | Pending |
+| Agents Tab 可编辑 Agent 路径和启用状态 | Baseline | Pending | Pending | Done |
+| Cloud Tab 可编辑 provider 配置和本地密钥 | Baseline | Pending | Pending | Done |
+| General Tab 可编辑日志级别、扫描深度、仓库缓存目录 | Baseline | Pending | Pending | Done |
+| Proxy Tab 可配置代理并测试连接 | Baseline | Pending | Pending | Done |
+| Save 会分发到对应上下文和本地设置 | Baseline | Pending | Pending | Done |
+| 打开 AppData、日志目录、Git backup 目录 | Baseline | Pending | Pending | Done |
 
 ### 8. Skill Card
 
