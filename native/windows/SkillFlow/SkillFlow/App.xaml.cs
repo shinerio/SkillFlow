@@ -1,4 +1,5 @@
 using Microsoft.UI.Xaml;
+using SkillFlow.Daemon;
 
 namespace SkillFlow;
 
@@ -13,6 +14,7 @@ public sealed partial class App : Application
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
+        DaemonLauncher.Shared.EnsureRunning();
         MainWindow = new MainWindow();
         MainWindow.Activate();
     }

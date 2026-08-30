@@ -4,7 +4,7 @@ This directory contains the current backend architecture reference for SkillFlow
 
 SkillFlow's backend is a DDD-oriented modular monolith:
 
-- `cmd/skillflow/` is the Wails desktop shell, transport adapter layer, process host, and composition root
+- `cmd/skillflow/` is the Go daemon composition root, process host, legacy Wails shell, and transport adapter layer
 - backend business code lives under bounded contexts in `core/`
 - each bounded context is organized as `app`, `domain`, and `infra`
 - cross-context write coordination goes through `core/orchestration/`
@@ -24,7 +24,7 @@ SkillFlow's backend is a DDD-oriented modular monolith:
 - [Application Use Cases](./use-cases.md)
   - command/query ownership by context, shared orchestration, and read-model composition rules
 - [Runtime, Repository Layout, and Storage](./runtime-and-storage.md)
-  - Wails shell constraints, daemon/UI runtime split, loopback gateway responsibilities, storage layout, and repository vs gateway rules
+  - native and legacy desktop constraints, daemon/UI runtime split, loopback gateway responsibilities, storage layout, and repository vs gateway rules
 
 ## Migration Plans
 
@@ -43,8 +43,8 @@ SkillFlow's backend is a DDD-oriented modular monolith:
 
 - The repository root must contain no Go source files.
 - `cmd/skillflow/*.go` must stay flat because Wails bindings require a single `package main` directory.
-- SkillFlow remains a Wails desktop app with direct bindings, not a REST service.
-- Current transport entrypoints live in `cmd/skillflow/` because of Wails binding constraints.
+- The default local builds are native macOS/Windows clients backed by the Go daemon; the Wails/React client remains the explicit legacy fallback.
+- The Go daemon and legacy Wails transport entrypoints currently live in `cmd/skillflow/`; native clients communicate through the local authenticated daemon API.
 - `Skill` and `Prompt` are parallel core business concepts.
 - `Settings` is a UI composition surface, not a bounded context.
 - `core/config/` is a settings facade, not a source-of-truth bounded context.
@@ -53,4 +53,4 @@ SkillFlow's backend is a DDD-oriented modular monolith:
 
 These documents cover backend architecture only. User-facing behavior remains documented in [`docs/features.md`](../features.md), and persisted file schemas remain documented in [`docs/config.md`](../config.md).
 
-*Last updated: 2026-04-26*
+*Last updated: 2026-08-30*

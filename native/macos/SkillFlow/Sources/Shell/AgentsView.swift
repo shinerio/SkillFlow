@@ -1,4 +1,3 @@
-import SkillFlowCore
 import SwiftUI
 
 struct AgentsView: View {

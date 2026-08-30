@@ -39,3 +39,6 @@ native/windows/**/obj/
 /meta_local/
 /star_repos_local.json
 .superpowers/
+
+# Native build outputs
+/build/

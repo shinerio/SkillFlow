@@ -36,7 +36,7 @@ struct SkillsPushParams: Encodable {
     let agentNames: [String]
 }
 
-struct AgentConfig: Codable, Identifiable, Equatable {
+struct AgentConfig: Codable, Identifiable, Equatable, Hashable {
     let name: String
     let scanDirs: [String]
     let pushDir: String

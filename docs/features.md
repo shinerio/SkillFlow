@@ -9,7 +9,7 @@
 
 ## Table of Contents
 
-1. [Navigation & Shell](#1-navigation--shell)
+1. [Navigation, Shell & Runtime](#1-navigation-shell--runtime)
 2. [My Skills (Dashboard)](#2-my-skills-dashboard)
 3. [Legacy Push Route](#3-legacy-push-route)
 4. [Legacy Pull Route](#4-legacy-pull-route)
@@ -27,7 +27,7 @@
 
 ---
 
-## 1. Navigation & Shell
+## 1. Navigation, Shell & Runtime
 
 A fixed left sidebar (w-56) provides navigation throughout the app.
 
@@ -52,6 +52,9 @@ A fixed left sidebar (w-56) provides navigation throughout the app.
   - `/sync/push` redirects to `/`
   - `/sync/pull` redirects to `/tools`
 - Bottom-left **Feedback** button: opens the GitHub "new issue" page in the default browser.
+- Native build behavior: `make build` is the default source-build path and packages the current-platform native client (macOS Swift or Windows WinUI) together with the bundled `skillflowd` daemon.
+- Native daemon behavior: on startup, the native client starts or connects to the local daemon and performs business operations through the authenticated native API. If this client launched the daemon, quitting the client also terminates that daemon; an already-running daemon is left untouched.
+- Legacy fallback: the Wails/React desktop app remains available through `make build-legacy` during the rollback and migration window.
 - Window close button behavior: clicking the top-left close button closes the current UI process instead of only hiding it. The background `daemon` remains in the tray/menu bar, so `Show SkillFlow` or launching the app again opens a fresh window.
 - Primary-page refresh behavior: route transitions remount the page subtree keyed by `location.pathname`, so re-entering pages such as **My Skills**, **My Agents**, **My Prompts**, and **Starred Repos** fetches fresh backend state again without requiring a manual in-page refresh.
 - Startup smoothing behavior: after the shell is ready, background startup jobs are staggered instead of launching together, so the first interactive second is less likely to compete with skill update checks, starred refresh, app update checks, and git startup pull at the same time.
@@ -944,4 +947,4 @@ Memory content files (`memory/main.md` and `memory/rules/*.md`) are included in 
 
 ---
 
-*Last updated: 2026-04-06*
+*Last updated: 2026-08-30*

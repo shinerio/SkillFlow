@@ -14,4 +14,8 @@ struct SkillFlowApp: App {
         }
         .windowToolbarStyle(.unified)
     }
+
+    init() {
+        DaemonLauncher.shared.ensureRunning()
+    }
 }

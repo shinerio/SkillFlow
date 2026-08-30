@@ -3,11 +3,13 @@ package main
 type processRole string
 
 const (
-	processRoleDaemon processRole = "daemon"
-	processRoleUI     processRole = "ui"
+	processRoleDaemon     processRole = "daemon"
+	processRoleDaemonOnly processRole = "daemon-only"
+	processRoleUI         processRole = "ui"
 
-	internalDaemonFlag = "--internal-daemon"
-	internalUIFlag     = "--internal-ui"
+	internalDaemonFlag     = "--internal-daemon"
+	internalDaemonOnlyFlag = "--daemon-only"
+	internalUIFlag         = "--internal-ui"
 )
 
 var activeProcessRole = processRoleDaemon
@@ -23,6 +25,8 @@ func determineProcessRole(args []string) (processRole, []string) {
 		switch arg {
 		case internalUIFlag:
 			role = processRoleUI
+		case internalDaemonOnlyFlag:
+			role = processRoleDaemonOnly
 		case internalDaemonFlag:
 			role = processRoleDaemon
 		default:

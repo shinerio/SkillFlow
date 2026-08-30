@@ -7,22 +7,13 @@ let package = Package(
         .macOS(.v13)
     ],
     targets: [
-        .target(
-            name: "SkillFlowCore",
-            path: "Sources",
-            exclude: ["AppDelegate.swift", "SkillFlowApp.swift", "Shell"],
-            sources: ["Daemon", "Settings", "Skills", "Agents", "Memory", "Backup"]
-        ),
         .executableTarget(
             name: "SkillFlow",
-            dependencies: ["SkillFlowCore"],
-            path: "Sources",
-            exclude: ["Daemon", "Settings"],
-            sources: ["AppDelegate.swift", "SkillFlowApp.swift", "Shell"]
+            path: "Sources"
         ),
         .testTarget(
             name: "SkillFlowTests",
-            dependencies: ["SkillFlowCore"],
+            dependencies: ["SkillFlow"],
             path: "Tests"
         )
     ]

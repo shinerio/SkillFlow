@@ -2,20 +2,21 @@
 
 ## Architectural Style
 
-SkillFlow's backend architecture is a DDD-oriented modular monolith hosted inside a Wails desktop application.
+SkillFlow's backend architecture is a DDD-oriented modular monolith shared by native macOS/Windows clients and the legacy Wails desktop client through one Go daemon.
 
 The design goals are:
 
 1. Make business truth ownership explicit.
 2. Separate domain logic from shell and OS integration concerns.
 3. Replace technology-oriented package boundaries with bounded contexts.
-4. Keep Wails-specific transport and shell code in `cmd/skillflow/` and reusable business code in `core/`.
+4. Keep daemon composition and legacy Wails-specific transport/shell code in `cmd/skillflow/`, reusable business code in `core/`, and platform-native clients in `native/`.
 5. Keep cross-context writes in `core/orchestration/` and cross-context reads in `core/readmodel/`.
 
 ## High-Level Shape
 
 ```text
-cmd/skillflow/          Wails shell, daemon/ui process host, loopback gateway, OS integration
+native/                native macOS Swift and Windows WinUI clients
+cmd/skillflow/          Go daemon composition root, legacy Wails shell, process host, gateway, OS integration
 core/
   platform/             pure technical capabilities
   shared/               minimal shared kernel
@@ -38,7 +39,7 @@ core/
 - `backup` owns backup and restore planning, not the business truth of skills or prompts.
 - `core/config` is a settings facade for transport and shell coordination. It does not own business truth by itself.
 - shell concerns such as tray, window state, single-instance behavior, launch-at-login, and app update belong to `cmd/skillflow/` plus `platform/`, not to a bounded context.
-- the background `daemon` owns the long-lived backend runtime; the visible `ui` process is a disposable Wails shell that proxies business calls to the daemon.
+- the Go `daemon` owns the backend runtime and all business-data access; native clients and the disposable legacy Wails UI communicate through local authenticated transport.
 - `Settings` is not a bounded context. It is a UI composition surface over multiple contexts.
 
 In the current product shape, `skillsource` contains two different domain concepts:
@@ -56,7 +57,7 @@ Pages such as Dashboard, Settings, My Agents, and Starred Repos are not domain b
 
 ### Transport adapters stay at the module edge
 
-Because Wails requires bound methods to live in `cmd/skillflow/package main`, transport adapters stay in `cmd/skillflow/`. They translate Wails requests into application use cases and read models.
+Because legacy Wails requires bound methods to live in `cmd/skillflow/package main`, legacy transport adapters stay in `cmd/skillflow/`. They translate Wails requests into application use cases and read models; native clients use the daemon API contract instead.
 
 If CLI or API entrypoints are added later, they should follow the same transport-adapter role at the module edge rather than introducing Wails-specific code into `core/`.
 
@@ -80,4 +81,4 @@ Only stable concepts shared by multiple contexts belong in `shared/`, such as lo
 
 If a unified content view is needed, build it in `readmodel/` or application queries rather than by forcing a common domain parent type.
 
-*Last updated: 2026-04-06*
+*Last updated: 2026-08-30*

@@ -16,6 +16,7 @@ var (
 	runUIProcessFn           = runUIProcess
 	bootstrapHelperProcessFn = bootstrapHelperProcess
 	runDaemonProcessFn       = runDaemonProcess
+	runDaemonOnlyProcessFn   = runDaemonOnlyProcess
 )
 
 func main() {
@@ -31,6 +32,11 @@ func runEntry(args []string) int {
 	switch role {
 	case processRoleDaemon:
 		if err := runDaemonProcessFn(filteredArgs); err != nil {
+			println("Error:", err.Error())
+			return 1
+		}
+	case processRoleDaemonOnly:
+		if err := runDaemonOnlyProcessFn(); err != nil {
 			println("Error:", err.Error())
 			return 1
 		}

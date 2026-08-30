@@ -2,7 +2,7 @@ import Foundation
 import XCTest
 
 #if canImport(SkillFlowCore)
-@testable import SkillFlowCore
+@testable import SkillFlow
 #else
 @testable import SkillFlow
 #endif

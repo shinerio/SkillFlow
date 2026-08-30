@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 )
 
 type launchAtLoginController interface {
@@ -21,10 +22,29 @@ func (a *App) autostartController() (launchAtLoginController, error) {
 	if err != nil {
 		return nil, fmt.Errorf("resolve executable path failed: %w", err)
 	}
-	return newLaunchAtLoginController(filepath.Clean(exePath))
+	return newLaunchAtLoginController(launchAtLoginExecutablePath(filepath.Clean(exePath)))
 }
 
 const launchAtLoginAppName = "SkillFlow"
+
+// launchAtLoginExecutablePath points login launchers at the visible native client when
+// settings are reconciled by the bundled daemon process. The daemon is intentionally
+// packaged beside the UI executable, so this preserves the user-facing behavior without
+// adding a daemon-specific launch-at-login mode.
+func launchAtLoginExecutablePath(exePath string) string {
+	daemonName, clientName := "skillflowd", launchAtLoginAppName
+	if runtime.GOOS == "windows" {
+		daemonName, clientName = daemonName+".exe", clientName+".exe"
+	}
+	if filepath.Base(exePath) != daemonName {
+		return exePath
+	}
+	clientPath := filepath.Join(filepath.Dir(exePath), clientName)
+	if info, err := os.Stat(clientPath); err == nil && !info.IsDir() {
+		return clientPath
+	}
+	return exePath
+}
 
 func (a *App) syncLaunchAtLogin(enabled bool) error {
 	a.logInfof("launch-at-login update started: desired=%t", enabled)

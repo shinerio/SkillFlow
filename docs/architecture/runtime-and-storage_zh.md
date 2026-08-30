@@ -1,26 +1,28 @@
 # 运行时、仓库布局与存储
 
-## Wails 壳层约束
+## 桌面壳层与 daemon 约束
 
-SkillFlow 仍然是一个 Wails 桌面应用。
+SkillFlow 的默认本地构建是 macOS 与 Windows 原生客户端，并共享同一个 Go daemon。Wails/React 客户端在迁移与回滚窗口内保留为 legacy 回退方案。
 
 当前后端架构保留这些约束：
 
 - 仓库根目录不能包含 Go 源文件
-- `cmd/skillflow/*.go` 必须保持扁平，因为 Wails 绑定要求单一 `package main` 目录
-- Wails 绑定的 transport adapter 必须保留在 `cmd/skillflow/`
-- 桌面壳层继续通过 Wails 直接绑定后端能力给前端，而不是引入 REST API
+- `cmd/skillflow/*.go` 必须保持扁平，因为 legacy Wails 绑定要求单一 `package main` 目录
+- `cmd/skillflow/` 当前仍是 Go daemon 组合根，同时承载 legacy Wails transport adapter
+- legacy Wails 壳层直接绑定用例给前端；原生客户端调用本地鉴权 daemon API。SkillFlow 不对外暴露 REST 服务
 
 ## `cmd/skillflow/` 的职责
 
-`cmd/skillflow/` 是面向壳层的组合层。
+`cmd/skillflow/` 是面向壳层与 daemon 的组合层。
 
 它负责：
 
-- Wails 启动和绑定注册
-- 面向 Wails 的 transport adapter
+- Go daemon 启动与依赖装配
+- 原生客户端使用的 `--daemon-only` 进程角色
+- legacy Wails 启动和绑定注册
+- 面向 legacy Wails 的 transport adapter
 - daemon/UI 进程启动
-- tray 与 window 集成
+- legacy 桌面运行时的 tray 与 window 集成
 - 单实例协调
 - 壳层启动时序
 - 保存 Settings 时对多个上下文的 fan-out 协调
@@ -41,8 +43,10 @@ SkillFlow 采用 daemon/UI 双进程模型：
 
 在原生平台迁移期，SkillFlow 会同时存在两类客户端：
 
-- 现有 Wails/React UI 继续作为行为基线，并仍然从 `cmd/skillflow/` 运行
-- macOS 与 Windows 原生客户端会作为平台 UI 进程运行，并调用同一个 Go `daemon`
+- macOS Swift 与 Windows WinUI 原生客户端是默认本地构建产物，并通过 native API 访问 Go daemon
+- 现有 Wails/React UI 继续作为行为基线和显式 legacy 回退方案（`make build-legacy`）
+
+原生构建会把平台 UI 与名为 `skillflowd` 的 daemon 可执行文件（Windows 为 `skillflowd.exe`）打包在相邻位置。原生客户端启动时，如果不存在活跃 daemon endpoint，会启动 `skillflowd --daemon-only`；只有当 daemon 由当前客户端拥有时，退出客户端才会结束它。
 
 Go `daemon` 是唯一允许读取或修改业务数据的进程。原生客户端不能直接读写 `config*.json`、`star_repos*.json`、`skills/`、`prompts/`、`meta/`、备份状态或运行时派生的业务文件。
 
@@ -85,6 +89,12 @@ Go `daemon` 是唯一允许读取或修改业务数据的进程。原生客户�
     skillsource/
     backup/
     config/
+  native/
+    macos/
+    windows/
+    scripts/
+  build/
+    native/
   cmd/
     skillflow/
       main.go

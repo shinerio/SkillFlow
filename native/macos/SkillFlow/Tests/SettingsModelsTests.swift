@@ -1,4 +1,4 @@
-import SkillFlowCore
+import SkillFlow
 import XCTest
 
 final class SettingsModelsTests: XCTestCase {

@@ -3,6 +3,8 @@ package main
 import (
 	"errors"
 	"os"
+	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/shinerio/skillflow/core/config"
@@ -115,4 +117,35 @@ func TestSaveConfigRollsBackLaunchAtLoginWhenSyncFails(t *testing.T) {
 	assert.Equal(t, 7, loaded.RepoScanMaxDepth)
 	assert.False(t, loaded.LaunchAtLogin)
 	assert.Equal(t, 1, controller.enableCalls)
+}
+
+func TestLaunchAtLoginExecutablePathUsesSiblingNativeClient(t *testing.T) {
+	daemonName, clientName := "skillflowd", "SkillFlow"
+	if runtime.GOOS == "windows" {
+		daemonName, clientName = "skillflowd.exe", "SkillFlow.exe"
+	}
+	dir := t.TempDir()
+	clientPath := filepath.Join(dir, clientName)
+	require.NoError(t, os.WriteFile(clientPath, []byte("client"), 0o755))
+
+	assert.Equal(
+		t,
+		clientPath,
+		launchAtLoginExecutablePath(filepath.Join(dir, daemonName)),
+	)
+	assert.Equal(
+		t,
+		filepath.Join(dir, "other"),
+		launchAtLoginExecutablePath(filepath.Join(dir, "other")),
+	)
+}
+
+func TestLaunchAtLoginExecutablePathFallsBackWhenSiblingMissing(t *testing.T) {
+	daemonName := "skillflowd"
+	if runtime.GOOS == "windows" {
+		daemonName = "skillflowd.exe"
+	}
+	daemonPath := filepath.Join(t.TempDir(), daemonName)
+
+	assert.Equal(t, daemonPath, launchAtLoginExecutablePath(daemonPath))
 }

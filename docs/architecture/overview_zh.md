@@ -2,20 +2,21 @@
 
 ## 架构风格
 
-SkillFlow 的后端架构是一个运行在 Wails 桌面应用中的、基于 DDD 的模块化单体。
+SkillFlow 的后端架构是一个基于 DDD 的模块化单体，由 macOS/Windows 原生客户端和 legacy Wails 桌面客户端通过同一个 Go daemon 共享。
 
 这套设计的目标是：
 
 1. 明确业务真相的归属。
 2. 把领域逻辑和壳层、OS 集成逻辑分开。
 3. 用 bounded context 替代按技术能力切分的包边界。
-4. 让 Wails 相关 transport 和壳层代码留在 `cmd/skillflow/`，可复用业务代码沉淀到 `core/`。
+4. 让 daemon 组合与 legacy Wails 相关 transport/壳层代码留在 `cmd/skillflow/`，可复用业务代码沉淀到 `core/`，平台原生客户端放在 `native/`。
 5. 让跨上下文写流程进入 `core/orchestration/`，跨上下文读组合进入 `core/readmodel/`。
 
 ## 高层结构
 
 ```text
-cmd/skillflow/          Wails 壳层、daemon/ui 进程宿主、loopback 网关、OS 集成
+native/                macOS Swift 与 Windows WinUI 原生客户端
+cmd/skillflow/          Go daemon 组合根、legacy Wails 壳层、进程宿主、网关、OS 集成
 core/
   platform/             纯技术能力
   shared/               最小共享内核
@@ -38,7 +39,7 @@ core/
 - `backup` 拥有备份与恢复规划的真相，不拥有 Skill 或 Prompt 的业务真相。
 - `core/config` 只是 transport / 壳层使用的设置门面，本身不拥有业务真相。
 - tray、窗口状态、单实例、开机自启、应用更新等壳层关注点应归于 `cmd/skillflow/` 与 `platform/`，而不是单独的 bounded context。
-- 后台 `daemon` 持有长期驻留的后端运行时；前台 `ui` 只是可销毁、可冷启动的 Wails 壳层，并通过 loopback 网关把业务调用转发给 daemon。
+- Go `daemon` 持有后端运行时和全部业务数据访问权；原生客户端与可销毁的 legacy Wails UI 都通过本地鉴权传输层通信。
 - `Settings` 不是 bounded context，而是多个上下文在 UI 层的组合面。
 
 在当前产品形态下，`skillsource` 里有两个不同层级的领域概念：
@@ -56,7 +57,7 @@ Dashboard、Settings、My Agents、Starred Repos 这些页面都不是领域边�
 
 ### transport adapter 保持在模块边界
 
-由于 Wails 要求绑定方法必须位于 `cmd/skillflow/package main`，transport adapter 保留在 `cmd/skillflow/`。它们负责把 Wails 请求转换成应用层用例或 read model 调用。
+由于 legacy Wails 要求绑定方法必须位于 `cmd/skillflow/package main`，legacy transport adapter 保留在 `cmd/skillflow/`。它们负责把 Wails 请求转换成应用层用例或 read model 调用；原生客户端使用 daemon API 契约。
 
 如果以后增加 CLI 或 API 入口，也应采用相同的模块边界适配角色，而不是把 Wails 专属代码带进 `core/`。
 
@@ -80,4 +81,4 @@ Dashboard、Settings、My Agents、Starred Repos 这些页面都不是领域边�
 
 如果需要统一的内容视图，应当通过 `readmodel/` 或应用层查询来实现，而不是通过领域继承体系实现。
 
-*最后更新：2026-04-06*
+*最后更新：2026-08-30*

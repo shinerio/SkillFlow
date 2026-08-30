@@ -65,6 +65,12 @@ The root directory must contain **no Go source files**. All code lives in clearl
       app/
       domain/
       infra/
+  native/
+    macos/
+    windows/
+    scripts/
+  build/
+    native/
   cmd/
     skillflow/
       main.go
@@ -87,14 +93,16 @@ The root directory must contain **no Go source files**. All code lives in clearl
 - Pure technical capabilities with no business ownership belong in `core/platform/`.
 - `core/config/` is a frontend-facing settings facade and split/merge persistence adapter. Do not treat it as a bounded context.
 - `core/shared/` is only for highly stable shared kernel concepts. Do not move context-local IDs or business rules there unless they are genuinely cross-context.
-- `cmd/skillflow/` remains the Wails desktop shell, transport adapter layer, process host, and composition root.
+- `cmd/skillflow/` remains the Go daemon composition root, process host, legacy Wails shell, and transport adapter layer.
+- `native/` contains platform-native clients: macOS Swift uses SwiftPM, and Windows WinUI uses .NET; native build outputs go under `build/native/`.
 - `wails.json` must stay co-located with `frontend/` inside `cmd/skillflow/`.
 - The `//go:embed all:frontend/dist` directive in `main.go` works because both are in `cmd/skillflow/`.
 - `go test ./core/...` is run from the module root.
 - Import paths use the full module path: `github.com/shinerio/skillflow/core/...`.
-- **`cmd/skillflow/*.go` files must remain flat.** Wails bindings require a single `package main` directory, so do not create subdirectories under `cmd/skillflow/`.
+- **`cmd/skillflow/*.go` files must remain flat.** Legacy Wails bindings require a single `package main` directory, so do not create subdirectories under `cmd/skillflow/`.
 - Use file-name prefixes inside `cmd/skillflow/` as the organization convention:
-  - `app.go`, `app_*.go` for Wails-facing transport methods
+  - `app.go`, `app_*.go` for legacy Wails-facing transport methods
+  - `process_daemon_only.go` for the native client daemon-only process role
   - `events.go` for shell event types and emitters
   - `adapters.go`, `providers.go` for shell-side wiring
   - `process_*.go`, `tray_*.go`, `window_*.go`, `single_instance_*.go` for shell/runtime concerns
@@ -257,26 +265,35 @@ Any Python-related work in this repository must use `uv` for interpreter managem
 ### Make targets (recommended)
 
 ```bash
-make dev              # Run in dev mode (hot-reload for Go + frontend)
-make build            # Build production binary
-make test             # Run core Go tests and frontend unit tests
-make tidy             # Sync Go module dependencies
-make generate         # Regenerate TypeScript bindings after App method changes
-make install-frontend # Install frontend npm dependencies
-make clean            # Remove build artifacts
-make help             # List all targets
+make dev                     # Build and open the native macOS client
+make dev-legacy              # Run the legacy Wails UI with hot reload
+make build                   # Build the native client for the current machine
+make build-native-macos      # Build SkillFlow.app with bundled skillflowd
+make build-native-windows    # Build the WinUI client with bundled skillflowd.exe
+make build-legacy            # Build the legacy Wails production binary
+make test                    # Run Go tests and native build checks
+make test-native             # Run the full current-platform native tests
+make tidy                    # Sync Go module dependencies
+make generate                # Regenerate legacy Wails TypeScript bindings
+make install-frontend        # Install legacy Wails frontend npm dependencies
+make clean                   # Remove build artifacts
+make help                    # List all targets
 ```
 
 ### Development (manual)
 
 ```bash
-# Run the app in dev mode (hot-reload for both Go and frontend)
+# Build and run the native macOS app
+make build-native-macos
+open build/native/macos/SkillFlow.app
+
+# Run the legacy Wails app in dev mode (hot-reload for both Go and frontend)
 cd cmd/skillflow && ~/go/bin/wails dev
 
-# Build production binary
+# Build the legacy Wails app
 cd cmd/skillflow && ~/go/bin/wails build
 
-# Regenerate TypeScript bindings after changing App struct methods
+# Regenerate legacy Wails TypeScript bindings after changing App struct methods
 cd cmd/skillflow && ~/go/bin/wails generate module
 ```
 
@@ -307,11 +324,12 @@ npm run build      # production build (output: cmd/skillflow/frontend/dist/)
 
 ## Architecture
 
-SkillFlow is a Wails v2 desktop app (Go 1.25). The Go backend exposes methods directly to the React frontend via Wails bindings. There is **no REST API**.
+SkillFlow is a native macOS (Swift/SwiftUI) and Windows (WinUI) desktop app backed by a shared Go daemon (Go 1.25). Native clients communicate through the local authenticated daemon API and are packaged beside `skillflowd` / `skillflowd.exe`. The Wails/React app remains the explicit legacy fallback during migration. There is **no public REST API**.
 
 The target backend architecture is a DDD-oriented modular monolith:
 
-- `cmd/skillflow/` is the desktop shell, Wails transport adapter layer, process host, and composition root
+- `cmd/skillflow/` is the Go daemon composition root, process host, legacy Wails shell, and transport adapter layer
+- `native/macos/` and `native/windows/` contain the default native clients
 - bounded contexts live under `core/`
 - each bounded context is organized as `app`, `domain`, and `infra`
 - cross-context write coordination goes through `core/orchestration/`
@@ -338,7 +356,8 @@ Any change touching skill identity, install/import/push/pull state, starred repo
 
 ### Key Design Decisions
 
-- Wails-bound transport adapters remain in `cmd/skillflow/` because bindings require a single `package main` directory.
+- Legacy Wails-bound transport adapters remain in `cmd/skillflow/` because bindings require a single `package main` directory.
+- Native clients call the stable JSON daemon API; they must not directly read or write business data files.
 - `cmd/skillflow/App` methods should stay thin and delegate to one bounded context, `core/orchestration/`, `core/readmodel/`, or `core/config`.
 - Bounded contexts are `skillcatalog`, `promptcatalog`, `agentintegration`, `skillsource`, and `backup`.
 - `Skill` and `Prompt` are parallel core business concepts.
@@ -347,9 +366,9 @@ Any change touching skill identity, install/import/push/pull state, starred repo
 - Shell concerns such as tray, window state, launch-at-login, single-instance behavior, and app update stay in `cmd/skillflow/` and `core/platform/`.
 - In `skillsource`, `StarRepo` is the repository-level model and `SkillSource` is the skill-level source model identified by `repo + subpath`.
 - The long-term settings model is context-owned configuration namespaces stored through a platform settings store, not one global domain config object.
-- Wails bindings are auto-generated. After adding or removing exported methods on `App`, run `make generate` to update `cmd/skillflow/frontend/wailsjs/go/main/App.{js,d.ts}`.
+- Wails bindings are auto-generated. After adding or removing exported methods on `App`, run `make generate` to update `cmd/skillflow/frontend/wailsjs/go/main/App.{js,d.ts}`. Native API contract changes must be covered by Go daemon tests.
 
-### Adding a New App Method (Frontend-callable)
+### Adding a New Legacy Wails App Method (Frontend-callable)
 
 1. Add an exported method to `App` in `cmd/skillflow/app.go` or another flat `package main` file under `cmd/skillflow/`.
 2. Keep that method as a thin transport adapter: validate inputs, convert DTOs, and delegate to one bounded context application service, `core/orchestration/`, `core/readmodel/`, or `core/config`.

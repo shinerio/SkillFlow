@@ -1,5 +1,4 @@
 import AppKit
-import SkillFlowCore
 import SwiftUI
 
 struct SkillsView: View {

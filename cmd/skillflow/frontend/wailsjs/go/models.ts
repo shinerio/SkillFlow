@@ -1,5 +1,5 @@
 export namespace app {
-
+	
 	export class CloudConfig {
 	    provider: string;
 	    enabled: boolean;
@@ -7,11 +7,11 @@ export namespace app {
 	    remotePath: string;
 	    credentials: Record<string, string>;
 	    syncIntervalMinutes: number;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new CloudConfig(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.provider = source["provider"];
@@ -26,7 +26,7 @@ export namespace app {
 	    bucketName: string;
 	    remotePath: string;
 	    credentials: Record<string, string>;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new CloudProviderConfig(source);
 	    }
@@ -550,11 +550,11 @@ export namespace main {
 	export class BackendClientConfig {
 	    baseUrl: string;
 	    token: string;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new BackendClientConfig(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.baseUrl = source["baseUrl"];
@@ -596,11 +596,11 @@ export namespace main {
 	    content: string;
 	    enabled: boolean;
 	    updatedAt: string;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new ModuleMemoryDTO(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.name = source["name"];
@@ -797,3 +797,4 @@ export namespace skills {
 	}
 
 }
+

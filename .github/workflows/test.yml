@@ -51,26 +51,20 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Show Xcode version
-        run: xcodebuild -version
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
 
-      - name: Build native macOS client
-        run: |
-          xcodebuild -project native/macos/SkillFlow/SkillFlow.xcodeproj \
-            -scheme SkillFlow \
-            -destination 'platform=macOS' \
-            -configuration Debug \
-            CODE_SIGNING_ALLOWED=NO \
-            build
+      - name: Show Swift version
+        run: swift --version
 
-      - name: Test native macOS daemon client
-        run: |
-          xcodebuild -project native/macos/SkillFlow/SkillFlow.xcodeproj \
-            -scheme SkillFlow \
-            -destination 'platform=macOS' \
-            -configuration Debug \
-            CODE_SIGNING_ALLOWED=NO \
-            test
+      - name: Build native macOS app and daemon
+        run: ./native/scripts/build-macos.sh
+
+      - name: Test native macOS client
+        run: swift test --package-path native/macos/SkillFlow
 
   native-windows:
     runs-on: windows-latest

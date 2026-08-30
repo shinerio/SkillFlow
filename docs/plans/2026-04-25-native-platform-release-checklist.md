@@ -4,6 +4,8 @@
 
 本文定义 SkillFlow 从 Wails/React 生产 UI 切换到 macOS Swift 原生客户端和 Windows WinUI 原生客户端前必须通过的阻塞检查。任何默认发布切换都必须先清空本文的 `Blocked` 和 `Pending` 项。
 
+> **2026-08-30 状态：本地源码构建切换已完成。** `make` / `make build` 现在构建当前平台 Native 产物，macOS 本地构建与启动冒烟已通过；Wails legacy 保留为显式回退命令。本文描述的正式发布切换仍未完成，签名分发、性能数据、完整功能契约、双平台 CI 产物和回滚验证仍处于 Pending。
+
 ## 状态标记
 
 | 标记 | 含义 |
@@ -126,9 +128,9 @@
 
 | 检查项 | 状态 | 说明 |
 |--------|------|------|
-| Swift 原生客户端 Debug build | Pending | `xcodebuild` 通过 |
+| Swift 原生客户端 build | Pending | SwiftPM release build 与 `make build-native-macos` 在发布 CI 中通过 |
 | Swift 原生客户端测试 | Pending | XCTest 通过 |
-| `skillflowd` 打包进 `.app` | Pending | 进程路径稳定 |
+| `skillflowd` 打包进 `.app` | Pending | 本地打包与启动冒烟已通过；发布 CI 仍需复验 |
 | 菜单栏和 Quit 行为 | Pending | 不遗留后台进程 |
 | DMG 创建 | Pending | 包含 `.app` 和 Applications 链接 |
 | codesign | Pending | 正式发布必须签名 |
@@ -161,14 +163,15 @@ cd cmd/skillflow/frontend && npm run test:unit
 ```
 
 ```bash
-xcodebuild -project native/macos/SkillFlow/SkillFlow.xcodeproj -scheme SkillFlow test
+./native/scripts/build-macos.sh
+swift test --package-path native/macos/SkillFlow
 ```
 
 ```bash
 dotnet test native/windows/SkillFlow/SkillFlow.sln
 ```
 
-发布切换后：
+当前本地构建已经完成默认切换：
 
 - `make build` 构建 Native 默认产物。
 - Wails legacy 使用显式命令，例如 `make build-legacy`。

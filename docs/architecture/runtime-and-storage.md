@@ -1,26 +1,28 @@
 # Runtime, Repository Layout, and Storage
 
-## Wails Shell Constraints
+## Desktop Shell and Daemon Constraints
 
-SkillFlow remains a Wails desktop application.
+The default local builds are native macOS and Windows clients backed by the same Go daemon. The Wails/React client remains a legacy fallback during the migration and rollback window.
 
 The backend architecture preserves these constraints:
 
 - repository root contains no Go source files
-- `cmd/skillflow/*.go` stays flat because Wails bindings require a single `package main` directory
-- Wails-bound transport adapters remain in `cmd/skillflow/`
-- the desktop shell binds backend use cases directly to the frontend instead of exposing a REST API
+- `cmd/skillflow/*.go` stays flat because the legacy Wails bindings require a single `package main` directory
+- `cmd/skillflow/` currently remains the Go daemon composition root and also hosts the legacy Wails transport adapters
+- the legacy Wails shell binds use cases directly to its frontend, while native clients call the local authenticated daemon API; SkillFlow does not expose a public REST service
 
 ## `cmd/skillflow/` Responsibilities
 
-`cmd/skillflow/` is the shell-oriented composition layer.
+`cmd/skillflow/` is the shell- and daemon-oriented composition layer.
 
 It contains:
 
-- Wails startup and binding registration
-- Wails-facing transport adapters
+- Go daemon startup and dependency assembly
+- the `--daemon-only` process role used by native clients
+- legacy Wails startup and binding registration
+- legacy Wails-facing transport adapters
 - daemon/UI process bootstrapping
-- tray and window integration
+- tray and window integration for the legacy desktop runtime
 - single-instance coordination
 - shell-level startup sequencing
 - settings-save fan-out coordination where multiple contexts must be updated together
@@ -41,8 +43,10 @@ SkillFlow uses a daemon/UI split:
 
 During the native platform migration, SkillFlow has two client families:
 
-- the existing Wails/React UI remains the behavioral baseline and continues to run from `cmd/skillflow/`
-- the native macOS and Windows clients will run as platform UI processes and call the same Go `daemon`
+- native macOS Swift and Windows WinUI clients are the default local-build clients and communicate with the Go daemon through the native API
+- the existing Wails/React UI remains the behavioral baseline and explicit legacy fallback (`make build-legacy`)
+
+The native build packages the platform UI beside a daemon executable named `skillflowd` (`skillflowd.exe` on Windows). On launch, the native client starts `skillflowd --daemon-only` when no live daemon endpoint exists, and terminates that daemon on exit only when this client owns it.
 
 The Go `daemon` is the only process allowed to read or mutate business data. Native clients must not read or write `config*.json`, `star_repos*.json`, `skills/`, `prompts/`, `meta/`, backup state, or runtime-derived business files directly.
 
@@ -85,6 +89,12 @@ The migration starts with read-only contract methods such as `settings.get`, `sk
     skillsource/
     backup/
     config/
+  native/
+    macos/
+    windows/
+    scripts/
+  build/
+    native/
   cmd/
     skillflow/
       main.go
