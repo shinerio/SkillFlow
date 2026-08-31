@@ -484,6 +484,196 @@ func TestNativeAPIBackupReadOnlyMethods(t *testing.T) {
 	assert.Empty(t, completedAt)
 }
 
+func TestNativeAPISkillsCategoryCRUD(t *testing.T) {
+	app := newNativeAPITestApp(t)
+	handler, ok := daemonServiceHandlers(app)["native.api"]
+	require.True(t, ok, "native api daemon handler should be registered")
+
+	// Create a category.
+	resp := invokeNativeAPITestMethodWithParams(t, handler, "skills.categories.create", nativeCategoryNameParams{
+		Name: "automation",
+	})
+	require.True(t, resp.OK)
+
+	// List categories — should include the new one.
+	resp = invokeNativeAPITestMethod(t, handler, "skills.categories.list")
+	require.True(t, resp.OK)
+	var categories []string
+	require.NoError(t, json.Unmarshal(resp.Result, &categories))
+	assert.Contains(t, categories, "automation")
+
+	// Rename the category.
+	resp = invokeNativeAPITestMethodWithParams(t, handler, "skills.categories.rename", nativeCategoryRenameParams{
+		OldName: "automation",
+		NewName: "workflows",
+	})
+	require.True(t, resp.OK)
+
+	// Verify rename.
+	resp = invokeNativeAPITestMethod(t, handler, "skills.categories.list")
+	require.True(t, resp.OK)
+	require.NoError(t, json.Unmarshal(resp.Result, &categories))
+	assert.Contains(t, categories, "workflows")
+	assert.NotContains(t, categories, "automation")
+
+	// Delete the category.
+	resp = invokeNativeAPITestMethodWithParams(t, handler, "skills.categories.delete", nativeCategoryNameParams{
+		Name: "workflows",
+	})
+	require.True(t, resp.OK)
+
+	// Verify deletion.
+	resp = invokeNativeAPITestMethod(t, handler, "skills.categories.list")
+	require.True(t, resp.OK)
+	require.NoError(t, json.Unmarshal(resp.Result, &categories))
+	assert.NotContains(t, categories, "workflows")
+}
+
+func TestNativeAPISkillMetaAndReadFile(t *testing.T) {
+	app := newNativeAPITestApp(t)
+	handler, ok := daemonServiceHandlers(app)["native.api"]
+	require.True(t, ok, "native api daemon handler should be registered")
+
+	// Import a local skill.
+	sourceDir := writeTestSkillDir(t, t.TempDir(), "meta-skill", "# Meta Skill\nContent here\n")
+	resp := invokeNativeAPITestMethodWithParams(t, handler, "skills.importLocal", nativeSkillsImportParams{
+		Dir:      sourceDir,
+		Category: defaultCategoryName,
+	})
+	require.True(t, resp.OK)
+
+	// List to get the skill ID.
+	resp = invokeNativeAPITestMethod(t, handler, "skills.list")
+	require.True(t, resp.OK)
+	var skills []InstalledSkillEntry
+	require.NoError(t, json.Unmarshal(resp.Result, &skills))
+	require.Len(t, skills, 1)
+	skillID := skills[0].ID
+	skillPath := skills[0].Path
+
+	// Get skill meta by ID.
+	resp = invokeNativeAPITestMethodWithParams(t, handler, "skills.meta.get", nativeSkillsDeleteParams{
+		SkillID: skillID,
+	})
+	require.True(t, resp.OK)
+
+	// Get skill meta by path.
+	resp = invokeNativeAPITestMethodWithParams(t, handler, "skills.meta.getByPath", nativeSkillPathParams{
+		Path: skillPath,
+	})
+	require.True(t, resp.OK)
+
+	// Read skill file content — pass the skill directory, not the file path.
+	resp = invokeNativeAPITestMethodWithParams(t, handler, "skills.readFile", nativeSkillPathParams{
+		Path: skillPath,
+	})
+	require.True(t, resp.OK)
+	var content string
+	require.NoError(t, json.Unmarshal(resp.Result, &content))
+	assert.Contains(t, content, "Meta Skill")
+}
+
+func TestNativeAPIAppUtilityMethods(t *testing.T) {
+	app := newNativeAPITestApp(t)
+	handler, ok := daemonServiceHandlers(app)["native.api"]
+	require.True(t, ok, "native api daemon handler should be registered")
+
+	// app.version
+	resp := invokeNativeAPITestMethod(t, handler, "app.version")
+	require.True(t, resp.OK)
+	var version string
+	require.NoError(t, json.Unmarshal(resp.Result, &version))
+	assert.NotEmpty(t, version)
+
+	// app.appDataDir
+	resp = invokeNativeAPITestMethod(t, handler, "app.appDataDir")
+	require.True(t, resp.OK)
+	var dataDir string
+	require.NoError(t, json.Unmarshal(resp.Result, &dataDir))
+	assert.NotEmpty(t, dataDir)
+
+	// app.logDir
+	resp = invokeNativeAPITestMethod(t, handler, "app.logDir")
+	require.True(t, resp.OK)
+	var logDir string
+	require.NoError(t, json.Unmarshal(resp.Result, &logDir))
+	assert.NotEmpty(t, logDir)
+
+	// app.openAppDataDir — mock the external path opener.
+	openedPath := ""
+	app.openExternalPathFn = func(target string) error {
+		openedPath = target
+		return nil
+	}
+	resp = invokeNativeAPITestMethod(t, handler, "app.openAppDataDir")
+	require.True(t, resp.OK)
+	assert.NotEmpty(t, openedPath)
+
+	// app.openPath
+	resp = invokeNativeAPITestMethodWithParams(t, handler, "app.openPath", nativeOpenPathParams{
+		Path: dataDir,
+	})
+	require.True(t, resp.OK)
+
+	// app.update.skippedVersion — get (empty initially).
+	resp = invokeNativeAPITestMethod(t, handler, "app.update.skippedVersion")
+	require.True(t, resp.OK)
+	var skipped string
+	require.NoError(t, json.Unmarshal(resp.Result, &skipped))
+
+	// app.update.setSkippedVersion
+	resp = invokeNativeAPITestMethodWithParams(t, handler, "app.update.setSkippedVersion", nativeSetSkippedVersionParams{
+		Version: "v999.0.0",
+	})
+	require.True(t, resp.OK)
+
+	// Verify it was saved.
+	resp = invokeNativeAPITestMethod(t, handler, "app.update.skippedVersion")
+	require.True(t, resp.OK)
+	require.NoError(t, json.Unmarshal(resp.Result, &skipped))
+	assert.Equal(t, "v999.0.0", skipped)
+}
+
+func TestNativeAPIAgentsMissingPushDirsAndCustomAgent(t *testing.T) {
+	app := newNativeAPITestApp(t)
+	handler, ok := daemonServiceHandlers(app)["native.api"]
+	require.True(t, ok, "native api daemon handler should be registered")
+
+	// agents.checkMissingPushDirs — codex push dir exists.
+	resp := invokeNativeAPITestMethodWithParams(t, handler, "agents.checkMissingPushDirs", nativeAgentNamesParams{
+		AgentNames: []string{"codex"},
+	})
+	require.True(t, resp.OK)
+
+	// agents.addCustom
+	resp = invokeNativeAPITestMethodWithParams(t, handler, "agents.addCustom", nativeCustomAgentParams{
+		Name:    "custom-agent",
+		PushDir: filepath.Join(app.config.DataDir(), "custom-push"),
+	})
+	require.True(t, resp.OK)
+
+	// Verify the custom agent appears in agents.list.
+	resp = invokeNativeAPITestMethod(t, handler, "agents.list")
+	require.True(t, resp.OK)
+	var agents []config.AgentConfig
+	require.NoError(t, json.Unmarshal(resp.Result, &agents))
+	names := nativeAPITestAgentNames(agents)
+	assert.Contains(t, names, "custom-agent")
+
+	// agents.removeCustom
+	resp = invokeNativeAPITestMethodWithParams(t, handler, "agents.removeCustom", nativeCategoryNameParams{
+		Name: "custom-agent",
+	})
+	require.True(t, resp.OK)
+
+	// Verify removal.
+	resp = invokeNativeAPITestMethod(t, handler, "agents.list")
+	require.True(t, resp.OK)
+	require.NoError(t, json.Unmarshal(resp.Result, &agents))
+	names = nativeAPITestAgentNames(agents)
+	assert.NotContains(t, names, "custom-agent")
+}
+
 func nativeAPITestAgentNames(agents []config.AgentConfig) []string {
 	names := make([]string, 0, len(agents))
 	for _, agent := range agents {

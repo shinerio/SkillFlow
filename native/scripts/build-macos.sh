@@ -11,6 +11,16 @@ rm -rf "$ROOT_DIR/build/native/macos"
 mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
 
 swift build --package-path "$SWIFT_PACKAGE_DIR" -c release
+
+# Ensure frontend/dist exists for the //go:embed all:frontend/dist directive.
+# The native daemon runs with --daemon-only and never serves the Wails UI,
+# but the embed directive is evaluated at compile time.
+FRONTEND_DIST="$ROOT_DIR/cmd/skillflow/frontend/dist"
+if [[ ! -d "$FRONTEND_DIST" ]]; then
+  mkdir -p "$FRONTEND_DIST"
+  echo '<!DOCTYPE html><html><head><title>SkillFlow</title></head><body></body></html>' > "$FRONTEND_DIST/index.html"
+fi
+
 go build -trimpath -ldflags "-s -w" -o "$APP_DIR/Contents/MacOS/skillflowd" "$ROOT_DIR/cmd/skillflow"
 cp "$SWIFT_BINARY" "$APP_DIR/Contents/MacOS/SkillFlow"
 

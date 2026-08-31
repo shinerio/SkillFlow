@@ -97,3 +97,27 @@ public sealed class MemoryOpenEditorParams
     [JsonPropertyName("moduleName")]
     public string ModuleName { get; set; } = string.Empty;
 }
+
+public sealed class MemorySavePushConfigParams
+{
+    [JsonPropertyName("agentType")]
+    public string AgentType { get; set; } = string.Empty;
+
+    [JsonPropertyName("mode")]
+    public string Mode { get; set; } = string.Empty;
+
+    [JsonPropertyName("autoPush")]
+    public bool AutoPush { get; set; }
+}
+
+public sealed class MemoryPushSelectedParams
+{
+    [JsonPropertyName("agentTypes")]
+    public List<string> AgentTypes { get; set; } = new();
+
+    [JsonPropertyName("moduleNames")]
+    public List<string> ModuleNames { get; set; } = new();
+
+    [JsonPropertyName("mode")]
+    public string Mode { get; set; } = string.Empty;
+}

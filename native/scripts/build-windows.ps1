@@ -23,6 +23,16 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 $env:GOOS = "windows"
 $env:GOARCH = "amd64"
 $env:CGO_ENABLED = "0"
+
+# Ensure frontend/dist exists for the //go:embed all:frontend/dist directive.
+# The native daemon runs with --daemon-only and never serves the Wails UI,
+# but the embed directive is evaluated at compile time.
+$frontendDist = Join-Path $rootDir "cmd/skillflow/frontend/dist"
+if (-not (Test-Path $frontendDist)) {
+    New-Item -ItemType Directory -Force -Path $frontendDist | Out-Null
+    Set-Content -Path (Join-Path $frontendDist "index.html") -Value "<!DOCTYPE html><html><head><title>SkillFlow</title></head><body></body></html>"
+}
+
 go build -trimpath -ldflags "-s -w" -o (Join-Path $outputDir "skillflowd.exe") (Join-Path $rootDir "cmd/skillflow")
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 

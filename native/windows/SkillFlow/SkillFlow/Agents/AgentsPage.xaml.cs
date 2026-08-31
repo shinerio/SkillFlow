@@ -277,6 +277,64 @@ public sealed partial class AgentsPage : Page, INotifyPropertyChanged
     private async void OnScan(object sender, RoutedEventArgs e) => await ScanAsync();
     private async void OnReload(object sender, RoutedEventArgs e) => await LoadAsync();
 
+    private async void OnPullSkill(object sender, RoutedEventArgs e)
+    {
+        if (_selectedAgent is null) return;
+        if (sender is not Button btn || btn.Tag is not string skillPath) return;
+        ErrorMessage = null;
+        try
+        {
+            await _client.InvokeAsync<NativeEmptyResult>("agents.pull",
+                new AgentPullParams
+                {
+                    AgentName = _selectedAgent.Name,
+                    SkillPaths = new List<string> { skillPath },
+                    Category = "Uncategorized"
+                });
+            StatusMessage = "Skill pulled successfully.";
+            await ScanAsync();
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+    }
+
+    private async void OnDeleteSkill(object sender, RoutedEventArgs e)
+    {
+        if (_selectedAgent is null) return;
+        if (sender is not Button btn || btn.Tag is not string skillPath) return;
+
+        var dialog = new ContentDialog
+        {
+            XamlRoot = this.XamlRoot,
+            Title = "Delete Skill",
+            Content = "Delete this skill from the agent's push directory? This action cannot be undone.",
+            PrimaryButtonText = "Delete",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Close
+        };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+
+        ErrorMessage = null;
+        try
+        {
+            await _client.InvokeAsync<NativeEmptyResult>("agents.deleteSkill",
+                new AgentDeleteSkillParams
+                {
+                    AgentName = _selectedAgent.Name,
+                    SkillPath = skillPath
+                });
+            StatusMessage = "Skill deleted.";
+            if (_selectedAgent is not null)
+                await LoadSkillsAsync(_selectedAgent);
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+    }
+
     private bool SetProperty<T>(ref T field, T value, [CallerMemberName] string? name = null)
     {
         if (EqualityComparer<T>.Default.Equals(field, value))
@@ -299,6 +357,9 @@ public sealed class SkillListItem
     public string Path { get; set; } = string.Empty;
     public bool CanDelete { get; set; }
     public bool CanPull { get; set; }
+
+    public Visibility CanDeleteVisibility => CanDelete ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility CanPullVisibility => CanPull ? Visibility.Visible : Visibility.Collapsed;
 }
 
 public sealed class SkillListGroup

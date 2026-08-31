@@ -65,7 +65,15 @@
 
                 <!-- Agents Section -->
                 <StackPanel Spacing="12">
-                    <TextBlock Text="Agents" Style="{StaticResource SubtitleTextBlockStyle}" />
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Grid.Column="0" Text="Agents" Style="{StaticResource SubtitleTextBlockStyle}" />
+                        <Button Grid.Column="1" Click="OnAddCustomAgent">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon Glyph="&#xE710;" FontSize="12"/>
+                                <TextBlock Text="Add Custom Agent"/>
+                            </StackPanel>
+                        </Button>
+                    </Grid>
                     <TextBlock
                         Text="No agents are configured in the daemon."
                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
@@ -75,11 +83,14 @@
                             <DataTemplate x:DataType="settings:AgentSettings">
                                 <Border Padding="12" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8" Margin="0,0,0,8">
                                     <StackPanel Spacing="8">
-                                        <Grid ColumnDefinitions="*,Auto">
+                                        <Grid ColumnDefinitions="*,Auto,Auto">
                                             <ToggleSwitch Grid.Column="0" Header="{x:Bind Name, Mode=OneWay}" IsOn="{x:Bind Enabled, Mode=TwoWay}" />
-                                            <Border Grid.Column="1" Visibility="{Binding Custom, Converter={StaticResource BoolToVisibility}}" Padding="6,2" Background="{ThemeResource AccentFillColorDefaultBrush}" CornerRadius="8">
+                                            <Border Grid.Column="1" Visibility="{Binding Custom, Converter={StaticResource BoolToVisibility}}" Padding="6,2" Background="{ThemeResource AccentFillColorDefaultBrush}" CornerRadius="8" VerticalAlignment="Center">
                                                 <TextBlock Text="Custom" FontSize="11" Foreground="White" />
                                             </Border>
+                                            <Button Grid.Column="2" Click="OnRemoveCustomAgent" Tag="{x:Bind Name}" Visibility="{Binding Custom, Converter={StaticResource BoolToVisibility}}" Padding="8,2" VerticalAlignment="Center">
+                                                <FontIcon Glyph="&#xE74D;" FontSize="12"/>
+                                            </Button>
                                         </Grid>
                                         <TextBox Header="Push directory" Text="{x:Bind PushDir, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                                         <TextBox Header="Scan directories (comma separated)" Text="{x:Bind ScanDirsText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
@@ -128,6 +139,7 @@
                         <Button Content="Check for Updates" Click="OnCheckUpdate" IsEnabled="{x:Bind CanCheckUpdate, Mode=OneWay}" />
                         <ProgressRing IsActive="True" Width="20" Height="20" Visibility="{x:Bind CheckingUpdateVisibility, Mode=OneWay}" />
                         <Button Content="Open Log Directory" Click="OnOpenLogDir" />
+                        <Button Content="Open App Data Directory" Click="OnOpenAppDataDir" />
                     </StackPanel>
                     <StackPanel Spacing="4" Visibility="{x:Bind UpdateInfoVisibility, Mode=OneWay}">
                         <TextBlock Text="{x:Bind UpdateStatusText, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}" />

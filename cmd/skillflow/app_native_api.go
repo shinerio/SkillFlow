@@ -169,6 +169,53 @@ type nativeBackupResolveConflictParams struct {
 	UseLocal bool `json:"useLocal"`
 }
 
+type nativeCategoryNameParams struct {
+	Name string `json:"name"`
+}
+
+type nativeCategoryRenameParams struct {
+	OldName string `json:"oldName"`
+	NewName string `json:"newName"`
+}
+
+type nativeSkillPathParams struct {
+	Path string `json:"path"`
+}
+
+type nativeAgentNamesParams struct {
+	AgentNames []string `json:"agentNames"`
+}
+
+type nativeCustomAgentParams struct {
+	Name    string `json:"name"`
+	PushDir string `json:"pushDir"`
+}
+
+type nativeOpenURLParams struct {
+	URL string `json:"url"`
+}
+
+type nativeOpenFolderDialogParams struct {
+	DefaultDir string `json:"defaultDir"`
+}
+
+type nativeOpenPathParams struct {
+	Path string `json:"path"`
+}
+
+type nativeDownloadUpdateParams struct {
+	DownloadURL string `json:"downloadURL"`
+}
+
+type nativeSetSkippedVersionParams struct {
+	Version string `json:"version"`
+}
+
+type nativeStarredPushParams struct {
+	SkillPaths []string `json:"skillPaths"`
+	AgentNames []string `json:"agentNames"`
+}
+
 func nativeAPIRouter(app *App) *nativeapi.Router {
 	router := nativeapi.NewRouter()
 	registerNativeReadOnlyAPI(router, app)
@@ -223,6 +270,68 @@ func registerNativeReadOnlyAPI(router *nativeapi.Router, app *App) {
 			return nil, err
 		}
 		return nil, app.syncLaunchAtLogin(req.Enabled)
+	})
+	router.Register("app.version", func(context.Context, json.RawMessage) (any, error) {
+		return app.GetAppVersion(), nil
+	})
+	router.Register("app.appDataDir", func(context.Context, json.RawMessage) (any, error) {
+		return app.GetAppDataDir(), nil
+	})
+	router.Register("app.openAppDataDir", func(context.Context, json.RawMessage) (any, error) {
+		return nil, app.OpenAppDataDir()
+	})
+	router.Register("app.logDir", func(context.Context, json.RawMessage) (any, error) {
+		return app.GetLogDir(), nil
+	})
+	router.Register("app.openGitBackupDir", func(context.Context, json.RawMessage) (any, error) {
+		return nil, app.OpenGitBackupDir()
+	})
+	router.Register("app.backendClientConfig", func(context.Context, json.RawMessage) (any, error) {
+		return app.GetBackendClientConfig()
+	})
+	router.Register("app.openURL", func(_ context.Context, params json.RawMessage) (any, error) {
+		req, err := decodeNativeAPIParams[nativeOpenURLParams](params)
+		if err != nil {
+			return nil, err
+		}
+		return nil, app.OpenURL(req.URL)
+	})
+	router.Register("app.openFolderDialog", func(_ context.Context, params json.RawMessage) (any, error) {
+		req, err := decodeNativeAPIParams[nativeOpenFolderDialogParams](params)
+		if err != nil {
+			return nil, err
+		}
+		return app.OpenFolderDialog(req.DefaultDir)
+	})
+	router.Register("app.openPath", func(_ context.Context, params json.RawMessage) (any, error) {
+		req, err := decodeNativeAPIParams[nativeOpenPathParams](params)
+		if err != nil {
+			return nil, err
+		}
+		return nil, app.OpenPath(req.Path)
+	})
+	router.Register("app.update.download", func(_ context.Context, params json.RawMessage) (any, error) {
+		req, err := decodeNativeAPIParams[nativeDownloadUpdateParams](params)
+		if err != nil {
+			return nil, err
+		}
+		return nil, app.DownloadAppUpdate(req.DownloadURL)
+	})
+	router.Register("app.update.apply", func(context.Context, json.RawMessage) (any, error) {
+		return nil, app.ApplyAppUpdate()
+	})
+	router.Register("app.update.skippedVersion", func(context.Context, json.RawMessage) (any, error) {
+		return app.GetSkippedUpdateVersion(), nil
+	})
+	router.Register("app.update.setSkippedVersion", func(_ context.Context, params json.RawMessage) (any, error) {
+		req, err := decodeNativeAPIParams[nativeSetSkippedVersionParams](params)
+		if err != nil {
+			return nil, err
+		}
+		return nil, app.SetSkippedUpdateVersion(req.Version)
+	})
+	router.Register("app.update.checkAndNotify", func(context.Context, json.RawMessage) (any, error) {
+		return app.CheckAppUpdateAndNotify()
 	})
 }
 
@@ -290,6 +399,48 @@ func registerNativeSkillsAPI(router *nativeapi.Router, app *App) {
 		}
 		return nil, app.PushToAgentsForce(req.SkillIDs, req.AgentNames)
 	})
+	router.Register("skills.categories.create", func(_ context.Context, params json.RawMessage) (any, error) {
+		req, err := decodeNativeAPIParams[nativeCategoryNameParams](params)
+		if err != nil {
+			return nil, err
+		}
+		return nil, app.CreateCategory(req.Name)
+	})
+	router.Register("skills.categories.rename", func(_ context.Context, params json.RawMessage) (any, error) {
+		req, err := decodeNativeAPIParams[nativeCategoryRenameParams](params)
+		if err != nil {
+			return nil, err
+		}
+		return nil, app.RenameCategory(req.OldName, req.NewName)
+	})
+	router.Register("skills.categories.delete", func(_ context.Context, params json.RawMessage) (any, error) {
+		req, err := decodeNativeAPIParams[nativeCategoryNameParams](params)
+		if err != nil {
+			return nil, err
+		}
+		return nil, app.DeleteCategory(req.Name)
+	})
+	router.Register("skills.meta.get", func(_ context.Context, params json.RawMessage) (any, error) {
+		req, err := decodeNativeAPIParams[nativeSkillsDeleteParams](params)
+		if err != nil {
+			return nil, err
+		}
+		return app.GetSkillMeta(req.SkillID)
+	})
+	router.Register("skills.meta.getByPath", func(_ context.Context, params json.RawMessage) (any, error) {
+		req, err := decodeNativeAPIParams[nativeSkillPathParams](params)
+		if err != nil {
+			return nil, err
+		}
+		return app.GetSkillMetaByPath(req.Path)
+	})
+	router.Register("skills.readFile", func(_ context.Context, params json.RawMessage) (any, error) {
+		req, err := decodeNativeAPIParams[nativeSkillPathParams](params)
+		if err != nil {
+			return nil, err
+		}
+		return app.ReadSkillFileContent(req.Path)
+	})
 }
 
 func registerNativeAgentsAPI(router *nativeapi.Router, app *App) {
@@ -337,6 +488,27 @@ func registerNativeAgentsAPI(router *nativeapi.Router, app *App) {
 			return nil, err
 		}
 		return app.GetAgentMemoryPreview(req.AgentName)
+	})
+	router.Register("agents.checkMissingPushDirs", func(_ context.Context, params json.RawMessage) (any, error) {
+		req, err := decodeNativeAPIParams[nativeAgentNamesParams](params)
+		if err != nil {
+			return nil, err
+		}
+		return app.CheckMissingAgentPushDirs(req.AgentNames)
+	})
+	router.Register("agents.addCustom", func(_ context.Context, params json.RawMessage) (any, error) {
+		req, err := decodeNativeAPIParams[nativeCustomAgentParams](params)
+		if err != nil {
+			return nil, err
+		}
+		return nil, app.AddCustomAgent(req.Name, req.PushDir)
+	})
+	router.Register("agents.removeCustom", func(_ context.Context, params json.RawMessage) (any, error) {
+		req, err := decodeNativeAPIParams[nativeCategoryNameParams](params)
+		if err != nil {
+			return nil, err
+		}
+		return nil, app.RemoveCustomAgent(req.Name)
 	})
 }
 
@@ -391,6 +563,20 @@ func registerNativeStarredAPI(router *nativeapi.Router, app *App) {
 			return nil, err
 		}
 		return nil, app.ImportStarSkills(req.SkillPaths, req.RepoURL, req.Category)
+	})
+	router.Register("starred.pushToAgents", func(_ context.Context, params json.RawMessage) (any, error) {
+		req, err := decodeNativeAPIParams[nativeStarredPushParams](params)
+		if err != nil {
+			return nil, err
+		}
+		return app.PushStarSkillsToAgents(req.SkillPaths, req.AgentNames)
+	})
+	router.Register("starred.pushToAgentsForce", func(_ context.Context, params json.RawMessage) (any, error) {
+		req, err := decodeNativeAPIParams[nativeStarredPushParams](params)
+		if err != nil {
+			return nil, err
+		}
+		return nil, app.PushStarSkillsToAgentsForce(req.SkillPaths, req.AgentNames)
 	})
 }
 
@@ -479,6 +665,9 @@ func registerNativePromptsAPI(router *nativeapi.Router, app *App) {
 	})
 	router.Register("prompts.rootDir", func(context.Context, json.RawMessage) (any, error) {
 		return app.PromptRootDir()
+	})
+	router.Register("prompts.import", func(context.Context, json.RawMessage) (any, error) {
+		return app.ImportPrompts()
 	})
 }
 

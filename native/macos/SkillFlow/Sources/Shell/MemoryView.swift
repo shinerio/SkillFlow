@@ -9,6 +9,11 @@ struct MemoryView: View {
     @State private var errorMessage: String?
     @State private var statusMessage: String?
     @State private var isPushingAll: Bool = false
+    @State private var isPushingSelected: Bool = false
+    @State private var showBatchPushSheet: Bool = false
+    @State private var selectedAgentTypes: Set<String> = []
+    @State private var selectedModuleNames: Set<String> = []
+    @State private var batchPushMode: String = "merge"
 
     private let client: DaemonClient
 
@@ -41,6 +46,16 @@ struct MemoryView: View {
         }
         .frame(minWidth: 720, minHeight: 480)
         .task { await load() }
+        .sheet(isPresented: $showBatchPushSheet) {
+            BatchPushSheet(
+                agents: pushConfigs.map { $0.agentType },
+                modules: modules.map { $0.name },
+                isPushing: $isPushingSelected,
+                onPush: { agentTypes, moduleNames, mode in
+                    await pushSelected(agentTypes: agentTypes, moduleNames: moduleNames, mode: mode)
+                }
+            )
+        }
     }
 
     private var header: some View {
@@ -56,6 +71,10 @@ struct MemoryView: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
+            Button(action: { showBatchPushSheet = true }) {
+                Label("Push Selected", systemImage: "arrow.up.arrow.down.circle")
+            }
+            .disabled(isPushingSelected)
             Button(action: { Task { await pushAll() } }) {
                 Label("Push All", systemImage: "arrow.up.circle")
             }
@@ -148,15 +167,18 @@ struct MemoryView: View {
                         Text(config.agentType)
                             .font(.headline)
                         Spacer()
-                        Picker("Mode", selection: .constant(config.mode)) {
+                        Picker("Auto-Sync", selection: Binding(
+                            get: { autoSyncMode(for: config) },
+                            set: { newValue in
+                                Task { await savePushConfig(agentType: config.agentType, autoSyncMode: newValue) }
+                            }
+                        )) {
+                            Text("Off").tag("off")
                             Text("Merge").tag("merge")
                             Text("Takeover").tag("takeover")
                         }
                         .pickerStyle(.segmented)
-                        .frame(width: 200)
-                        .disabled(true)
-                        Toggle("Auto Push", isOn: .constant(config.autoPush))
-                            .disabled(true)
+                        .frame(width: 240)
                     }
                     .padding(10)
                     .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8))
@@ -165,6 +187,34 @@ struct MemoryView: View {
         }
         .padding(18)
         .background(Color(nsColor: .windowBackgroundColor), in: RoundedRectangle(cornerRadius: 14))
+    }
+
+    private func autoSyncMode(for config: MemoryPushConfig) -> String {
+        if !config.autoPush { return "off" }
+        return config.mode
+    }
+
+    private func savePushConfig(agentType: String, autoSyncMode: String) async {
+        let mode: String
+        let autoPush: Bool
+        switch autoSyncMode {
+        case "off":
+            mode = "merge"
+            autoPush = false
+        case "takeover":
+            mode = "takeover"
+            autoPush = true
+        default:
+            mode = "merge"
+            autoPush = true
+        }
+        errorMessage = nil
+        do {
+            let _: NativeEmptyResult = try await client.invoke("memory.pushConfig.save", parameters: MemorySavePushConfigParams(agentType: agentType, mode: mode, autoPush: autoPush))
+            await load()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
 
     private var pushStatusSection: some View {
@@ -251,6 +301,23 @@ struct MemoryView: View {
             errorMessage = error.localizedDescription
         }
         isPushingAll = false
+    }
+
+    private func pushSelected(agentTypes: [String], moduleNames: [String], mode: String) async {
+        isPushingSelected = true
+        errorMessage = nil
+        statusMessage = nil
+        let params = MemoryPushSelectedParams(agentTypes: agentTypes, moduleNames: moduleNames, mode: mode)
+        do {
+            let results: [PushResult] = try await client.invoke("memory.pushSelected", parameters: params)
+            let successCount = results.filter { $0.success }.count
+            statusMessage = "Pushed to \(successCount) of \(results.count) agent\(results.count == 1 ? "" : "s")."
+            showBatchPushSheet = false
+            await load()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        isPushingSelected = false
     }
 
     private func createModule() async {
@@ -400,5 +467,88 @@ private struct ModuleMemoryRow: View {
         .padding(12)
         .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
         .onAppear { content = module.content }
+    }
+}
+
+// MARK: - Batch Push Sheet
+
+private struct BatchPushSheet: View {
+    let agents: [String]
+    let modules: [String]
+    @Binding var isPushing: Bool
+    let onPush: ([String], [String], String) async -> Void
+
+    @State private var selectedAgents: Set<String> = []
+    @State private var selectedModules: Set<String> = []
+    @State private var mode: String = "merge"
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Push Memory to Agents")
+                .font(.headline)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Push Mode:")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                Picker("Mode", selection: $mode) {
+                    Text("Merge").tag("merge")
+                    Text("Takeover").tag("takeover")
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 240)
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Target Agents:")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                ForEach(agents, id: \.self) { agent in
+                    Toggle(agent, isOn: Binding(
+                        get: { selectedAgents.contains(agent) },
+                        set: { isSelected in
+                            if isSelected { selectedAgents.insert(agent) }
+                            else { selectedAgents.remove(agent) }
+                        }
+                    ))
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Modules to include:")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                ForEach(modules, id: \.self) { module in
+                    Toggle(module, isOn: Binding(
+                        get: { selectedModules.contains(module) },
+                        set: { isSelected in
+                            if isSelected { selectedModules.insert(module) }
+                            else { selectedModules.remove(module) }
+                        }
+                    ))
+                }
+                if modules.isEmpty {
+                    Text("(no modules configured)")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
+            }
+
+            HStack {
+                Spacer()
+                Button("Cancel") { dismiss() }
+                Button("Push") {
+                    Task {
+                        await onPush(Array(selectedAgents), Array(selectedModules), mode)
+                    }
+                }
+                .keyboardShortcut(.return)
+                .disabled(selectedAgents.isEmpty || isPushing)
+                .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding(24)
+        .frame(width: 440)
     }
 }

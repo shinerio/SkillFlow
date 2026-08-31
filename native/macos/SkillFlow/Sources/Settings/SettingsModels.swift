@@ -216,3 +216,21 @@ public struct AppUpdateInfo: Codable, Equatable {
 }
 
 public struct NativeEmptyResult: Codable, Equatable {}
+
+public struct CustomAgentAddParams: Encodable {
+    public let name: String
+    public let pushDir: String
+
+    public init(name: String, pushDir: String) {
+        self.name = name
+        self.pushDir = pushDir
+    }
+}
+
+public struct AgentNameParams: Encodable {
+    public let name: String
+
+    public init(name: String) {
+        self.name = name
+    }
+}

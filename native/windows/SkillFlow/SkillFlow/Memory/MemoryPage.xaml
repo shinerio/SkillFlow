@@ -26,6 +26,12 @@
                 </StackPanel>
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                <Button x:Name="PushSelectedButton" Click="OnPushSelected">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon Glyph="&#xE8B0;" FontSize="14"/>
+                        <TextBlock Text="Push Selected"/>
+                    </StackPanel>
+                </Button>
                 <Button x:Name="PushAllButton" Click="OnPushAll">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <FontIcon Glyph="&#xE74A;" FontSize="14"/>

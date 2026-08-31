@@ -18,6 +18,10 @@ struct RootView: View {
                         SkillsView()
                     case .agents:
                         AgentsView()
+                    case .starredRepos:
+                        StarredReposView()
+                    case .prompts:
+                        PromptsView()
                     case .memory:
                         MemoryView()
                     case .backup:

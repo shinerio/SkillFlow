@@ -92,6 +92,28 @@
                             <ProgressRing x:Name="ScanProgress" IsActive="False" Width="20" Height="20"/>
                         </StackPanel>
                         <ListView Grid.Row="1" x:Name="SkillsListView" Padding="16,0,16,12">
+                            <ListView.ItemTemplate>
+                                <DataTemplate x:DataType="agents:SkillListItem">
+                                    <Grid Padding="0,4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" Spacing="2">
+                                            <TextBlock Text="{x:Bind Name}" FontWeight="SemiBold"/>
+                                            <TextBlock Text="{x:Bind Path}" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                            <Button Click="OnPullSkill" Tag="{x:Bind Path}" Visibility="{x:Bind CanPullVisibility}" Padding="8,2">
+                                                <FontIcon Glyph="&#xE895;" FontSize="12"/>
+                                            </Button>
+                                            <Button Click="OnDeleteSkill" Tag="{x:Bind Path}" Visibility="{x:Bind CanDeleteVisibility}" Padding="8,2">
+                                                <FontIcon Glyph="&#xE74D;" FontSize="12"/>
+                                            </Button>
+                                        </StackPanel>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
                             <ListView.GroupStyle>
                                 <GroupStyle>
                                     <GroupStyle.HeaderTemplate>

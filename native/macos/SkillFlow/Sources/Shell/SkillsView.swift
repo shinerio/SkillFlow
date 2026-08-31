@@ -16,6 +16,9 @@ struct SkillsView: View {
     @State private var isPushing: Bool = false
     @State private var isCheckingUpdates: Bool = false
     @State private var showPushSheet: Bool = false
+    @State private var showAddCategory: Bool = false
+    @State private var showMoveSheet: Bool = false
+    @State private var skillToMove: InstalledSkill?
 
     private let client: DaemonClient
 
@@ -47,6 +50,19 @@ struct SkillsView: View {
                     await push(agentNames: agentNames)
                 }
             )
+        }
+        .sheet(isPresented: $showAddCategory) {
+            AddSkillCategorySheet(client: client) { _ in
+                Task { await load() }
+            }
+        }
+        .sheet(isPresented: $showMoveSheet) {
+            if let skill = skillToMove {
+                MoveCategorySheet(skill: skill, categories: categories) { category in
+                    Task { await moveSkillCategory(skill, to: category) }
+                    showMoveSheet = false
+                }
+            }
         }
     }
 
@@ -95,10 +111,27 @@ struct SkillsView: View {
 
     private var categorySidebar: some View {
         VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text("Categories").fontWeight(.semibold)
+                Spacer()
+                Button(action: { showAddCategory = true }) {
+                    Image(systemName: "plus")
+                }
+                .buttonStyle(.borderless)
+            }
+            .padding(8)
             List(selection: $selectedCategory) {
                 Text("All").tag(String?.none)
                 ForEach(categories, id: \.self) { category in
                     Text(category).tag(Optional(category))
+                        .contextMenu {
+                            Button("Rename") {
+                                Task { await renameCategory(category) }
+                            }
+                            Button("Delete", role: .destructive) {
+                                Task { await deleteCategory(category) }
+                            }
+                        }
                 }
             }
             .frame(width: 200)
@@ -129,6 +162,20 @@ struct SkillsView: View {
                 Label(sortAscending ? "A-Z" : "Z-A", systemImage: "arrow.up.arrow.down")
             }
             Menu {
+                if selectedSkillIDs.count == 1,
+                   let id = selectedSkillIDs.first,
+                   let skill = skills.first(where: { $0.id == id }) {
+                    if skill.updatable {
+                        Button("Update \(skill.name)") {
+                            Task { await updateSkill(skill) }
+                        }
+                    }
+                    Button("Move to Category...") {
+                        skillToMove = skill
+                        showMoveSheet = true
+                    }
+                    Divider()
+                }
                 Button("Delete Selected") {
                     Task { await deleteSelected() }
                 }
@@ -322,16 +369,121 @@ struct SkillsView: View {
         isPushing = true
         errorMessage = nil
         statusMessage = nil
+
+        // Check for missing push directories before pushing.
+        do {
+            let missing: [MissingPushDir] = try await client.invoke("agents.checkMissingPushDirs", parameters: AgentNamesParams(agentNames: agentNames))
+            if !missing.isEmpty {
+                let dirList = missing.map { "• \($0.name): \($0.dir)" }.joined(separator: "\n")
+                let alert = NSAlert()
+                alert.messageText = "Missing Push Directories"
+                alert.informativeText = "The following agents have missing push directories:\n\n\(dirList)\n\nCreate them and continue?"
+                alert.alertStyle = .warning
+                alert.addButton(withTitle: "Create and Push")
+                alert.addButton(withTitle: "Cancel")
+                guard alert.runModal() == .alertFirstButtonReturn else {
+                    isPushing = false
+                    return
+                }
+            }
+        } catch {
+            errorMessage = error.localizedDescription
+            isPushing = false
+            return
+        }
+
         let params = SkillsPushParams(skillIDs: ids, agentNames: agentNames)
         do {
-            let _: NativeEmptyResult = try await client.invoke("skills.push", parameters: params)
-            statusMessage = "Pushed \(ids.count) skill\(ids.count == 1 ? "" : "s") to \(agentNames.count) agent\(agentNames.count == 1 ? "" : "s")."
-            showPushSheet = false
+            let conflicts: [PushConflict] = try await client.invoke("skills.push", parameters: params)
+            if conflicts.isEmpty {
+                statusMessage = "Pushed \(ids.count) skill\(ids.count == 1 ? "" : "s") to \(agentNames.count) agent\(agentNames.count == 1 ? "" : "s")."
+                showPushSheet = false
+            } else {
+                let conflictList = conflicts.map { "• \($0.skillName) → \($0.agentName)" }.joined(separator: "\n")
+                let alert = NSAlert()
+                alert.messageText = "Push Conflicts"
+                alert.informativeText = "\(conflicts.count) conflict\(conflicts.count == 1 ? "" : "s") detected:\n\n\(conflictList)\n\nForce push to overwrite?"
+                alert.alertStyle = .warning
+                alert.addButton(withTitle: "Force Push")
+                alert.addButton(withTitle: "Skip")
+                if alert.runModal() == .alertFirstButtonReturn {
+                    let _: NativeEmptyResult = try await client.invoke("skills.pushForce", parameters: params)
+                    statusMessage = "Force pushed \(ids.count) skill\(ids.count == 1 ? "" : "s")."
+                    showPushSheet = false
+                } else {
+                    statusMessage = "Pushed with \(conflicts.count) conflict\(conflicts.count == 1 ? "" : "s") skipped."
+                    showPushSheet = false
+                }
+            }
             await load()
         } catch {
             errorMessage = error.localizedDescription
         }
         isPushing = false
+    }
+
+    private func updateSkill(_ skill: InstalledSkill) async {
+        errorMessage = nil
+        statusMessage = nil
+        do {
+            let _: NativeEmptyResult = try await client.invoke("skills.updateOne", parameters: SkillsDeleteParams(skillID: skill.id))
+            statusMessage = "Updated skill: \(skill.name)"
+            await load()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func moveSkillCategory(_ skill: InstalledSkill, to category: String) async {
+        errorMessage = nil
+        statusMessage = nil
+        do {
+            let _: NativeEmptyResult = try await client.invoke("skills.moveCategory", parameters: SkillsMoveCategoryParams(skillID: skill.id, category: category))
+            statusMessage = "Moved \(skill.name) to \(category)."
+            await load()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func renameCategory(_ oldName: String) async {
+        let alert = NSAlert()
+        alert.messageText = "Rename Category"
+        alert.informativeText = "Enter a new name for \"\(oldName)\":"
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "Rename")
+        alert.addButton(withTitle: "Cancel")
+        let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 250, height: 24))
+        input.stringValue = oldName
+        alert.accessoryView = input
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        let newName = input.stringValue.trimmingCharacters(in: .whitespaces)
+        guard !newName.isEmpty, newName != oldName else { return }
+        do {
+            let _: NativeEmptyResult = try await client.invoke("skills.categories.rename", parameters: SkillsCategoryRenameParams(oldName: oldName, newName: newName))
+            statusMessage = "Renamed category to \(newName)."
+            await load()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func deleteCategory(_ name: String) async {
+        let alert = NSAlert()
+        alert.messageText = "Delete Category?"
+        alert.informativeText = "Delete \"\(name)\"? Skills in this category will be moved to the default category."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Delete")
+        alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        do {
+            let _: NativeEmptyResult = try await client.invoke("skills.categories.delete", parameters: SkillsCategoryNameParams(name: name))
+            statusMessage = "Deleted category: \(name)."
+            if selectedCategory == name { selectedCategory = nil }
+            await load()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
 }
 
@@ -392,5 +544,94 @@ private struct PushSheet: View {
         }
         .padding(24)
         .frame(width: 400)
+    }
+}
+
+// MARK: - Add Skill Category Sheet
+
+private struct AddSkillCategorySheet: View {
+    let client: DaemonClient
+    let onCreated: (String) -> Void
+
+    @State private var name: String = ""
+    @State private var isLoading: Bool = false
+    @State private var errorMessage: String?
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Text("New Category").font(.headline)
+            TextField("Category name", text: $name)
+                .textFieldStyle(.roundedBorder)
+            if let errorMessage {
+                Text(errorMessage).foregroundStyle(.red).font(.caption)
+            }
+            HStack {
+                Button("Cancel") { dismiss() }
+                Button("Create") {
+                    Task { await createCategory() }
+                }
+                .disabled(name.isEmpty || isLoading)
+                .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding(24)
+        .frame(width: 400)
+    }
+
+    private func createCategory() async {
+        isLoading = true
+        errorMessage = nil
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        do {
+            let _: NativeEmptyResult = try await client.invoke("skills.categories.create", parameters: SkillsCategoryNameParams(name: trimmed))
+            onCreated(trimmed)
+            dismiss()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        isLoading = false
+    }
+}
+
+// MARK: - Move Category Sheet
+
+private struct MoveCategorySheet: View {
+    let skill: InstalledSkill
+    let categories: [String]
+    let onMove: (String) -> Void
+
+    @State private var selectedCategory: String = ""
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Move Skill to Category").font(.headline)
+            Text("Move \"\(skill.name)\" to a different category:")
+                .foregroundStyle(.secondary)
+                .font(.subheadline)
+            Picker("Category", selection: $selectedCategory) {
+                ForEach(categories, id: \.self) { category in
+                    Text(category).tag(category)
+                }
+            }
+            .pickerStyle(.menu)
+            HStack {
+                Button("Cancel") { dismiss() }
+                Spacer()
+                Button("Move") {
+                    onMove(selectedCategory)
+                }
+                .disabled(selectedCategory.isEmpty)
+                .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding(24)
+        .frame(width: 400)
+        .onAppear {
+            if selectedCategory.isEmpty {
+                selectedCategory = categories.first ?? skill.category
+            }
+        }
     }
 }

@@ -256,12 +256,65 @@ public sealed partial class SkillsPage : Page, INotifyPropertyChanged
         try
         {
             var ids = selected.Select(s => s.Id).ToList();
-            await _client.InvokeAsync<object>("skills.push", new SkillsPushParams
+
+            // Check for missing push directories before pushing.
+            var missing = await _client.InvokeAsync<List<MissingPushDir>>("agents.checkMissingPushDirs",
+                new AgentNamesParams { AgentNames = agentNames });
+            if (missing.Count > 0)
+            {
+                var dirList = string.Join("\n", missing.Select(m => $"- {m.Name}: {m.Dir}"));
+                var missingDialog = new ContentDialog
+                {
+                    XamlRoot = XamlRoot,
+                    Title = "Missing Push Directories",
+                    Content = $"The following agents have missing push directories:\n\n{dirList}\n\nCreate them and continue?",
+                    PrimaryButtonText = "Create and Push",
+                    CloseButtonText = "Cancel",
+                    DefaultButton = ContentDialogButton.Primary
+                };
+                if (await missingDialog.ShowAsync() != ContentDialogResult.Primary)
+                {
+                    IsPushing = false;
+                    return;
+                }
+            }
+
+            var conflicts = await _client.InvokeAsync<List<PushConflict>>("skills.push", new SkillsPushParams
             {
                 SkillIDs = ids,
                 AgentNames = agentNames
             });
-            StatusMessage = $"Pushed {ids.Count} skill{(ids.Count == 1 ? "" : "s")} to {agentNames.Count} agent{(agentNames.Count == 1 ? "" : "s")}.";
+
+            if (conflicts.Count == 0)
+            {
+                StatusMessage = $"Pushed {ids.Count} skill{(ids.Count == 1 ? "" : "s")} to {agentNames.Count} agent{(agentNames.Count == 1 ? "" : "s")}.";
+            }
+            else
+            {
+                var conflictList = string.Join("\n", conflicts.Select(c => $"- {c.SkillName} -> {c.AgentName}"));
+                var conflictDialog = new ContentDialog
+                {
+                    XamlRoot = XamlRoot,
+                    Title = "Push Conflicts",
+                    Content = $"{conflicts.Count} conflict{(conflicts.Count == 1 ? "" : "s")} detected:\n\n{conflictList}\n\nForce push to overwrite?",
+                    PrimaryButtonText = "Force Push",
+                    CloseButtonText = "Skip",
+                    DefaultButton = ContentDialogButton.Close
+                };
+                if (await conflictDialog.ShowAsync() == ContentDialogResult.Primary)
+                {
+                    await _client.InvokeAsync<NativeEmptyResult>("skills.pushForce", new SkillsPushParams
+                    {
+                        SkillIDs = ids,
+                        AgentNames = agentNames
+                    });
+                    StatusMessage = $"Force pushed {ids.Count} skill{(ids.Count == 1 ? "" : "s")}.";
+                }
+                else
+                {
+                    StatusMessage = $"Pushed with {conflicts.Count} conflict{(conflicts.Count == 1 ? "" : "s")} skipped.";
+                }
+            }
             await LoadAsync();
         }
         catch (Exception ex)
@@ -297,6 +350,83 @@ public sealed partial class SkillsPage : Page, INotifyPropertyChanged
     private async void OnImport(object sender, RoutedEventArgs e) => await ImportAsync();
     private async void OnCheckUpdates(object sender, RoutedEventArgs e) => await CheckUpdatesAsync();
     private async void OnReload(object sender, RoutedEventArgs e) => await LoadAsync();
+    private async void OnAddCategory(object sender, RoutedEventArgs e) => await AddCategoryAsync();
+
+    private async Task AddCategoryAsync()
+    {
+        var nameBox = new TextBox { PlaceholderText = "category-name" };
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = "New Category",
+            Content = new StackPanel
+            {
+                Spacing = 12,
+                Children = { new TextBlock { Text = "Category name:" }, nameBox }
+            },
+            PrimaryButtonText = "Create",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Primary
+        };
+
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+        if (string.IsNullOrWhiteSpace(nameBox.Text)) return;
+
+        ErrorMessage = null;
+        StatusMessage = null;
+        try
+        {
+            await _client.InvokeAsync<object>("skills.categories.create", new SkillsCategoryNameParams
+            {
+                Name = nameBox.Text.Trim()
+            });
+            StatusMessage = $"Created category: {nameBox.Text.Trim()}";
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+    }
+
+    private async Task UpdateSkillAsync(InstalledSkill skill)
+    {
+        ErrorMessage = null;
+        StatusMessage = null;
+        try
+        {
+            await _client.InvokeAsync<object>("skills.updateOne", new SkillsDeleteParams
+            {
+                SkillID = skill.Id
+            });
+            StatusMessage = $"Updated skill: {skill.Name}";
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+    }
+
+    private async Task MoveSkillCategoryAsync(InstalledSkill skill, string category)
+    {
+        ErrorMessage = null;
+        StatusMessage = null;
+        try
+        {
+            await _client.InvokeAsync<object>("skills.moveCategory", new SkillsMoveCategoryParams
+            {
+                SkillID = skill.Id,
+                Category = category
+            });
+            StatusMessage = $"Moved {skill.Name} to {category}.";
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+    }
 
     private void OnSkillSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
@@ -307,6 +437,23 @@ public sealed partial class SkillsPage : Page, INotifyPropertyChanged
     {
         var menu = new MenuFlyout();
 
+        if (SkillListView.SelectedItems.Count == 1 &&
+            SkillListView.SelectedItem is InstalledSkill skill)
+        {
+            if (skill.Updatable)
+            {
+                var updateItem = new MenuFlyoutItem { Text = $"Update {skill.Name}" };
+                updateItem.Click += async (_, _) => await UpdateSkillAsync(skill);
+                menu.Items.Add(updateItem);
+            }
+
+            var moveItem = new MenuFlyoutItem { Text = "Move to Category..." };
+            moveItem.Click += async (_, _) => await ShowMoveCategoryDialogAsync(skill);
+            menu.Items.Add(moveItem);
+
+            menu.Items.Add(new MenuFlyoutSeparator());
+        }
+
         var deleteItem = new MenuFlyoutItem { Text = "Delete Selected" };
         deleteItem.Click += async (_, _) => await DeleteSelectedAsync();
         menu.Items.Add(deleteItem);
@@ -316,6 +463,41 @@ public sealed partial class SkillsPage : Page, INotifyPropertyChanged
         menu.Items.Add(pushItem);
 
         menu.ShowAt(ActionsButton, new Windows.Foundation.Point(0, ActionsButton.ActualHeight));
+    }
+
+    private async Task ShowMoveCategoryDialogAsync(InstalledSkill skill)
+    {
+        if (_categories.Count == 0) return;
+
+        var categoryBox = new ComboBox();
+        foreach (var cat in _categories)
+        {
+            categoryBox.Items.Add(cat);
+        }
+        var idx = _categories.IndexOf(skill.Category);
+        if (idx >= 0) categoryBox.SelectedIndex = idx;
+        else if (_categories.Count > 0) categoryBox.SelectedIndex = 0;
+
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = $"Move {skill.Name}",
+            Content = new StackPanel
+            {
+                Spacing = 12,
+                Children = { new TextBlock { Text = "Select category:" }, categoryBox }
+            },
+            PrimaryButtonText = "Move",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Primary
+        };
+
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+        var category = categoryBox.SelectedItem as string;
+        if (!string.IsNullOrEmpty(category))
+        {
+            await MoveSkillCategoryAsync(skill, category);
+        }
     }
 
     private async Task ShowPushDialogAsync()

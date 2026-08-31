@@ -77,6 +77,45 @@ public sealed class SkillsPushParams
     public List<string> AgentNames { get; set; } = new();
 }
 
+public sealed class SkillsCategoryNameParams
+{
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+}
+
+public sealed class AgentNamesParams
+{
+    [JsonPropertyName("agentNames")]
+    public List<string> AgentNames { get; set; } = new();
+}
+
+public sealed class MissingPushDir
+{
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+
+    [JsonPropertyName("dir")]
+    public string Dir { get; set; } = string.Empty;
+}
+
+public sealed class PushConflict
+{
+    [JsonPropertyName("skillId")]
+    public string? SkillId { get; set; }
+
+    [JsonPropertyName("skillName")]
+    public string SkillName { get; set; } = string.Empty;
+
+    [JsonPropertyName("skillPath")]
+    public string? SkillPath { get; set; }
+
+    [JsonPropertyName("agentName")]
+    public string AgentName { get; set; } = string.Empty;
+
+    [JsonPropertyName("targetPath")]
+    public string TargetPath { get; set; } = string.Empty;
+}
+
 public sealed class AgentInfo
 {
     [JsonPropertyName("name")]

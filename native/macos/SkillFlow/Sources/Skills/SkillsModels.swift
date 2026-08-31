@@ -36,6 +36,32 @@ struct SkillsPushParams: Encodable {
     let agentNames: [String]
 }
 
+struct SkillsCategoryNameParams: Encodable {
+    let name: String
+}
+
+struct SkillsCategoryRenameParams: Encodable {
+    let oldName: String
+    let newName: String
+}
+
+struct MissingPushDir: Codable, Equatable {
+    let name: String
+    let dir: String
+}
+
+struct PushConflict: Codable, Equatable {
+    let skillId: String?
+    let skillName: String
+    let skillPath: String?
+    let agentName: String
+    let targetPath: String
+}
+
+struct AgentNamesParams: Encodable {
+    let agentNames: [String]
+}
+
 struct AgentConfig: Codable, Identifiable, Equatable, Hashable {
     let name: String
     let scanDirs: [String]

@@ -3,9 +3,11 @@ using Microsoft.UI.Xaml.Controls;
 using SkillFlow.Agents;
 using SkillFlow.Backup;
 using SkillFlow.Memory;
+using SkillFlow.Prompts;
 using SkillFlow.Settings;
 using SkillFlow.Shell;
 using SkillFlow.Skills;
+using SkillFlow.StarredRepos;
 
 namespace SkillFlow;
 
@@ -37,6 +39,12 @@ public sealed partial class MainWindow : Window
             case "agents":
                 ContentFrame.Navigate(typeof(AgentsPage));
                 break;
+            case "starredRepos":
+                ContentFrame.Navigate(typeof(StarredReposPage));
+                break;
+            case "prompts":
+                ContentFrame.Navigate(typeof(PromptsPage));
+                break;
             case "memory":
                 ContentFrame.Navigate(typeof(MemoryPage));
                 break;
@@ -44,13 +52,7 @@ public sealed partial class MainWindow : Window
                 ContentFrame.Navigate(typeof(BackupPage));
                 break;
             default:
-                var title = tag switch
-                {
-                    "starredRepos" => "Starred Repos",
-                    "prompts" => "My Prompts",
-                    _ => "Settings",
-                };
-                ContentFrame.Navigate(typeof(PlaceholderPage), title);
+                ContentFrame.Navigate(typeof(SettingsPage));
                 break;
         }
     }

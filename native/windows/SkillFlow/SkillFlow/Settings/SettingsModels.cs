@@ -175,3 +175,18 @@ public sealed class AppUpdateInfo
     [JsonPropertyName("canAutoUpdate")]
     public bool CanAutoUpdate { get; set; }
 }
+
+public sealed class CustomAgentAddParams
+{
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+
+    [JsonPropertyName("pushDir")]
+    public string PushDir { get; set; } = string.Empty;
+}
+
+public sealed class AgentNameParams
+{
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+}

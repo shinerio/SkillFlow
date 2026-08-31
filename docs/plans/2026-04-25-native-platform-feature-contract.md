@@ -31,20 +31,20 @@
 | 功能面 | Wails baseline | macOS Native | Windows Native | daemon API | 验收重点 |
 |--------|----------------|---------------|-----------------|------------|----------|
 | Navigation & Shell | Baseline | Pending | Pending | Partial | 导航、语言、主题、反馈、关闭/重开、托盘/菜单栏、窗口尺寸 |
-| My Skills | Baseline | Pending | Pending | Done | 列表、分类、搜索、排序、导入、删除、移动、更新、手动推送、自动推送 |
+| My Skills | Baseline | Done | Done | Done | 列表、分类、搜索、排序、导入、删除、移动、更新、手动推送、自动推送 |
 | Legacy Push Route | Baseline | N/A | N/A | N/A | 旧路由或深链必须有兼容策略 |
 | Legacy Pull Route | Baseline | N/A | N/A | N/A | 旧路由或深链必须有兼容策略 |
-| Starred Repos | Baseline | Pending | Pending | Pending | 仓库添加、认证、刷新、候选技能、批量导入、批量推送 |
+| Starred Repos | Baseline | Done | Done | Done | 仓库添加、认证、刷新、候选技能、批量导入、批量推送 |
 | Cloud Backup | Baseline | Pending | Pending | Done | Provider 配置、备份、恢复、Git 冲突、变更列表 |
-| Settings | Baseline | Pending | Pending | Done | Agents、Cloud、General、Proxy、保存、启动项、日志 |
+| Settings | Baseline | Done | Done | Done | Agents、Cloud、General、Proxy、保存、启动项、日志 |
 | Skill Card | Baseline | Pending | Pending | Pending | 状态语义、操作入口、溢出、右键菜单、拖放 |
 | Skill Tooltip | Baseline | Pending | Pending | Pending | 延迟、定位、内容、可读性 |
-| Shared Dialogs | Baseline | Pending | Pending | Pending | 覆盖/跳过冲突、缺失目录确认、错误展示 |
+| Shared Dialogs | Baseline | Done | Done | Done | 覆盖/跳过冲突、缺失目录确认、错误展示 |
 | Backend Events | Baseline | Pending | Pending | Pending | 更新事件、备份事件、记忆事件、订阅清理 |
 | App Update Dialog | Baseline | Pending | Pending | Pending | 检查、下载、应用、跳过版本、平台差异 |
-| My Agents | Baseline | Pending | Pending | Pending | Agent 列表、扫描、PushDir、ScanDirs、手动拉取、删除、记忆预览 |
-| My Prompts | Baseline | Pending | Pending | Pending | 分类、卡片、编辑器、导入、导出、媒体、链接 |
-| My Memory | Baseline | Pending | Pending | Done | 主记忆、模块记忆、批量推送、自动同步、外部编辑、Agent 侧校验 |
+| My Agents | Baseline | Done | Done | Done | Agent 列表、扫描、PushDir、ScanDirs、手动拉取、删除、记忆预览 |
+| My Prompts | Baseline | Done | Done | Done | 分类、卡片、编辑器、导入、导出、媒体、链接 |
+| My Memory | Baseline | Done | Done | Done | 主记忆、模块记忆、批量推送、自动同步、外部编辑、Agent 侧校验 |
 
 ## 页面级验收清单
 
@@ -65,18 +65,18 @@
 
 | 验收项 | Wails baseline | macOS Native | Windows Native | daemon API |
 |--------|----------------|---------------|-----------------|------------|
-| 实时搜索、A-Z/Z-A 排序和分类过滤 | Baseline | Pending | Pending | Done |
-| 分类创建、重命名、删除和空分类限制 | Baseline | Pending | Pending | Pending |
-| 本地文件夹导入技能 | Baseline | Pending | Pending | Done |
+| 实时搜索、A-Z/Z-A 排序和分类过滤 | Baseline | Done | Done | Done |
+| 分类创建、重命名、删除和空分类限制 | Baseline | Done | Done | Done |
+| 本地文件夹导入技能 | Baseline | Done | Done | Done |
 | OS 文件夹拖放导入技能 | Baseline | Pending | Pending | N/A |
-| 单个删除和批量删除技能 | Baseline | Pending | Pending | Done |
-| 拖放或菜单移动技能分类 | Baseline | Pending | Pending | Done |
-| 检查 Git-backed 技能更新 | Baseline | Pending | Pending | Done |
-| 单卡更新并刷新已有 Agent 副本 | Baseline | Pending | Pending | Done |
+| 单个删除和批量删除技能 | Baseline | Done | Done | Done |
+| 拖放或菜单移动技能分类 | Baseline | Done | Done | Done |
+| 检查 Git-backed 技能更新 | Baseline | Done | Done | Done |
+| 单卡更新并刷新已有 Agent 副本 | Baseline | Done | Done | Done |
 | 自动更新开关本机持久化 | Baseline | Pending | Pending | Done |
 | 自动推送目标本机持久化并可回填 | Baseline | Pending | Pending | Done |
-| 手动推送选择可见技能和目标 Agent | Baseline | Pending | Pending | Done |
-| 缺失推送目录确认和冲突覆盖/跳过 | Baseline | Pending | Pending | Done |
+| 手动推送选择可见技能和目标 Agent | Baseline | Done | Done | Done |
+| 缺失推送目录确认和冲突覆盖/跳过 | Baseline | Done | Done | Done |
 
 ### 3. Legacy Push Route
 

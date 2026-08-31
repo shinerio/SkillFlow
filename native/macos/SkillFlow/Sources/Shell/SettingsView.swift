@@ -20,6 +20,8 @@ struct SettingsView: View {
     private var statusMessage: String?
     @State
     private var updateInfo: AppUpdateInfo?
+    @State
+    private var showAddCustomAgent: Bool = false
 
     private let client: DaemonClient
 
@@ -54,6 +56,11 @@ struct SettingsView: View {
         .frame(minWidth: 720, minHeight: 560)
         .task {
             await load()
+        }
+        .sheet(isPresented: $showAddCustomAgent) {
+            AddCustomAgentSheet(client: client) { _ in
+                Task { await load() }
+            }
         }
     }
 
@@ -126,10 +133,16 @@ struct SettingsView: View {
                 } else {
                     ForEach(draft.agents) { agent in
                         if let index = draft.agents.firstIndex(where: { $0.id == agent.id }) {
-                            AgentSettingsRow(agent: $draft.agents[index])
+                            AgentSettingsRow(agent: $draft.agents[index]) {
+                                Task { await removeCustomAgent(name: agent.name) }
+                            }
                         }
                     }
                 }
+                Button(action: { showAddCustomAgent = true }) {
+                    Label("Add Custom Agent", systemImage: "plus")
+                }
+                .buttonStyle(.bordered)
             }
         )
     }
@@ -219,6 +232,9 @@ struct SettingsView: View {
                     }
                     Button("Open Log Directory") {
                         Task { await openLogDirectory() }
+                    }
+                    Button("Open App Data Directory") {
+                        Task { await openAppDataDir() }
                     }
                 }
                 if let updateInfo {
@@ -340,6 +356,37 @@ struct SettingsView: View {
         }
     }
 
+    private func openAppDataDir() async {
+        errorMessage = nil
+        statusMessage = nil
+        do {
+            let _: NativeEmptyResult = try await client.invoke("app.openAppDataDir")
+            statusMessage = "App data directory opened."
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func removeCustomAgent(name: String) async {
+        let alert = NSAlert()
+        alert.messageText = "Remove Custom Agent"
+        alert.informativeText = "Remove \"\(name)\" from the agent list? This action cannot be undone."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Remove")
+        alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+
+        errorMessage = nil
+        statusMessage = nil
+        do {
+            let _: NativeEmptyResult = try await client.invoke("agents.removeCustom", parameters: AgentNameParams(name: name))
+            statusMessage = "Removed custom agent: \(name)."
+            await load()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
     private func credentialBinding(_ field: String) -> Binding<String> {
         Binding(
             get: { draft.cloud.credentials[field] ?? "" },
@@ -363,6 +410,7 @@ struct SettingsView: View {
 private struct AgentSettingsRow: View {
     @Binding
     var agent: AgentSettings
+    let onRemove: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -376,6 +424,10 @@ private struct AgentSettingsRow: View {
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
                         .background(.quaternary, in: Capsule())
+                    Button(role: .destructive, action: onRemove) {
+                        Image(systemName: "trash")
+                    }
+                    .buttonStyle(.borderless)
                 }
             }
             TextField("Push directory", text: $agent.pushDir)
@@ -438,5 +490,82 @@ private struct SettingsSection<Content: View>: View {
         }
         .padding(18)
         .background(Color(nsColor: .windowBackgroundColor), in: RoundedRectangle(cornerRadius: 14))
+    }
+}
+
+// MARK: - Add Custom Agent Sheet
+
+private struct AddCustomAgentSheet: View {
+    let client: DaemonClient
+    let onCreated: (String) -> Void
+
+    @State private var name: String = ""
+    @State private var pushDir: String = ""
+    @State private var isLoading: Bool = false
+    @State private var errorMessage: String?
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Add Custom Agent").font(.headline)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Agent Name").font(.subheadline).foregroundStyle(.secondary)
+                TextField("e.g. my-tool", text: $name)
+                    .textFieldStyle(.roundedBorder)
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Push Directory").font(.subheadline).foregroundStyle(.secondary)
+                HStack {
+                    TextField("/path/to/push/dir", text: $pushDir)
+                        .textFieldStyle(.roundedBorder)
+                    Button("Choose...") {
+                        chooseDirectory { path in
+                            if let path { pushDir = path }
+                        }
+                    }
+                }
+            }
+            if let errorMessage {
+                Text(errorMessage).foregroundStyle(.red).font(.caption)
+            }
+            HStack {
+                Button("Cancel") { dismiss() }
+                Spacer()
+                Button("Add") {
+                    Task { await addAgent() }
+                }
+                .disabled(name.isEmpty || pushDir.isEmpty || isLoading)
+                .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding(24)
+        .frame(width: 440)
+    }
+
+    private func addAgent() async {
+        isLoading = true
+        errorMessage = nil
+        let trimmedName = name.trimmingCharacters(in: .whitespaces)
+        let trimmedDir = pushDir.trimmingCharacters(in: .whitespaces)
+        do {
+            let _: NativeEmptyResult = try await client.invoke("agents.addCustom", parameters: CustomAgentAddParams(name: trimmedName, pushDir: trimmedDir))
+            onCreated(trimmedName)
+            dismiss()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        isLoading = false
+    }
+
+    private func chooseDirectory(_ completion: @escaping (String?) -> Void) {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        if panel.runModal() == .OK {
+            completion(panel.url?.path)
+        } else {
+            completion(nil)
+        }
     }
 }

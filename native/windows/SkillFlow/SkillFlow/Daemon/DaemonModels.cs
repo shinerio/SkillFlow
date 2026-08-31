@@ -63,3 +63,5 @@ public sealed class DaemonClientException : Exception
 
     public string? MessageKey { get; }
 }
+
+public sealed class NativeEmptyResult { }

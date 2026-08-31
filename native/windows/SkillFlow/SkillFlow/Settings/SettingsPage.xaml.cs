@@ -264,11 +264,114 @@ public sealed partial class SettingsPage : Page, INotifyPropertyChanged
         }
     }
 
+    private async Task OpenAppDataDirAsync()
+    {
+        ErrorMessage = null;
+        StatusMessage = null;
+        try
+        {
+            await _client.InvokeAsync<NativeEmptyResult>("app.openAppDataDir");
+            StatusMessage = "App data directory opened.";
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+    }
+
     private async void OnReload(object sender, RoutedEventArgs e) => await LoadAsync();
     private async void OnSave(object sender, RoutedEventArgs e) => await SaveAsync();
     private async void OnTestProxy(object sender, RoutedEventArgs e) => await TestProxyAsync();
     private async void OnCheckUpdate(object sender, RoutedEventArgs e) => await CheckUpdateAsync();
     private async void OnOpenLogDir(object sender, RoutedEventArgs e) => await OpenLogDirectoryAsync();
+    private async void OnOpenAppDataDir(object sender, RoutedEventArgs e) => await OpenAppDataDirAsync();
+
+    private async void OnAddCustomAgent(object sender, RoutedEventArgs e)
+    {
+        var nameBox = new TextBox { PlaceholderText = "Agent name (e.g. my-tool)" };
+        var pushDirBox = new TextBox { PlaceholderText = "Push directory path" };
+
+        var pushDirButton = new Button { Content = "Choose..." };
+        pushDirButton.Click += async (_, _) =>
+        {
+            if (App.MainWindow is null) return;
+            var picker = new FolderPicker();
+            picker.FileTypeFilter.Add("*");
+            picker.SuggestedStartLocation = PickerLocationId.ComputerFolder;
+            var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(App.MainWindow);
+            WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
+            var folder = await picker.PickSingleFolderAsync();
+            if (folder != null) pushDirBox.Text = folder.Path;
+        };
+
+        var contentPanel = new StackPanel { Spacing = 12 };
+        contentPanel.Children.Add(new TextBlock { Text = "Agent Name" });
+        contentPanel.Children.Add(nameBox);
+        contentPanel.Children.Add(new TextBlock { Text = "Push Directory" });
+        contentPanel.Children.Add(pushDirBox);
+        contentPanel.Children.Add(pushDirButton);
+
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = "Add Custom Agent",
+            Content = contentPanel,
+            PrimaryButtonText = "Add",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Primary
+        };
+
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+
+        var name = nameBox.Text.Trim();
+        var pushDir = pushDirBox.Text.Trim();
+        if (string.IsNullOrEmpty(name) || string.IsNullOrEmpty(pushDir))
+        {
+            ErrorMessage = "Name and push directory are required.";
+            return;
+        }
+
+        try
+        {
+            await _client.InvokeAsync<NativeEmptyResult>("agents.addCustom",
+                new CustomAgentAddParams { Name = name, PushDir = pushDir });
+            StatusMessage = $"Added custom agent: {name}.";
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+    }
+
+    private async void OnRemoveCustomAgent(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button btn || btn.Tag is not string name) return;
+
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = "Remove Custom Agent",
+            Content = $"Remove \"{name}\" from the agent list? This action cannot be undone.",
+            PrimaryButtonText = "Remove",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Close
+        };
+
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+
+        try
+        {
+            await _client.InvokeAsync<NativeEmptyResult>("agents.removeCustom",
+                new AgentNameParams { Name = name });
+            StatusMessage = $"Removed custom agent: {name}.";
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+    }
 
     private async void OnChooseRepoCacheDir(object sender, RoutedEventArgs e)
     {

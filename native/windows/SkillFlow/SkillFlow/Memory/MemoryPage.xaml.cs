@@ -278,13 +278,71 @@ public sealed partial class MemoryPage : Page, INotifyPropertyChanged
                     Padding = new Thickness(12)
                 };
                 row.Children.Add(new TextBlock { Text = config.AgentType, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
-                row.Children.Add(new TextBlock { Text = $"Mode: {config.Mode}" });
-                row.Children.Add(new TextBlock { Text = config.AutoPush ? "Auto Push: On" : "Auto Push: Off" });
+
+                var modeLabel = new TextBlock
+                {
+                    Text = "Auto-Sync:",
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                row.Children.Add(modeLabel);
+
+                var modeCombo = new ComboBox { Width = 140 };
+                modeCombo.Items.Add("Off");
+                modeCombo.Items.Add("Merge");
+                modeCombo.Items.Add("Takeover");
+                var currentMode = GetAutoSyncMode(config);
+                modeCombo.SelectedIndex = currentMode switch
+                {
+                    "off" => 0,
+                    "merge" => 1,
+                    "takeover" => 2,
+                    _ => 0
+                };
+                var capturedAgentType = config.AgentType;
+                modeCombo.SelectionChanged += async (_, _) =>
+                {
+                    var selected = modeCombo.SelectedIndex switch
+                    {
+                        0 => "off",
+                        1 => "merge",
+                        2 => "takeover",
+                        _ => "off"
+                    };
+                    await SavePushConfigAsync(capturedAgentType, selected);
+                };
+                row.Children.Add(modeCombo);
                 panel.Children.Add(row);
             }
         }
 
         return WrapInCard(panel);
+    }
+
+    private static string GetAutoSyncMode(MemoryPushConfig config)
+    {
+        if (!config.AutoPush) return "off";
+        return config.Mode;
+    }
+
+    private async Task SavePushConfigAsync(string agentType, string autoSyncMode)
+    {
+        var (mode, autoPush) = autoSyncMode switch
+        {
+            "off" => ("merge", false),
+            "takeover" => ("takeover", true),
+            _ => ("merge", true)
+        };
+        try
+        {
+            await _client.InvokeAsync<NativeEmptyResult>("memory.pushConfig.save",
+                new MemorySavePushConfigParams { AgentType = agentType, Mode = mode, AutoPush = autoPush });
+            StatusMessage = $"Updated auto-sync for {agentType}.";
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
     }
 
     private UIElement CreatePushStatusSection()
@@ -379,6 +437,96 @@ public sealed partial class MemoryPage : Page, INotifyPropertyChanged
         try
         {
             var results = await _client.InvokeAsync<List<PushResult>>("memory.pushAll");
+            var successCount = results.Count(r => r.Success);
+            StatusMessage = $"Pushed to {successCount} of {results.Count} agent{(results.Count == 1 ? "" : "s")}.";
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+        IsPushingAll = false;
+    }
+
+    private async void OnPushSelected(object sender, RoutedEventArgs e)
+    {
+        if (_pushConfigs.Count == 0)
+        {
+            ErrorMessage = "No push configurations available.";
+            return;
+        }
+
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = "Push Memory to Agents"
+        };
+
+        var panel = new StackPanel { Spacing = 12 };
+
+        var modePanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        modePanel.Children.Add(new TextBlock { Text = "Push Mode:" });
+        var modeCombo = new ComboBox { Width = 140 };
+        modeCombo.Items.Add("Merge");
+        modeCombo.Items.Add("Takeover");
+        modeCombo.SelectedIndex = 0;
+        modePanel.Children.Add(modeCombo);
+        panel.Children.Add(modePanel);
+
+        panel.Children.Add(new TextBlock { Text = "Target Agents:", FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
+        var agentChecks = new List<CheckBox>();
+        foreach (var config in _pushConfigs)
+        {
+            var cb = new CheckBox { Content = config.AgentType };
+            agentChecks.Add(cb);
+            panel.Children.Add(cb);
+        }
+
+        panel.Children.Add(new TextBlock { Text = "Modules to include:", FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
+        var moduleChecks = new List<CheckBox>();
+        if (_modules.Count > 0)
+        {
+            foreach (var module in _modules)
+            {
+                var cb = new CheckBox { Content = module.Name, IsChecked = true };
+                moduleChecks.Add(cb);
+                panel.Children.Add(cb);
+            }
+        }
+        else
+        {
+            panel.Children.Add(new TextBlock
+            {
+                Text = "(no modules configured)",
+                FontSize = 12,
+                Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"]
+            });
+        }
+
+        dialog.Content = panel;
+        dialog.PrimaryButtonText = "Push";
+        dialog.CloseButtonText = "Cancel";
+        dialog.DefaultButton = ContentDialogButton.Primary;
+
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+
+        var selectedAgents = agentChecks.Where(c => c.IsChecked == true).Select(c => (string)c.Content).ToList();
+        var selectedModules = moduleChecks.Where(c => c.IsChecked == true).Select(c => (string)c.Content).ToList();
+        var mode = modeCombo.SelectedIndex == 1 ? "takeover" : "merge";
+
+        if (selectedAgents.Count == 0)
+        {
+            ErrorMessage = "Select at least one agent.";
+            return;
+        }
+
+        IsPushingAll = true;
+        ErrorMessage = null;
+        StatusMessage = null;
+        try
+        {
+            var results = await _client.InvokeAsync<List<PushResult>>("memory.pushSelected",
+                new MemoryPushSelectedParams { AgentTypes = selectedAgents, ModuleNames = selectedModules, Mode = mode });
             var successCount = results.Count(r => r.Success);
             StatusMessage = $"Pushed to {successCount} of {results.Count} agent{(results.Count == 1 ? "" : "s")}.";
             await LoadAsync();
